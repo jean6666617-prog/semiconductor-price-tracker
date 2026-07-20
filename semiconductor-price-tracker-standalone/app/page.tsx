@@ -11,14 +11,6 @@ const seed: Item[] = [...seedItems.filter((item) => retainedGroups.has(item.grou
 
 const statuses: Status[] = ["已更新", "待更新", "待确认", "暂无来源"];
 
-const legacyPlasticHistory: Record<string, [string, number][]> = {
-  ABS: [["07-04",8650],["07-05",8650],["07-06",8683.33],["07-07",8783.33],["07-08",9050],["07-09",9316.67],["07-10",9450],["07-11",9450],["07-12",9450],["07-13",9483.33],["07-14",9483.33],["07-15",9916.67]],
-  PVC: [["07-04",4355],["07-05",4355],["07-06",4425],["07-07",4389],["07-08",4413],["07-09",4435],["07-10",4435],["07-11",4435],["07-12",4435],["07-13",4440],["07-14",4469],["07-15",4475]],
-  PC: [["07-04",12700],["07-05",12700],["07-06",12566.67],["07-07",12700],["07-08",12566.67],["07-09",12566.67],["07-10",12850],["07-11",12850],["07-12",12850],["07-13",12933.33],["07-14",12933.33],["07-15",13033.33]],
-  PET: [["07-03",6932.5],["07-04",6985],["07-05",6985],["07-06",7000],["07-07",7035],["07-08",7192.5],["07-09",7192.5],["07-10",7225],["07-11",7225],["07-12",7225],["07-13",7225],["07-14",7285]],
-  PP: [["07-09",8566.67],["07-10",8633.33],["07-11",8633.33],["07-12",8633.33],["07-13",8850],["07-14",8850],["07-15",9093.33]],
-};
-
 const initialHistory: Record<string, [string, number][]> = { ...workbookHistory };
 for (const item of seed.filter((entry) => retainedGroups.has(entry.group))) {
   const value = Number(String(item.price).replace(/[^0-9.-]/g, ""));
@@ -29,11 +21,69 @@ function normalize(value: unknown) {
   return String(value ?? "").toLowerCase().replace(/[^a-z0-9\u4e00-\u9fff]/g, "");
 }
 
+function formatDate(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 function dateKey(value: unknown) {
-  const date = value instanceof Date ? value : typeof value === "number"
-    ? new Date(Math.round((value - 25569) * 86400 * 1000))
-    : new Date(String(value));
-  return Number.isNaN(date.getTime()) ? "" : date.toISOString().slice(0, 10);
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? "" : formatDate(value);
+  if (typeof value === "number") {
+    const date = new Date(Math.round((value - 25569) * 86400 * 1000));
+    return Number.isNaN(date.getTime()) ? "" : formatDate(date);
+  }
+
+  const text = String(value ?? "").trim();
+  const full = text.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+  if (full) return `${full[1]}-${full[2].padStart(2, "0")}-${full[3].padStart(2, "0")}`;
+
+  const monthDay = text.match(/^(\d{1,2})[-/](\d{1,2})$/);
+  if (monthDay) {
+    return `${new Date().getFullYear()}-${monthDay[1].padStart(2, "0")}-${monthDay[2].padStart(2, "0")}`;
+  }
+
+  const date = new Date(text);
+  return Number.isNaN(date.getTime()) ? "" : formatDate(date);
+}
+
+function sortSeries(series: [string, number][] = []) {
+  const byDate = new Map<string, number>();
+  for (const [rawDate, rawPrice] of series) {
+    const date = dateKey(rawDate);
+    const price = Number(rawPrice);
+    if (date && Number.isFinite(price)) byDate.set(date, price);
+  }
+  return Array.from(byDate.entries()).sort((a, b) => a[0].localeCompare(b[0])) as [string, number][];
+}
+
+function mergeHistory(savedHistory?: Record<string, [string, number][]>) {
+  const merged: Record<string, [string, number][]> = {};
+  const keys = new Set([...Object.keys(savedHistory ?? {}), ...Object.keys(initialHistory)]);
+  keys.forEach((key) => {
+    merged[key] = sortSeries([...(initialHistory[key] ?? []), ...(savedHistory?.[key] ?? [])]);
+  });
+  return merged;
+}
+
+function mergeItems(savedItems?: Item[]) {
+  if (!savedItems?.length) return seed;
+  const sourceByKey = new Map(seed.map((item) => [`${item.group}::${item.name}`, item]));
+  const merged = savedItems.map((item) => {
+    const source = sourceByKey.get(`${item.group}::${item.name}`);
+    return source && dateKey(source.updated) > dateKey(item.updated) ? source : item;
+  });
+
+  const savedKeys = new Set(merged.map((item) => `${item.group}::${item.name}`));
+  for (const item of seed) {
+    if (!savedKeys.has(`${item.group}::${item.name}`)) merged.push(item);
+  }
+  return merged;
+}
+
+function latestDateFromHistory(history: Record<string, [string, number][]>) {
+  return Object.values(history).flat().reduce((latest, [date]) => dateKey(date) > latest ? dateKey(date) : latest, "");
 }
 
 export default function Home() {
@@ -44,7 +94,6 @@ export default function Home() {
   const [trendGroup, setTrendGroup] = useState("塑料件");
   const [trendCommodity, setTrendCommodity] = useState("塑料件::ABS");
   const [history, setHistory] = useState<Record<string, [string, number][]>>(initialHistory);
-  const [importedLatestDate, setImportedLatestDate] = useState("");
   const [importMessage, setImportMessage] = useState("");
   const fileInput = useRef<HTMLInputElement>(null);
   const [editing, setEditing] = useState<number | null>(null);
@@ -54,13 +103,14 @@ export default function Home() {
   useEffect(() => {
     const saved = localStorage.getItem("semiconductor-price-items-v8");
     if (saved) {
-      try { setItems(JSON.parse(saved)); } catch { /* keep defaults */ }
+      try { setItems(mergeItems(JSON.parse(saved))); } catch { /* keep defaults */ }
     }
     const savedHistory = localStorage.getItem("semiconductor-price-history-v5");
     if (savedHistory) {
-      try { setHistory(JSON.parse(savedHistory)); } catch { /* keep defaults */ }
+      try { setHistory(mergeHistory(JSON.parse(savedHistory))); } catch { /* keep defaults */ }
+    } else {
+      setHistory(mergeHistory());
     }
-    setImportedLatestDate(localStorage.getItem("semiconductor-price-latest-date-v3") || "");
     setReady(true);
   }, []);
 
@@ -72,10 +122,6 @@ export default function Home() {
     if (ready) localStorage.setItem("semiconductor-price-history-v5", JSON.stringify(history));
   }, [history, ready]);
 
-  useEffect(() => {
-    if (ready && importedLatestDate) localStorage.setItem("semiconductor-price-latest-date-v3", importedLatestDate);
-  }, [importedLatestDate, ready]);
-
   const groups = useMemo(() => ["全部品类", ...Array.from(new Set(items.map((item) => item.group)))], [items]);
   const visible = useMemo(() => items.filter((item) => {
     const hit = `${item.group}${item.name}${item.spec}${item.source}${item.supplier}${item.mpn}`.toLowerCase().includes(query.toLowerCase());
@@ -85,19 +131,29 @@ export default function Home() {
   const updated = items.filter((item) => item.status === "已更新").length;
   const sourced = items.filter((item) => item.url).length;
   const rate = Math.round((updated / items.length) * 100);
-  const latestItemDate = items.reduce((latest, item) => item.updated > latest ? item.updated : latest, "");
-  const latestDate = importedLatestDate > latestItemDate ? importedLatestDate : latestItemDate;
-  const [latestYear, latestMonth, latestDay] = latestDate.split("-");
-  const trendGroups = Array.from(new Set(Object.keys(history).map((key) => key.split("::")[0])));
-  const trendOptions = Object.keys(history).filter((key) => key.startsWith(`${trendGroup}::`));
-  const activeTrendKey = trendOptions.includes(trendCommodity) ? trendCommodity : trendOptions[0] || Object.keys(history)[0];
+  const latestItemDate = items.reduce((latest, item) => dateKey(item.updated) > latest ? dateKey(item.updated) : latest, "");
+  const latestHistoryDate = latestDateFromHistory(history);
+  const latestDate = [latestItemDate, latestHistoryDate].reduce((latest, date) => dateKey(date) > latest ? dateKey(date) : latest, "");
+  const [latestYear, latestMonth, latestDay] = (latestDate || "---- -- --").split("-");
+  const sortedHistory = useMemo(() => mergeHistory(history), [history]);
+  const trendGroups = Array.from(new Set(Object.keys(sortedHistory).map((key) => key.split("::")[0])));
+  const trendOptions = Object.keys(sortedHistory).filter((key) => key.startsWith(`${trendGroup}::`));
+  const activeTrendKey = trendOptions.includes(trendCommodity) ? trendCommodity : trendOptions[0] || Object.keys(sortedHistory)[0];
   const trendName = activeTrendKey?.split("::").slice(1).join("::") || "暂无数据";
-  const trend = history[activeTrendKey] ?? [["—", 0]];
+  const trend = sortedHistory[activeTrendKey] ?? [["—", 0]];
   const trendPrices = trend.map((point) => point[1]);
   const trendMin = Math.min(...trendPrices);
   const trendMax = Math.max(...trendPrices);
   const trendRange = Math.max(trendMax - trendMin, 1);
-  const chartPoints = trend.map((point, index) => `${8 + index * (84 / Math.max(trend.length - 1, 1))},${82 - ((point[1] - trendMin) / trendRange) * 64}`).join(" ");
+  const chartLeft = 6;
+  const chartRight = 96;
+  const chartTop = 9;
+  const chartBottom = 52;
+  const chartWidth = chartRight - chartLeft;
+  const chartHeight = chartBottom - chartTop;
+  const xForPoint = (index: number) => chartLeft + index * (chartWidth / Math.max(trend.length - 1, 1));
+  const yForPrice = (price: number) => chartBottom - ((price - trendMin) / trendRange) * chartHeight;
+  const chartPoints = trend.map((point, index) => `${xForPoint(index)},${yForPrice(point[1])}`).join(" ");
   const dailyChange = (trendPrices.at(-1)! - trendPrices[0]) / Math.max(trendPrices.length - 1, 1);
   const forecast = trendPrices.at(-1)! + dailyChange;
   const changeRate = ((trendPrices.at(-1)! / trendPrices[0]) - 1) * 100;
@@ -123,7 +179,6 @@ export default function Home() {
   function resetData() {
     setItems(seed);
     setHistory(initialHistory);
-    setImportedLatestDate("");
     localStorage.removeItem("semiconductor-price-latest-date-v3");
     setImportMessage("");
     setQuery(""); setGroup("全部品类"); setStatus("全部状态");
@@ -148,10 +203,10 @@ export default function Home() {
       const plastics = rows("塑料件");
       if (!totals.length && !market.length && !plastics.length) throw new Error("未找到约定工作表");
 
+      const rowDate = (row: Record<string, unknown>) => dateKey(row.Date || row["日期"] || row["数据日期"]);
       const allRows = [...totals, ...market, ...plastics];
-      const recognizedDates = allRows.map((row) => dateKey(row.Date || row["日期"] || row["数据日期"])).filter(Boolean).sort();
+      const recognizedDates = allRows.map(rowDate).filter(Boolean).sort();
       const workbookLatest = recognizedDates.at(-1) || "";
-      if (workbookLatest) setImportedLatestDate(workbookLatest);
 
       const importedHistory: Record<string, [string, number][]> = {};
       const marketGroupName: Record<string, string> = { ddr: "DDR内存", lcd: "LCD屏幕", battery: "电池", nandflash: "NAND Flash" };
@@ -159,20 +214,20 @@ export default function Home() {
         const groupName = marketGroupName[normalize(row.Category)] || String(row.Category || "").trim();
         const name = String(row.Item || "").trim();
         const price = Number(row["Session Average"]);
-        const date = dateKey(row.Date);
+        const date = rowDate(row);
         if (groupName && name && date && Number.isFinite(price)) (importedHistory[`${groupName}::${name}`] ||= []).push([date, price]);
       });
       plastics.forEach((row) => {
         const name = String(row.Commodity || "").trim();
         const price = Number(row.Price);
-        const date = dateKey(row.Date);
+        const date = rowDate(row);
         if (name && date && Number.isFinite(price)) (importedHistory[`塑料件::${name}`] ||= []).push([date, price]);
       });
       totals.forEach((row) => {
         const groupName = String(row.Category || "").trim();
         const name = String(row.Material_Name || "").trim();
         const price = Number(String(row["Latest Price"] || row["Session Average"]).replace(/[^0-9.-]/g, ""));
-        const date = dateKey(row.Date);
+        const date = rowDate(row);
         if (retainedGroups.has(groupName) && name && date && Number.isFinite(price)) (importedHistory[`${groupName}::${name}`] ||= []).push([date, price]);
       });
       Object.values(importedHistory).forEach((series) => series.sort((a, b) => a[0].localeCompare(b[0])));
@@ -189,25 +244,31 @@ export default function Home() {
       plastics.forEach((row) => {
         const name = String(row.Commodity || "").trim();
         const previous = latestPlastic.get(name);
-        if (!previous || dateKey(row.Date) > dateKey(previous.Date)) latestPlastic.set(name, row);
+        if (name && (!previous || rowDate(row) > rowDate(previous))) latestPlastic.set(name, row);
       });
 
       const latestMarket = new Map<string, Record<string, unknown>>();
       market.forEach((row) => {
         const key = `${normalize(row.Category)}|${normalize(row.Item)}`;
         const previous = latestMarket.get(key);
-        if (key !== "|" && (!previous || dateKey(row.Date) > dateKey(previous.Date))) latestMarket.set(key, row);
+        if (key !== "|" && (!previous || rowDate(row) > rowDate(previous))) latestMarket.set(key, row);
+      });
+
+      const latestTotals = new Map<string, Record<string, unknown>>();
+      totals.forEach((row) => {
+        const key = normalize(row.Material_Name);
+        const previous = latestTotals.get(key);
+        if (key && (!previous || rowDate(row) > rowDate(previous))) latestTotals.set(key, row);
       });
 
       let matched = 0;
       let changed = 0;
       const retainedItems = items.filter((item) => retainedGroups.has(item.group)).map((item) => {
-        let row: Record<string, unknown> | undefined;
-        row = totals.find((r) => normalize(r.Material_Name) === normalize(item.name));
+        const row = latestTotals.get(normalize(item.name));
         if (!row) return item;
         matched += 1;
         const rawPrice = row["Session Average"] || row.Price || row["Latest Price"];
-        const importedDate = dateKey(row.Date || row["日期"] || row["数据日期"]) || item.updated;
+        const importedDate = rowDate(row) || item.updated;
         const importedUrl = String(row.Price_Source_URL || "").trim();
         const next = { ...item, price: rawPrice === "" ? item.price : String(rawPrice), updated: importedDate, url: importedUrl || item.url, status: rawPrice === "" ? item.status : "已更新" as Status };
         if (next.price !== item.price || next.updated !== item.updated || next.url !== item.url) changed += 1;
@@ -220,7 +281,7 @@ export default function Home() {
         const rawPrice = row["Session Average"] || row.Price || "";
         importedItems.push({ id: prior?.id ?? 10000 + importedItems.length, group: groupName, name, spec: name,
           supplier: String(row.Brand || "—"), mpn: "—", price: rawPrice === "" ? "—" : String(rawPrice), unit, source, url,
-          status: rawPrice === "" ? "待更新" : "已更新", updated: dateKey(row.Date), cadence: groupName === "塑料件" ? "每日" : "每周" });
+          status: rawPrice === "" ? "待更新" : "已更新", updated: rowDate(row), cadence: groupName === "塑料件" ? "每日" : "每周" });
       };
       latestMarket.forEach((row) => {
         const groupName = marketGroupName[normalize(row.Category)] || String(row.Category || "").trim();
@@ -273,7 +334,7 @@ export default function Home() {
             <div className="trend-chart-card">
               <div className="trend-toolbar">
                 <div className="trend-selectors">
-                  <select value={trendGroup} onChange={(event) => { const nextGroup = event.target.value; const first = Object.keys(history).find((key) => key.startsWith(`${nextGroup}::`)); setTrendGroup(nextGroup); if (first) setTrendCommodity(first); }} aria-label="选择大品类">
+                  <select value={trendGroup} onChange={(event) => { const nextGroup = event.target.value; const first = Object.keys(sortedHistory).find((key) => key.startsWith(`${nextGroup}::`)); setTrendGroup(nextGroup); if (first) setTrendCommodity(first); }} aria-label="选择大品类">
                     {trendGroups.map((name) => <option key={name} value={name}>{name}</option>)}
                   </select>
                   <select value={activeTrendKey} onChange={(event) => setTrendCommodity(event.target.value)} aria-label="选择具体物料">
@@ -282,10 +343,10 @@ export default function Home() {
                 </div>
                 <span>{trend.length} 个历史日期</span>
               </div>
-              <svg className="trend-chart" viewBox="0 0 100 100" role="img" aria-label={`${trendName} 历史价格趋势`} preserveAspectRatio="none">
-                {[18,34,50,66,82].map((y) => <line key={y} x1="8" y1={y} x2="92" y2={y} className="grid-line" />)}
+              <svg className="trend-chart" viewBox="0 0 100 60" role="img" aria-label={`${trendName} 历史价格趋势`} preserveAspectRatio="xMidYMid meet">
+                {[9,19.75,30.5,41.25,52].map((y) => <line key={y} x1={chartLeft} y1={y} x2={chartRight} y2={y} className="grid-line" />)}
                 <polyline points={chartPoints} className="trend-line" />
-                {trend.map((point, index) => <circle key={`${point[0]}-${index}`} cx={8 + index * (84 / Math.max(trend.length - 1, 1))} cy={82 - ((point[1] - trendMin) / trendRange) * 64} r="1.25" className="trend-point"><title>{point[0]}：{point[1].toLocaleString()}</title></circle>)}
+                {trend.map((point, index) => <circle key={`${point[0]}-${index}`} cx={xForPoint(index)} cy={yForPrice(point[1])} r="1.1" className="trend-point"><title>{point[0]}：{point[1].toLocaleString()}</title></circle>)}
               </svg>
               <div className="axis-labels"><span>{trend[0][0]}</span><span>{trend.at(-1)![0]}</span></div>
             </div>
