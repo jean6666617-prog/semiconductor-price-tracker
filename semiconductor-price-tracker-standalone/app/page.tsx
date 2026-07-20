@@ -10,6 +10,18 @@ const retainedGroups = new Set(["SOC芯片", "MCU芯片", "PCB", "SGT MOS / MOSF
 const seed: Item[] = [...seedItems.filter((item) => retainedGroups.has(item.group)), ...workbookItems] as Item[];
 
 const statuses: Status[] = ["已更新", "待更新", "待确认", "暂无来源"];
+const trendRanges = ["7天", "30天", "90天", "180天", "全部"] as const;
+type TrendRange = typeof trendRanges[number];
+type TrendMode = "all" | "single";
+const tablePageSize = 10;
+const trendPalette = ["#8DA3B7", "#86B39D", "#E1B98A", "#B39AC7", "#E59AA3"];
+const trendColorByName: Record<string, string> = {
+  ABS: "#8DA3B7",
+  PVC: "#86B39D",
+  PC: "#E1B98A",
+  PET: "#B39AC7",
+  PP: "#E59AA3",
+};
 
 const initialHistory: Record<string, [string, number][]> = { ...workbookHistory };
 for (const item of seed.filter((entry) => retainedGroups.has(entry.group))) {
@@ -21,18 +33,19 @@ function normalize(value: unknown) {
   return String(value ?? "").toLowerCase().replace(/[^a-z0-9\u4e00-\u9fff]/g, "");
 }
 
-function formatDate(date: Date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
+function formatUtcDate(date: Date) {
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 }
 
 function dateKey(value: unknown) {
-  if (value instanceof Date) return Number.isNaN(value.getTime()) ? "" : formatDate(value);
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? "" : formatUtcDate(value);
   if (typeof value === "number") {
-    const date = new Date(Math.round((value - 25569) * 86400 * 1000));
-    return Number.isNaN(date.getTime()) ? "" : formatDate(date);
+    const wholeDays = Math.floor(value);
+    const date = new Date(Date.UTC(1899, 11, 30 + wholeDays));
+    return Number.isNaN(date.getTime()) ? "" : formatUtcDate(date);
   }
 
   const text = String(value ?? "").trim();
@@ -45,7 +58,7 @@ function dateKey(value: unknown) {
   }
 
   const date = new Date(text);
-  return Number.isNaN(date.getTime()) ? "" : formatDate(date);
+  return Number.isNaN(date.getTime()) ? "" : formatUtcDate(date);
 }
 
 function sortSeries(series: [string, number][] = []) {
@@ -86,6 +99,65 @@ function latestDateFromHistory(history: Record<string, [string, number][]>) {
   return Object.values(history).flat().reduce((latest, [date]) => dateKey(date) > latest ? dateKey(date) : latest, "");
 }
 
+function dateMs(value: string) {
+  const [year, month, day] = value.split("-").map(Number);
+  return Date.UTC(year, month - 1, day);
+}
+
+function filterTrendRange(series: [string, number][], range: TrendRange, maxDate?: string) {
+  if (range === "全部") return series;
+  const days = Number(range.replace("天", ""));
+  const lastDate = maxDate || series.at(-1)?.[0];
+  if (!lastDate || !Number.isFinite(days)) return series;
+  const threshold = dateMs(lastDate) - (days - 1) * 86400 * 1000;
+  return series.filter(([date]) => dateMs(date) >= threshold);
+}
+
+function trendColor(name: string, index: number) {
+  return trendColorByName[name] || trendPalette[index % trendPalette.length];
+}
+
+function niceStep(rawStep: number) {
+  const power = 10 ** Math.floor(Math.log10(rawStep || 1));
+  const normalized = rawStep / power;
+  const multiplier = normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 2.5 ? 2.5 : normalized <= 5 ? 5 : 10;
+  return multiplier * power;
+}
+
+function priceTicks(values: number[]) {
+  if (!values.length) return [0, 1];
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = Math.max(max - min, Math.max(Math.abs(max) * 0.02, 1));
+  let step = niceStep(range / 4);
+  let start = Math.floor(min / step) * step;
+  let end = Math.ceil(max / step) * step;
+  const ticks: number[] = [];
+  for (let value = start; value <= end + step * 0.5; value += step) ticks.push(Number(value.toFixed(6)));
+  while (ticks.length > 6) {
+    step = niceStep(step * 1.5);
+    start = Math.floor(min / step) * step;
+    end = Math.ceil(max / step) * step;
+    ticks.length = 0;
+    for (let value = start; value <= end + step * 0.5; value += step) ticks.push(Number(value.toFixed(6)));
+  }
+  return ticks.length >= 2 ? ticks : [min - range / 2, max + range / 2];
+}
+
+function dateTicks(dates: string[]) {
+  const uniqueDates = Array.from(new Set(dates.filter((date) => date && date !== "—")));
+  if (uniqueDates.length <= 5) return uniqueDates;
+  const count = uniqueDates.length <= 7 ? 4 : uniqueDates.length <= 30 ? 6 : 5;
+  return Array.from(new Set(Array.from({ length: count }, (_, index) => uniqueDates[Math.round(index * (uniqueDates.length - 1) / (count - 1))])));
+}
+
+function tablePageWindow(current: number, total: number) {
+  if (total <= 5) return Array.from({ length: total }, (_, index) => index);
+  if (current <= 1) return [0, 1, 2, total - 1];
+  if (current >= total - 2) return [total - 3, total - 2, total - 1].filter((page) => page >= 0);
+  return [current - 1, current, current + 1, total - 1];
+}
+
 export default function Home() {
   const [items, setItems] = useState<Item[]>(seed);
   const [query, setQuery] = useState("");
@@ -93,6 +165,9 @@ export default function Home() {
   const [status, setStatus] = useState("全部状态");
   const [trendGroup, setTrendGroup] = useState("塑料件");
   const [trendCommodity, setTrendCommodity] = useState("塑料件::ABS");
+  const [trendMode, setTrendMode] = useState<TrendMode>("all");
+  const [selectedTrendRange, setSelectedTrendRange] = useState<TrendRange>("全部");
+  const [tablePage, setTablePage] = useState(0);
   const [history, setHistory] = useState<Record<string, [string, number][]>>(initialHistory);
   const [importMessage, setImportMessage] = useState("");
   const fileInput = useRef<HTMLInputElement>(null);
@@ -127,6 +202,12 @@ export default function Home() {
     const hit = `${item.group}${item.name}${item.spec}${item.source}${item.supplier}${item.mpn}`.toLowerCase().includes(query.toLowerCase());
     return hit && (group === "全部品类" || item.group === group) && (status === "全部状态" || item.status === status);
   }), [items, query, group, status]);
+  const tablePageCount = Math.max(Math.ceil(visible.length / tablePageSize), 1);
+  const currentTablePage = Math.min(tablePage, tablePageCount - 1);
+  const pagedVisible = visible.slice(currentTablePage * tablePageSize, (currentTablePage + 1) * tablePageSize);
+  const tableStart = visible.length ? currentTablePage * tablePageSize + 1 : 0;
+  const tableEnd = Math.min((currentTablePage + 1) * tablePageSize, visible.length);
+  const visibleTablePages = tablePageWindow(currentTablePage, tablePageCount);
 
   const updated = items.filter((item) => item.status === "已更新").length;
   const sourced = items.filter((item) => item.url).length;
@@ -136,24 +217,55 @@ export default function Home() {
   const latestDate = [latestItemDate, latestHistoryDate].reduce((latest, date) => dateKey(date) > latest ? dateKey(date) : latest, "");
   const [latestYear, latestMonth, latestDay] = (latestDate || "---- -- --").split("-");
   const sortedHistory = useMemo(() => mergeHistory(history), [history]);
+  const unitByTrendKey = useMemo(() => new Map(items.map((item) => [`${item.group}::${item.name}`, item.unit])), [items]);
   const trendGroups = Array.from(new Set(Object.keys(sortedHistory).map((key) => key.split("::")[0])));
   const trendOptions = Object.keys(sortedHistory).filter((key) => key.startsWith(`${trendGroup}::`));
   const activeTrendKey = trendOptions.includes(trendCommodity) ? trendCommodity : trendOptions[0] || Object.keys(sortedHistory)[0];
   const trendName = activeTrendKey?.split("::").slice(1).join("::") || "暂无数据";
-  const trend = sortedHistory[activeTrendKey] ?? [["—", 0]];
+  const unitForTrendKey = (key?: string) => key ? unitByTrendKey.get(key) || "—" : "—";
+  const activeTrendUnit = unitForTrendKey(activeTrendKey);
+  const allTrendUnits = Array.from(new Set(trendOptions.map(unitForTrendKey).filter((unit) => unit && unit !== "—")));
+  const chartUnit = trendMode === "all"
+    ? allTrendUnits.length === 1 ? allTrendUnits[0] : activeTrendUnit !== "—" ? activeTrendUnit : allTrendUnits[0] || "—"
+    : activeTrendUnit;
+  const groupLatestDate = trendOptions.reduce((latest, key) => {
+    const seriesLatest = sortedHistory[key]?.at(-1)?.[0] || "";
+    return seriesLatest > latest ? seriesLatest : latest;
+  }, "");
+  const rawTrend = sortedHistory[activeTrendKey] ?? [];
+  const filteredTrend = filterTrendRange(rawTrend, selectedTrendRange, groupLatestDate);
+  const trend = filteredTrend.length ? filteredTrend : rawTrend.length ? rawTrend : [["—", 0] as [string, number]];
+  const allTrendSeries = trendOptions.map((key, index) => {
+    const name = key.split("::").slice(1).join("::");
+    return { key, name, unit: unitForTrendKey(key), color: trendColor(name, index), points: filterTrendRange(sortedHistory[key] ?? [], selectedTrendRange, groupLatestDate) };
+  }).filter((series) => series.points.length);
+  const allTrendDates = Array.from(new Set(allTrendSeries.flatMap((series) => series.points.map(([date]) => date)))).sort();
+  const allTrendPrices = allTrendSeries.flatMap((series) => series.points.map((point) => point[1]));
   const trendPrices = trend.map((point) => point[1]);
-  const trendMin = Math.min(...trendPrices);
-  const trendMax = Math.max(...trendPrices);
-  const trendRange = Math.max(trendMax - trendMin, 1);
-  const chartLeft = 6;
-  const chartRight = 96;
-  const chartTop = 9;
+  const activeTrendPrices = trendMode === "all" ? allTrendPrices : trendPrices;
+  const yTicks = priceTicks(activeTrendPrices);
+  const priceMin = activeTrendPrices.length ? Math.min(...activeTrendPrices) : 0;
+  const priceMax = activeTrendPrices.length ? Math.max(...activeTrendPrices) : 1;
+  const pricePadding = Math.max((priceMax - priceMin) * 0.08, Math.abs(priceMax) * 0.005, 1);
+  const yMin = Math.min(yTicks[0], priceMin - pricePadding);
+  const yMax = Math.max(yTicks.at(-1) || yMin + 1, priceMax + pricePadding);
+  const yRange = Math.max(yMax - yMin, 1);
+  const activeTrendDates = trendMode === "all" ? allTrendDates : trend.map((point) => point[0]);
+  const xTicks = dateTicks(activeTrendDates);
+  const chartLeft = 18;
+  const chartRight = 116;
+  const chartTop = 7;
   const chartBottom = 52;
   const chartWidth = chartRight - chartLeft;
   const chartHeight = chartBottom - chartTop;
   const xForPoint = (index: number) => chartLeft + index * (chartWidth / Math.max(trend.length - 1, 1));
-  const yForPrice = (price: number) => chartBottom - ((price - trendMin) / trendRange) * chartHeight;
+  const yForPrice = (price: number) => chartBottom - ((price - yMin) / yRange) * chartHeight;
   const chartPoints = trend.map((point, index) => `${xForPoint(index)},${yForPrice(point[1])}`).join(" ");
+  const xForDate = (date: string) => chartLeft + Math.max(allTrendDates.indexOf(date), 0) * (chartWidth / Math.max(allTrendDates.length - 1, 1));
+  const yForAllPrice = (price: number) => chartBottom - ((price - yMin) / yRange) * chartHeight;
+  const xForTick = (date: string) => trendMode === "all"
+    ? xForDate(date)
+    : xForPoint(Math.max(activeTrendDates.indexOf(date), 0));
   const dailyChange = (trendPrices.at(-1)! - trendPrices[0]) / Math.max(trendPrices.length - 1, 1);
   const forecast = trendPrices.at(-1)! + dailyChange;
   const changeRate = ((trendPrices.at(-1)! / trendPrices[0]) - 1) * 100;
@@ -187,7 +299,7 @@ export default function Home() {
   async function importExcel(file?: File) {
     if (!file) return;
     try {
-      const workbook = XLSX.read(await file.arrayBuffer(), { type: "array", cellDates: true });
+      const workbook = XLSX.read(await file.arrayBuffer(), { type: "array", cellDates: false });
       const findSheet = (expected: string) => {
         const target = normalize(expected);
         const name = workbook.SheetNames.find((candidate) => normalize(candidate) === target)
@@ -204,6 +316,7 @@ export default function Home() {
       if (!totals.length && !market.length && !plastics.length) throw new Error("未找到约定工作表");
 
       const rowDate = (row: Record<string, unknown>) => dateKey(row.Date || row["日期"] || row["数据日期"]);
+      const rowMpn = (row: Record<string, unknown>) => String(row.MPN || row.Mpn || row.mpn || "").trim();
       const allRows = [...totals, ...market, ...plastics];
       const recognizedDates = allRows.map(rowDate).filter(Boolean).sort();
       const workbookLatest = recognizedDates.at(-1) || "";
@@ -276,20 +389,41 @@ export default function Home() {
       });
       const priorByKey = new Map(items.map((item) => [`${item.group}::${item.name}`, item]));
       const importedItems: Item[] = [];
-      const addImported = (groupName: string, name: string, row: Record<string, unknown>, source: string, url: string, unit: string) => {
+      const addImported = (groupName: string, name: string, row: Record<string, unknown>, source: string, url: string, unit: string, mpn = "—", supplier = String(row.Brand || "—"), cadence = groupName === "塑料件" ? "每日" : "每周") => {
         const prior = priorByKey.get(`${groupName}::${name}`);
-        const rawPrice = row["Session Average"] || row.Price || "";
+        const rawPrice = row["Session Average"] || row.Price || row["Latest Price"] || "";
         importedItems.push({ id: prior?.id ?? 10000 + importedItems.length, group: groupName, name, spec: name,
-          supplier: String(row.Brand || "—"), mpn: "—", price: rawPrice === "" ? "—" : String(rawPrice), unit, source, url,
-          status: rawPrice === "" ? "待更新" : "已更新", updated: rowDate(row), cadence: groupName === "塑料件" ? "每日" : "每周" });
+          supplier, mpn, price: rawPrice === "" ? "—" : String(rawPrice), unit, source, url,
+          status: rawPrice === "" ? "待更新" : "已更新", updated: rowDate(row), cadence });
       };
       latestMarket.forEach((row) => {
         const groupName = marketGroupName[normalize(row.Category)] || String(row.Category || "").trim();
-        addImported(groupName, String(row.Item || "").trim(), row, "TrendForce", "https://www.trendforce.com/", String(row.Unit || "—"));
+        addImported(groupName, String(row.Item || "").trim(), row, "TrendForce", "https://www.trendforce.com/", String(row.Unit || "—"), rowMpn(row) || "—");
       });
       const plasticUrls: Record<string, string> = { ABS: "https://www.sunsirs.com/uk/prodetail-713.html", PVC: "https://www.sunsirs.com/uk/prodetail-107.html", PC: "https://www.sunsirs.com/uk/prodetail-172.html", PET: "https://www.sunsirs.com/uk/prodetail-173.html", PP: "https://www.sunsirs.com/uk/prodetail-718.html" };
       latestPlastic.forEach((row, name) => addImported("塑料件", name, row, "生意社 Sunsirs", plasticUrls[name] || "", "RMB/吨"));
+      const dedicatedSheetCount = importedItems.length;
+      const itemMpnKey = (item: Item) => item.mpn && normalize(item.mpn) ? `${normalize(item.group)}|${normalize(item.mpn)}` : "";
+      const existingMpnKeys = new Set([...retainedItems, ...importedItems].map(itemMpnKey).filter(Boolean));
+      let totalSupplementCount = 0;
+      totals.forEach((row) => {
+        const mpn = rowMpn(row);
+        const groupName = String(row.Category || "").trim();
+        const mpnKey = groupName && mpn ? `${normalize(groupName)}|${normalize(mpn)}` : "";
+        const name = String(row.Material_Name || "").trim();
+        const date = rowDate(row);
+        const rawPrice = row["Latest Price"] || row["Session Average"] || row.Price;
+        if (!mpnKey || existingMpnKeys.has(mpnKey) || !groupName || !name || !date || rawPrice == null || rawPrice === "") return;
+        const source = String(row.Price_Source || row["Price Source"] || row.Source || row.Supplier || row.Brand || "总表").trim() || "总表";
+        const url = String(row.Price_Source_URL || row["Price Source URL"] || "").trim();
+        const unit = String(row.Unit || "—").trim() || "—";
+        const supplier = String(row.Supplier || row.Brand || "—").trim() || "—";
+        addImported(groupName, name, row, source, url, unit, mpn, supplier, retainedGroups.has(groupName) ? "每月" : "每周");
+        existingMpnKeys.add(mpnKey);
+        totalSupplementCount += 1;
+      });
       const nextItems = [...retainedItems, ...importedItems];
+      console.log("[Excel Import] 新增来源", { 总表补充: totalSupplementCount, 专用Sheet: dedicatedSheetCount });
       setItems(nextItems);
       const dateText = workbookLatest ? `，最晚日期 ${workbookLatest}` : "，未识别到有效日期";
       setImportMessage(`已读取 ${file.name}${dateText}；匹配 ${matched} 条，实际变化 ${changed} 条`);
@@ -332,23 +466,48 @@ export default function Home() {
           <div className="section-heading"><div><p className="kicker">PRICE TREND & OUTLOOK</p><h2>历史价格趋势与短期参考</h2></div><p>实线为表格中的真实历史价格；右侧预测值按样本期平均日变化外推，仅用于方向参考。</p></div>
           <div className="trend-layout">
             <div className="trend-chart-card">
+              <div className="trend-tabs" role="tablist" aria-label="趋势图模式">
+                <button className={trendMode === "all" ? "active" : ""} onClick={() => setTrendMode("all")} type="button" role="tab" aria-selected={trendMode === "all"}>
+                  全类别趋势<span>NEW</span>
+                </button>
+                <button className={trendMode === "single" ? "active" : ""} onClick={() => setTrendMode("single")} type="button" role="tab" aria-selected={trendMode === "single"}>单类别趋势</button>
+              </div>
               <div className="trend-toolbar">
                 <div className="trend-selectors">
                   <select value={trendGroup} onChange={(event) => { const nextGroup = event.target.value; const first = Object.keys(sortedHistory).find((key) => key.startsWith(`${nextGroup}::`)); setTrendGroup(nextGroup); if (first) setTrendCommodity(first); }} aria-label="选择大品类">
-                    {trendGroups.map((name) => <option key={name} value={name}>{name}</option>)}
+                    {trendGroups.map((name) => <option key={name} value={name}>{trendMode === "all" ? `${name}（全部）` : name}</option>)}
                   </select>
-                  <select value={activeTrendKey} onChange={(event) => setTrendCommodity(event.target.value)} aria-label="选择具体物料">
+                  {trendMode === "single" && <select value={activeTrendKey} onChange={(event) => setTrendCommodity(event.target.value)} aria-label="选择具体物料">
                     {trendOptions.map((key) => <option key={key} value={key}>{key.split("::").slice(1).join("::")}</option>)}
-                  </select>
+                  </select>}
                 </div>
-                <span>{trend.length} 个历史日期</span>
+                <div className="range-buttons" aria-label="选择时间范围">
+                  {trendRanges.map((range) => <button key={range} className={selectedTrendRange === range ? "active" : ""} onClick={() => setSelectedTrendRange(range)} type="button">{range}</button>)}
+                </div>
               </div>
-              <svg className="trend-chart" viewBox="0 0 100 60" role="img" aria-label={`${trendName} 历史价格趋势`} preserveAspectRatio="xMidYMid meet">
-                {[9,19.75,30.5,41.25,52].map((y) => <line key={y} x1={chartLeft} y1={y} x2={chartRight} y2={y} className="grid-line" />)}
-                <polyline points={chartPoints} className="trend-line" />
-                {trend.map((point, index) => <circle key={`${point[0]}-${index}`} cx={xForPoint(index)} cy={yForPrice(point[1])} r="1.1" className="trend-point"><title>{point[0]}：{point[1].toLocaleString()}</title></circle>)}
+              <svg className="trend-chart" viewBox="0 0 122 70" role="img" aria-label={trendMode === "all" ? `${trendGroup} 全类别历史价格趋势` : `${trendName} 历史价格趋势`} preserveAspectRatio="xMidYMid meet">
+                {yTicks.map((value) => <g key={value}>
+                  <line x1={chartLeft} y1={yForPrice(value)} x2={chartRight} y2={yForPrice(value)} className="grid-line" />
+                  <text x={chartLeft - 2} y={yForPrice(value)} className="axis-tick y" dominantBaseline="middle">{value.toLocaleString()}</text>
+                </g>)}
+                <line x1={chartLeft} y1={chartBottom} x2={chartRight} y2={chartBottom} className="axis-line" />
+                <line x1={chartLeft} y1={chartTop} x2={chartLeft} y2={chartBottom} className="axis-line" />
+                {xTicks.map((date) => <text key={date} x={xForTick(date)} y="63" className="axis-tick x" textAnchor="middle">{date}</text>)}
+                {trendMode === "all" ? allTrendSeries.map((series) => <g key={series.key}>
+                  <polyline points={series.points.map(([date, price]) => `${xForDate(date)},${yForAllPrice(price)}`).join(" ")} className="trend-line multi" style={{ stroke: series.color }} />
+                  {series.points.map(([date, price], index) => <circle key={`${series.key}-${date}-${index}`} cx={xForDate(date)} cy={yForAllPrice(price)} r=".72" className="trend-point filled" style={{ fill: series.color, stroke: series.color }}><title>{series.name} · {date}：{price.toLocaleString()} {series.unit}</title></circle>)}
+                </g>) : <>
+                  <polyline points={chartPoints} className="trend-line" />
+                  {trend.map((point, index) => <circle key={`${point[0]}-${index}`} cx={xForPoint(index)} cy={yForPrice(point[1])} r=".72" className="trend-point filled"><title>{point[0]}：{point[1].toLocaleString()} {chartUnit}</title></circle>)}
+                </>}
               </svg>
-              <div className="axis-labels"><span>{trend[0][0]}</span><span>{trend.at(-1)![0]}</span></div>
+              <div className="axis-labels"><span>{trendMode === "all" ? allTrendDates[0] || "—" : trend[0][0]}</span><span>{trendMode === "all" ? allTrendDates.at(-1) || "—" : trend.at(-1)![0]}</span></div>
+              <div className="trend-legend">
+                {trendMode === "all"
+                  ? allTrendSeries.map((series) => <span key={series.key}><i style={{ background: series.color }} />{series.name}</span>)
+                  : <span><i />{trendName}</span>}
+                <span className="chart-unit">{chartUnit}</span>
+              </div>
             </div>
             <aside className="trend-insight">
               <span className={`direction ${changeRate >= 0 ? "up" : "down"}`}>{changeRate >= 0 ? "↗ 上行" : "↘ 下行"}</span>
@@ -394,15 +553,15 @@ export default function Home() {
           <div className="section-heading tracker-heading"><div><p className="kicker">TRACKING MATRIX</p><h2>品类与更新状态</h2></div><div className="legend">{statuses.map((s) => <span key={s}><i className={`dot ${s}`} />{s}</span>)}</div></div>
 
           <div className="toolbar">
-            <label className="search"><span>⌕</span><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="搜索品类、型号、供应商或来源…" /></label>
-            <select value={group} onChange={(e) => setGroup(e.target.value)} aria-label="筛选品类">{groups.map((g) => <option key={g}>{g}</option>)}</select>
-            <select value={status} onChange={(e) => setStatus(e.target.value)} aria-label="筛选状态"><option>全部状态</option>{statuses.map((s) => <option key={s}>{s}</option>)}</select>
+            <label className="search"><span>⌕</span><input value={query} onChange={(e) => { setQuery(e.target.value); setTablePage(0); }} placeholder="搜索品类、型号、供应商或来源…" /></label>
+            <select value={group} onChange={(e) => { setGroup(e.target.value); setTablePage(0); }} aria-label="筛选品类">{groups.map((g) => <option key={g}>{g}</option>)}</select>
+            <select value={status} onChange={(e) => { setStatus(e.target.value); setTablePage(0); }} aria-label="筛选状态"><option>全部状态</option>{statuses.map((s) => <option key={s}>{s}</option>)}</select>
           </div>
 
           <div className="table-wrap">
             <table>
               <thead><tr><th>品类 / 物料</th><th>型号 / 供应商</th><th>当前价格</th><th>数据状态</th><th>最近更新</th><th>参考来源</th><th>操作</th></tr></thead>
-              <tbody>{visible.map((item) => <tr key={item.id}>
+              <tbody>{pagedVisible.map((item) => <tr key={item.id}>
                 <td><span className="group-label">{item.group}</span><strong>{item.name}</strong></td>
                 <td><span className="mpn">{item.mpn}</span><small className="supplier">{item.supplier}</small></td>
                 <td><strong className="price">{item.price}</strong><small className="unit">{item.unit}</small></td>
@@ -413,6 +572,19 @@ export default function Home() {
               </tr>)}</tbody>
             </table>
             {visible.length === 0 && <div className="empty">没有符合当前筛选条件的品类。</div>}
+          </div>
+          <div className="table-pagination" aria-label="表格分页">
+            <span>显示 {tableStart}-{tableEnd} 条，共{visible.length}条</span>
+            <div>
+              <button onClick={() => setTablePage(0)} disabled={currentTablePage === 0} type="button">首页</button>
+              <button onClick={() => setTablePage((page) => Math.max(page - 1, 0))} disabled={currentTablePage === 0} type="button">‹ 上一页</button>
+              {visibleTablePages.map((page, index) => <span className="pager-page" key={page}>
+                {index > 0 && page - visibleTablePages[index - 1] > 1 && <span className="pager-gap">…</span>}
+                <button className={page === currentTablePage ? "active" : ""} onClick={() => setTablePage(page)} type="button">{page + 1}</button>
+              </span>)}
+              <button onClick={() => setTablePage((page) => Math.min(page + 1, tablePageCount - 1))} disabled={currentTablePage === tablePageCount - 1} type="button">下一页 ›</button>
+              <button onClick={() => setTablePage(tablePageCount - 1)} disabled={currentTablePage === tablePageCount - 1} type="button">末页</button>
+            </div>
           </div>
           <p className="local-note">所有修改仅保存在此浏览器中 · 建议定期同步到主价格表</p>
         </section>
