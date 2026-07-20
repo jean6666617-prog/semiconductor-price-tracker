@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
+import trackingConfig from "../config/tracking.json";
+import { runCrawler, type PriceResult, type TrackingEntry } from "../lib/crawlers";
 import { categorySources, seedItems } from "./data";
 import { workbookHistory, workbookItems } from "./workbook-data";
 import type { Item, Status } from "./types";
@@ -13,7 +15,9 @@ const statuses: Status[] = ["已更新", "待更新", "待确认", "暂无来源
 const trendRanges = ["7天", "30天", "90天", "180天", "全部"] as const;
 type TrendRange = typeof trendRanges[number];
 type TrendMode = "all" | "single";
+type UpdateResult = PriceResult & { mode?: "real" | "mock" };
 const tablePageSize = 10;
+const trackingEntries = trackingConfig as TrackingEntry[];
 const trendPalette = ["#8DA3B7", "#86B39D", "#E1B98A", "#B39AC7", "#E59AA3"];
 const trendColorByName: Record<string, string> = {
   ABS: "#8DA3B7",
@@ -31,6 +35,12 @@ for (const item of seed.filter((entry) => retainedGroups.has(entry.group))) {
 
 function normalize(value: unknown) {
   return String(value ?? "").toLowerCase().replace(/[^a-z0-9\u4e00-\u9fff]/g, "");
+}
+
+function trackingFor(category: string, name: string, mpn?: string) {
+  return trackingEntries.find((entry) => entry.enabled
+    && normalize(entry.category) === normalize(category)
+    && (normalize(entry.name) === normalize(name) || normalize(entry.name) === normalize(mpn)));
 }
 
 function formatUtcDate(date: Date) {
@@ -170,7 +180,14 @@ export default function Home() {
   const [tablePage, setTablePage] = useState(0);
   const [history, setHistory] = useState<Record<string, [string, number][]>>(initialHistory);
   const [importMessage, setImportMessage] = useState("");
+  const [updateMessage, setUpdateMessage] = useState("");
+  const [updateResults, setUpdateResults] = useState<UpdateResult[]>([]);
+  const [updatingPrices, setUpdatingPrices] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const toastRemaining = useRef(6000);
+  const toastStarted = useRef(0);
+  const [toastDismissed, setToastDismissed] = useState(false);
   const [editing, setEditing] = useState<number | null>(null);
   const [draft, setDraft] = useState({ source: "", url: "" });
   const [ready, setReady] = useState(false);
@@ -196,6 +213,38 @@ export default function Home() {
   useEffect(() => {
     if (ready) localStorage.setItem("semiconductor-price-history-v5", JSON.stringify(history));
   }, [history, ready]);
+
+  const clearToastTimer = () => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = null;
+  };
+
+  const startToastTimer = (duration = toastRemaining.current) => {
+    clearToastTimer();
+    toastRemaining.current = duration;
+    toastStarted.current = Date.now();
+    toastTimer.current = setTimeout(() => {
+      setToastDismissed(true);
+      clearToastTimer();
+    }, duration);
+  };
+
+  const pauseToastTimer = () => {
+    if (!toastTimer.current) return;
+    toastRemaining.current = Math.max(0, toastRemaining.current - (Date.now() - toastStarted.current));
+    clearToastTimer();
+  };
+
+  const resumeToastTimer = () => {
+    if (!updatingPrices && updateResults.length > 0 && !toastDismissed) startToastTimer(toastRemaining.current);
+  };
+
+  const closeToast = () => {
+    clearToastTimer();
+    setToastDismissed(true);
+  };
+
+  useEffect(() => () => clearToastTimer(), []);
 
   const groups = useMemo(() => ["全部品类", ...Array.from(new Set(items.map((item) => item.group)))], [items]);
   const visible = useMemo(() => items.filter((item) => {
@@ -293,12 +342,97 @@ export default function Home() {
     setHistory(initialHistory);
     localStorage.removeItem("semiconductor-price-latest-date-v3");
     setImportMessage("");
+    setUpdateMessage("");
     setQuery(""); setGroup("全部品类"); setStatus("全部状态");
+  }
+
+  async function updatePrices() {
+    clearToastTimer();
+    toastRemaining.current = 6000;
+    setToastDismissed(false);
+    setUpdatingPrices(true);
+    setImportMessage("");
+    setUpdateResults([]);
+    let nextItems = items;
+    let nextHistory = history;
+    let successCount = 0;
+    const results: UpdateResult[] = [];
+
+    try {
+      for (const entry of trackingEntries.filter((item) => item.enabled)) {
+        setUpdateMessage(`正在更新 ${entry.name}`);
+        const result: PriceResult = entry.crawler === "plastic" || entry.crawler === "sunsirs_plastic"
+          ? await fetchPlasticCrawler(entry)
+          : await runCrawler(entry);
+        const trackedResult = { ...result, mode: entry.mode };
+        results.push(trackedResult);
+        setUpdateResults([...results]);
+        console.log("[Crawler Result]", {
+          material: trackedResult.material,
+          source: trackedResult.source,
+          success: trackedResult.success,
+          price: trackedResult.price,
+          unit: trackedResult.unit,
+          updateDate: trackedResult.updateDate,
+          error: trackedResult.error,
+          mode: trackedResult.mode,
+        });
+        if (!result.success || result.price === null) continue;
+
+        const target = nextItems.find((item) => item.group === result.category
+          && (normalize(item.name) === normalize(result.material) || normalize(item.mpn) === normalize(result.material)));
+        if (!target) continue;
+
+        const key = `${target.group}::${target.name}`;
+        nextItems = nextItems.map((item) => item.id === target.id ? {
+          ...item,
+          price: String(result.price),
+          unit: result.unit,
+          source: result.source,
+          status: "已更新",
+          updated: result.updateDate,
+        } : item);
+        const crawlerHistory = result.history?.length
+          ? result.history.map((point) => [point.date, point.price] as [string, number])
+          : [[result.updateDate, result.price] as [string, number]];
+        nextHistory = { ...nextHistory, [key]: sortSeries([...(nextHistory[key] ?? []), ...crawlerHistory]) };
+        successCount += 1;
+      }
+      setItems(nextItems);
+      setHistory(nextHistory);
+      setUpdateMessage(`成功更新${successCount}条`);
+      if (results.length > 0) startToastTimer(6000);
+    } finally {
+      setUpdatingPrices(false);
+    }
+  }
+
+  async function fetchPlasticCrawler(entry: TrackingEntry): Promise<PriceResult> {
+    try {
+      return await fetch("/api/crawler/plastic", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(entry),
+      }).then((response) => response.json() as Promise<PriceResult>);
+    } catch (error) {
+      return {
+        success: false,
+        category: entry.category,
+        material: entry.name,
+        price: null,
+        currency: "RMB",
+        unit: "RMB/ton",
+        source: entry.source,
+        updateDate: dateKey(new Date()),
+        error: error instanceof Error ? error.message : "Plastic API request failed",
+      };
+    }
   }
 
   async function importExcel(file?: File) {
     if (!file) return;
     try {
+      setUpdateMessage("");
       const workbook = XLSX.read(await file.arrayBuffer(), { type: "array", cellDates: false });
       const findSheet = (expected: string) => {
         const target = normalize(expected);
@@ -314,9 +448,22 @@ export default function Home() {
       const market = rows("DDR-BATTERY-LCD");
       const plastics = rows("塑料件");
       if (!totals.length && !market.length && !plastics.length) throw new Error("未找到约定工作表");
+      console.log("[Excel Import] Sheet解析数量", { 总表: totals.length, DDR: market.length, 塑料件: plastics.length });
 
       const rowDate = (row: Record<string, unknown>) => dateKey(row.Date || row["日期"] || row["数据日期"]);
       const rowMpn = (row: Record<string, unknown>) => String(row.MPN || row.Mpn || row.mpn || "").trim();
+      const rowMaterial = (row: Record<string, unknown>) => String(row.Material || row.Material_Name || row.Item || row.Commodity || "").trim();
+      const rawPriceFrom = (row: Record<string, unknown>) => row["Session Average"] || row.Price || row["Latest Price"] || "";
+      const itemKeys = (item: Item) => [
+        item.mpn && normalize(item.mpn) !== normalize("—") ? `mpn:${normalize(item.group)}|${normalize(item.mpn)}` : "",
+        item.name ? `material:${normalize(item.group)}|${normalize(item.name)}` : "",
+        item.spec ? `material:${normalize(item.group)}|${normalize(item.spec)}` : "",
+      ].filter(Boolean);
+      const rowKeys = (groupName: string, row: Record<string, unknown>, fallbackName = "") => [
+        rowMpn(row) ? `mpn:${normalize(groupName)}|${normalize(rowMpn(row))}` : "",
+        rowMaterial(row) ? `material:${normalize(groupName)}|${normalize(rowMaterial(row))}` : "",
+        fallbackName ? `material:${normalize(groupName)}|${normalize(fallbackName)}` : "",
+      ].filter(Boolean);
       const allRows = [...totals, ...market, ...plastics];
       const recognizedDates = allRows.map(rowDate).filter(Boolean).sort();
       const workbookLatest = recognizedDates.at(-1) || "";
@@ -380,50 +527,91 @@ export default function Home() {
         const row = latestTotals.get(normalize(item.name));
         if (!row) return item;
         matched += 1;
-        const rawPrice = row["Session Average"] || row.Price || row["Latest Price"];
+        const rawPrice = rawPriceFrom(row);
         const importedDate = rowDate(row) || item.updated;
         const importedUrl = String(row.Price_Source_URL || "").trim();
         const next = { ...item, price: rawPrice === "" ? item.price : String(rawPrice), updated: importedDate, url: importedUrl || item.url, status: rawPrice === "" ? item.status : "已更新" as Status };
         if (next.price !== item.price || next.updated !== item.updated || next.url !== item.url) changed += 1;
         return next;
       });
-      const priorByKey = new Map(items.map((item) => [`${item.group}::${item.name}`, item]));
-      const importedItems: Item[] = [];
-      const addImported = (groupName: string, name: string, row: Record<string, unknown>, source: string, url: string, unit: string, mpn = "—", supplier = String(row.Brand || "—"), cadence = groupName === "塑料件" ? "每日" : "每周") => {
-        const prior = priorByKey.get(`${groupName}::${name}`);
-        const rawPrice = row["Session Average"] || row.Price || row["Latest Price"] || "";
-        importedItems.push({ id: prior?.id ?? 10000 + importedItems.length, group: groupName, name, spec: name,
-          supplier, mpn, price: rawPrice === "" ? "—" : String(rawPrice), unit, source, url,
-          status: rawPrice === "" ? "待更新" : "已更新", updated: rowDate(row), cadence });
+      const priorByKey = new Map<string, Item>();
+      items.forEach((item) => itemKeys(item).forEach((key) => priorByKey.set(key, item)));
+      const findPrior = (groupName: string, row: Record<string, unknown>, name: string) => {
+        for (const key of rowKeys(groupName, row, name)) {
+          const prior = priorByKey.get(key);
+          if (prior) return prior;
+        }
+        return undefined;
       };
+      const addImported = (groupName: string, name: string, row: Record<string, unknown>, source: string, url: string, unit: string, mpn = "—", supplier = String(row.Brand || "—"), cadence = groupName === "塑料件" ? "每日" : "每周") => {
+        const prior = findPrior(groupName, row, name);
+        const rawPrice = rawPriceFrom(row);
+        return { id: prior?.id ?? 10000, group: groupName, name, spec: name,
+          supplier, mpn, price: rawPrice === "" ? "—" : String(rawPrice), unit, source, url,
+          status: rawPrice === "" ? "待更新" : "已更新" as Status, updated: rowDate(row), cadence };
+      };
+      const sourceItems: Item[] = [];
+      const priorityItems: Item[] = [];
       latestMarket.forEach((row) => {
         const groupName = marketGroupName[normalize(row.Category)] || String(row.Category || "").trim();
-        addImported(groupName, String(row.Item || "").trim(), row, "TrendForce", "https://www.trendforce.com/", String(row.Unit || "—"), rowMpn(row) || "—");
+        const name = String(row.Item || "").trim();
+        if (groupName && name) priorityItems.push(addImported(groupName, name, row, "TrendForce", "https://www.trendforce.com/", String(row.Unit || "—"), rowMpn(row) || "—"));
       });
       const plasticUrls: Record<string, string> = { ABS: "https://www.sunsirs.com/uk/prodetail-713.html", PVC: "https://www.sunsirs.com/uk/prodetail-107.html", PC: "https://www.sunsirs.com/uk/prodetail-172.html", PET: "https://www.sunsirs.com/uk/prodetail-173.html", PP: "https://www.sunsirs.com/uk/prodetail-718.html" };
-      latestPlastic.forEach((row, name) => addImported("塑料件", name, row, "生意社 Sunsirs", plasticUrls[name] || "", "RMB/吨"));
-      const dedicatedSheetCount = importedItems.length;
-      const itemMpnKey = (item: Item) => item.mpn && normalize(item.mpn) ? `${normalize(item.group)}|${normalize(item.mpn)}` : "";
-      const existingMpnKeys = new Set([...retainedItems, ...importedItems].map(itemMpnKey).filter(Boolean));
-      let totalSupplementCount = 0;
+      latestPlastic.forEach((row, name) => priorityItems.push(addImported("塑料件", name, row, "生意社 Sunsirs", plasticUrls[name] || "", "RMB/吨")));
+      const latestSourceRows = new Map<string, Record<string, unknown>>();
       totals.forEach((row) => {
         const mpn = rowMpn(row);
         const groupName = String(row.Category || "").trim();
-        const mpnKey = groupName && mpn ? `${normalize(groupName)}|${normalize(mpn)}` : "";
         const name = String(row.Material_Name || "").trim();
         const date = rowDate(row);
-        const rawPrice = row["Latest Price"] || row["Session Average"] || row.Price;
-        if (!mpnKey || existingMpnKeys.has(mpnKey) || !groupName || !name || !date || rawPrice == null || rawPrice === "") return;
-        const source = String(row.Price_Source || row["Price Source"] || row.Source || row.Supplier || row.Brand || "总表").trim() || "总表";
+        const rawPrice = rawPriceFrom(row);
+        if (!groupName || !name || !date || rawPrice == null || rawPrice === "") return;
+        const sourceKey = rowKeys(groupName, row, name)[0];
+        if (!sourceKey) return;
+        const previous = latestSourceRows.get(sourceKey);
+        if (!previous || date > rowDate(previous)) latestSourceRows.set(sourceKey, row);
+      });
+      latestSourceRows.forEach((row) => {
+        const mpn = rowMpn(row);
+        const groupName = String(row.Category || "").trim();
+        const name = String(row.Material_Name || "").trim();
+        const tracking = trackingFor(groupName, name, mpn);
+        const source = String(row.Price_Source || row["Price Source"] || row.Source || row.Supplier || row.Brand || tracking?.source || "总表").trim() || "总表";
         const url = String(row.Price_Source_URL || row["Price Source URL"] || "").trim();
         const unit = String(row.Unit || "—").trim() || "—";
         const supplier = String(row.Supplier || row.Brand || "—").trim() || "—";
-        addImported(groupName, name, row, source, url, unit, mpn, supplier, retainedGroups.has(groupName) ? "每月" : "每周");
-        existingMpnKeys.add(mpnKey);
-        totalSupplementCount += 1;
+        sourceItems.push(addImported(groupName, name, row, source, url, unit, mpn || "—", supplier, retainedGroups.has(groupName) ? "每月" : "每周"));
       });
-      const nextItems = [...retainedItems, ...importedItems];
-      console.log("[Excel Import] 新增来源", { 总表补充: totalSupplementCount, 专用Sheet: dedicatedSheetCount });
+      const mergeLayers = (baseItems: Item[], overlayItems: Item[]) => {
+        const merged: Item[] = [];
+        const keyToIndex = new Map<string, number>();
+        let ddrOverrides = 0;
+        let plasticOverrides = 0;
+        const put = (item: Item, layer: "source" | "priority") => {
+          const keys = itemKeys(item);
+          const existingIndex = keys.map((key) => keyToIndex.get(key)).find((index) => index !== undefined);
+          if (existingIndex !== undefined) {
+            if (layer === "priority") {
+              if (item.group === "塑料件") plasticOverrides += 1;
+              else ddrOverrides += 1;
+            }
+            merged[existingIndex] = { ...item, id: merged[existingIndex].id };
+            keys.forEach((key) => keyToIndex.set(key, existingIndex));
+            return;
+          }
+          const index = merged.length;
+          merged.push({ ...item, id: item.id === 10000 ? 10000 + index : item.id });
+          keys.forEach((key) => keyToIndex.set(key, index));
+        };
+        baseItems.forEach((item) => put(item, "source"));
+        overlayItems.forEach((item) => put(item, "priority"));
+        return { merged, ddrOverrides, plasticOverrides };
+      };
+      const { merged: mergedItems, ddrOverrides, plasticOverrides } = mergeLayers([...retainedItems, ...sourceItems], priorityItems);
+      const nextItems = mergedItems;
+      console.log("[Excel Import] 覆盖数量", { DDR覆盖总表: ddrOverrides, 塑料件覆盖总表: plasticOverrides });
+      console.log("[Excel Import] 最终展示数量", { mergedItems: mergedItems.length });
       setItems(nextItems);
       const dateText = workbookLatest ? `，最晚日期 ${workbookLatest}` : "，未识别到有效日期";
       setImportMessage(`已读取 ${file.name}${dateText}；匹配 ${matched} 条，实际变化 ${changed} 条`);
@@ -442,11 +630,24 @@ export default function Home() {
           <span className="offline-pill"><span className="pulse" /> 本地维护模式</span>
           <input ref={fileInput} className="file-input" type="file" accept=".xlsx,.xls" onChange={(event) => importExcel(event.target.files?.[0])} />
           <button className="import-button" onClick={() => fileInput.current?.click()}>↑ 导入 Excel</button>
+          <button className="ghost-button" onClick={updatePrices} disabled={updatingPrices}>{updatingPrices ? "更新中…" : "更新价格"}</button>
           <button className="ghost-button" onClick={resetData}>恢复示例数据</button>
         </div>
       </header>
 
-      {importMessage && <div className="import-toast" role="status">{importMessage}</div>}
+      {!toastDismissed && (importMessage || updateMessage || updateResults.length > 0) && <div className="import-toast" role="status" onMouseEnter={pauseToastTimer} onMouseLeave={resumeToastTimer}>
+        <button className="toast-close" onClick={closeToast} type="button" aria-label="关闭更新提示">×</button>
+        {updateResults.length > 0 ? <div className="update-results">
+          {updateMessage && <strong>{updateMessage}</strong>}
+          {updateResults.map((result, index) => <span key={`${result.category}-${result.material}-${index}`}>
+            {result.success && result.price !== null
+              ? result.mode === "mock"
+                ? `${result.material} 更新完成（模拟数据）`
+                : `${result.material} 更新完成（${result.source}真实抓取）`
+              : `${result.material || result.category} 更新失败，原因 ${result.error || "未获取到有效价格"}`}
+          </span>)}
+        </div> : updateMessage || importMessage}
+      </div>}
 
       <div className="shell">
         <section className="hero">

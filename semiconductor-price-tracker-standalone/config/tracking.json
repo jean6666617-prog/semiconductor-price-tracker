@@ -1,0 +1,67 @@
+[
+  {
+    "category": "DDR内存",
+    "name": "DDR5 16Gb (2Gx8) 4800/5600",
+    "source": "TrendForce",
+    "crawler": "dram",
+    "mode": "mock",
+    "enabled": true
+  },
+  {
+    "category": "塑料件",
+    "name": "ABS",
+    "source": "SunSirs",
+    "url": "https://www.sunsirs.com/uk/prodetail-713.html",
+    "crawler": "sunsirs_plastic",
+    "mode": "real",
+    "unit": "RMB/ton",
+    "enabled": true
+  },
+  {
+    "category": "塑料件",
+    "name": "PC",
+    "source": "SunSirs",
+    "url": "https://www.sunsirs.com/uk/prodetail-172.html",
+    "crawler": "sunsirs_plastic",
+    "mode": "real",
+    "unit": "RMB/ton",
+    "enabled": true
+  },
+  {
+    "category": "塑料件",
+    "name": "PP",
+    "source": "SunSirs",
+    "url": "https://www.sunsirs.com/uk/prodetail-718.html",
+    "crawler": "sunsirs_plastic",
+    "mode": "real",
+    "unit": "RMB/ton",
+    "enabled": true
+  },
+  {
+    "category": "塑料件",
+    "name": "PVC",
+    "source": "SunSirs",
+    "url": "https://www.sunsirs.com/uk/prodetail-107.html",
+    "crawler": "sunsirs_plastic",
+    "mode": "real",
+    "unit": "RMB/ton",
+    "enabled": true
+  },
+  {
+    "category": "塑料件",
+    "name": "PET",
+    "source": "SunSirs",
+    "url": "https://www.sunsirs.com/uk/prodetail-173.html",
+    "crawler": "sunsirs_plastic",
+    "mode": "real",
+    "unit": "RMB/ton",
+    "enabled": true
+  },
+  {
+    "category": "SOC芯片",
+    "name": "MCIMX515DVM10AC",
+    "source": "DigiKey",
+    "crawler": "component",
+    "enabled": true
+  }
+]

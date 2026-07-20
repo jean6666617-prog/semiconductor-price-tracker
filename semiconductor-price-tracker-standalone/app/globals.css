@@ -40,7 +40,10 @@ button { cursor:pointer; }
 .workflow-section,.source-section,.tracker-section,.trend-section { margin-top:80px; }
 .trend-section { margin-top:36px; }
 .import-message { margin:0 0 12px; padding:11px 14px; border-radius:9px; background:#e7f3ed; color:var(--green); font-size:11px; }
-.import-toast { position:fixed; z-index:30; top:76px; left:50%; transform:translateX(-50%); width:min(760px,calc(100% - 32px)); padding:12px 16px; border:1px solid #b8ddcb; border-radius:10px; background:#e7f3ed; color:var(--green); box-shadow:0 10px 30px rgba(20,60,45,.16); font-size:12px; text-align:center; }
+.import-toast { position:fixed; z-index:30; top:76px; left:50%; transform:translateX(-50%); width:min(760px,calc(100% - 32px)); padding:12px 34px 12px 16px; border:1px solid #b8ddcb; border-radius:10px; background:#e7f3ed; color:var(--green); box-shadow:0 10px 30px rgba(20,60,45,.16); font-size:12px; text-align:center; }
+.toast-close { position:absolute; right:10px; top:7px; border:0; background:transparent; color:var(--green); font-size:18px; line-height:1; padding:3px; }
+.update-results { display:grid; gap:5px; text-align:left; }
+.update-results strong,.update-results span { display:block; }
 .trend-layout { display:grid; grid-template-columns:minmax(0,1fr) 290px; gap:18px; align-items:stretch; }
 .trend-chart-card,.trend-insight { background:white; border:1px solid var(--line); border-radius:16px; }
 .trend-chart-card { padding:22px 24px 18px; min-width:0; }
