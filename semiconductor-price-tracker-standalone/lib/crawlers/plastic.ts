@@ -1,6 +1,8 @@
 import type { PriceHistoryPoint, PriceResult, TrackingEntry } from "./index";
 import { writeFile } from "fs/promises";
 
+const isDevelopment = process.env.NODE_ENV === "development";
+
 const fallbackUrls: Record<string, string> = {
   ABS: "https://www.sunsirs.com/uk/prodetail-713.html",
   PC: "https://www.sunsirs.com/uk/prodetail-172.html",
@@ -84,12 +86,14 @@ async function fetchSunSirsHtml(url: string, material: string) {
   }
 
   const contentType = response.headers.get("content-type") || "";
-  console.log("[SunSirs Plastic Debug]", {
-    material,
-    status: response.status,
-    contentType,
-    htmlPreview: html.slice(0, 1000),
-  });
+  if (isDevelopment) {
+    console.log("[SunSirs Plastic Debug]", {
+      material,
+      status: response.status,
+      contentType,
+      htmlPreview: html.slice(0, 1000),
+    });
+  }
   if (material === "ABS") await writeFile("/tmp/sunsirs-abs-debug.html", html, "utf8");
   return { response, html };
 }
@@ -113,7 +117,7 @@ export async function fetchSunSirsPlastic(entry: TrackingEntry, fallbackDate: st
   const url = entry.url || fallbackUrls[material];
   if (!url) {
     const result = failedResult(entry, fallbackDate, `Missing SunSirs URL for ${material}`);
-    console.log("[SunSirs Plastic]", { material, price: result.price, updateDate: result.updateDate, success: result.success });
+    if (isDevelopment) console.log("[SunSirs Plastic]", { material, price: result.price, updateDate: result.updateDate, success: result.success });
     return result;
   }
 
@@ -122,14 +126,16 @@ export async function fetchSunSirsPlastic(entry: TrackingEntry, fallbackDate: st
     if (!response.ok) throw new Error(`SunSirs ${material} request failed: ${response.status}`);
     const parsed = parseSunSirsHistory(html, material);
     const latest = parsed.history.at(-1);
-    console.log("[SunSirs History]", {
-      material,
-      totalRows: parsed.totalRows,
-      validRows: parsed.history.length,
-      firstDate: parsed.history[0]?.date || "",
-      lastDate: latest?.date || "",
-      latestPrice: latest?.price ?? null,
-    });
+    if (isDevelopment) {
+      console.log("[SunSirs History]", {
+        material,
+        totalRows: parsed.totalRows,
+        validRows: parsed.history.length,
+        firstDate: parsed.history[0]?.date || "",
+        lastDate: latest?.date || "",
+        latestPrice: latest?.price ?? null,
+      });
+    }
     if (!latest) throw new Error(`SunSirs ${material} price not found`);
     const result: PriceResult = {
       success: true,
@@ -142,12 +148,12 @@ export async function fetchSunSirsPlastic(entry: TrackingEntry, fallbackDate: st
       updateDate: latest.date,
       history: parsed.history,
     };
-    console.log("[SunSirs Plastic]", { material, price: result.price, updateDate: result.updateDate, success: result.success });
+    if (isDevelopment) console.log("[SunSirs Plastic]", { material, price: result.price, updateDate: result.updateDate, success: result.success });
     return result;
   } catch (error) {
     const result = failedResult(entry, fallbackDate, error instanceof Error ? error.message : `SunSirs ${material} fetch failed`);
     console.warn("[SunSirs Plastic] fetch failed", { material, error: result.error });
-    console.log("[SunSirs Plastic]", { material, price: result.price, updateDate: result.updateDate, success: result.success });
+    if (isDevelopment) console.log("[SunSirs Plastic]", { material, price: result.price, updateDate: result.updateDate, success: result.success });
     return result;
   }
 }

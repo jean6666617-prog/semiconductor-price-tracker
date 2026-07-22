@@ -1,6 +1,7 @@
 import { fetchTrendForcePrice } from "./trendforce";
 
 export type TrackingEntry = {
+  id?: string;
   category: string;
   name: string;
   source: string;
@@ -8,6 +9,14 @@ export type TrackingEntry = {
   crawler: string;
   mode?: "real" | "mock";
   unit?: string;
+  matchNames?: string[];
+  priceField?: "Session Average" | "Average" | "Price" | "Latest Price";
+  tableId?: string;
+  description?: string;
+  manufacturer?: string;
+  mpn?: string;
+  currency?: string;
+  quantity?: number;
   enabled: boolean;
 };
 
@@ -22,6 +31,13 @@ export type PriceResult = {
   updateDate: string;
   error?: string;
   history?: PriceHistoryPoint[];
+  materialName?: string;
+  crawlTime?: string;
+  sourceUrl?: string;
+  mode?: "real" | "mock";
+  manufacturer?: string;
+  mpn?: string;
+  quantity?: number;
 };
 
 export type PriceHistoryPoint = {

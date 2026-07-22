@@ -1,4 +1,4 @@
-export type Status = "已更新" | "待更新" | "待确认" | "暂无来源";
+export type Status = "已更新" | "待更新" | "待确认" | "暂无来源" | "已追踪" | "待验证" | "待接入";
 export type Item = {
   id: number;
   group: string;

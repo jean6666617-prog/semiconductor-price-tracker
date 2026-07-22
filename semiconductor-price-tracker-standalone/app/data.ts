@@ -45,6 +45,21 @@ export const seedItems = [
     "cadence": "每月"
   },
   {
+    "id": 1034,
+    "group": "SOC芯片",
+    "name": "NXP i.MX515",
+    "spec": "Automotive/Industrial MPU · i.MX51 family ARM Cortex-A8 automotive/industrial embedded processor",
+    "supplier": "NXP / Freescale Semiconductor",
+    "mpn": "MCIMX515DVK8B",
+    "price": "—",
+    "unit": "USD/pcs",
+    "source": "DigiKey",
+    "url": "https://www.digikey.com/en/products/detail/rochester-electronics-llc/MCIMX515DVK8B/12595524",
+    "status": "待更新",
+    "updated": "",
+    "cadence": "每日"
+  },
+  {
     "id": 4,
     "group": "DDR内存",
     "name": "DDR5 16Gb (2Gx8) 4800/5600",
@@ -909,59 +924,42 @@ export const referenceSheetItems = [
 
 export const categorySources = [
   {
-    "group": "DDR内存",
-    "label": "DRAM 现货价格",
-    "source": "TrendForce",
-    "url": "https://www.trendforce.com/price/dram/dram_spot",
-    "note": "对应 DDR-BATTERY-LCD 表"
+    "group": "半导体器件",
+    "label": "NXP MCU/MPU/CAN/PMIC",
+    "sources": [
+      { "name": "Cytech", "url": "https://www.cytechsystems.com/" },
+      { "name": "LCSC嘉立创", "url": "https://www.lcsc.com/" },
+      { "name": "DigiKey", "url": "https://www.digikey.com/" }
+    ]
   },
   {
-    "group": "LCD屏幕",
-    "label": "LCD 面板价格",
-    "source": "TrendForce",
-    "url": "https://www.trendforce.com/",
-    "note": "对应 DDR-BATTERY-LCD 表"
+    "group": "Memory存储",
+    "label": "DRAM、NAND Flash、eMMC 等存储价格",
+    "sources": [
+      { "name": "TrendForce", "url": "https://www.trendforce.com/price/dram/dram_spot" },
+      { "name": "LCSC", "url": "https://www.lcsc.com/" }
+    ]
   },
   {
-    "group": "电池",
-    "label": "电池与原材料价格",
-    "source": "TrendForce",
-    "url": "https://www.trendforce.com/",
-    "note": "对应 DDR-BATTERY-LCD 表"
+    "group": "LCD显示",
+    "label": "LCD TV、Monitor、Notebook 面板价格",
+    "sources": [
+      { "name": "TrendForce", "url": "https://www.trendforce.com/price/panel/large_size" }
+    ]
   },
   {
-    "group": "塑料件",
-    "label": "ABS",
-    "source": "生意社 Sunsirs",
-    "url": "https://www.sunsirs.com/uk/prodetail-713.html",
-    "note": "对应塑料件表"
+    "group": "电池与原材料",
+    "label": "电芯、电池包、锂钴镍等原材料价格",
+    "sources": [
+      { "name": "TrendForce", "url": "https://www.trendforce.com/price/battery/cell" },
+      { "name": "SunSirs", "url": "https://www.sunsirs.com/" }
+    ]
   },
   {
-    "group": "塑料件",
-    "label": "PVC",
-    "source": "生意社 Sunsirs",
-    "url": "https://www.sunsirs.com/uk/prodetail-107.html",
-    "note": "对应塑料件表"
-  },
-  {
-    "group": "塑料件",
-    "label": "PC",
-    "source": "生意社 Sunsirs",
-    "url": "https://www.sunsirs.com/uk/prodetail-172.html",
-    "note": "对应塑料件表"
-  },
-  {
-    "group": "塑料件",
-    "label": "PET",
-    "source": "生意社 Sunsirs",
-    "url": "https://www.sunsirs.com/uk/prodetail-173.html",
-    "note": "对应塑料件表"
-  },
-  {
-    "group": "塑料件",
-    "label": "PP",
-    "source": "生意社 Sunsirs",
-    "url": "https://www.sunsirs.com/uk/prodetail-718.html",
-    "note": "对应塑料件表"
+    "group": "塑料原料",
+    "label": "ABS、PC、PP、PVC、PET 原材料价格",
+    "sources": [
+      { "name": "SunSirs", "url": "https://www.sunsirs.com/uk/" }
+    ]
   }
 ] as const;
