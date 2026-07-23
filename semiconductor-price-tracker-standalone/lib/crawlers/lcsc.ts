@@ -1,5 +1,6 @@
 import type { PriceHistoryPoint, PriceResult } from "./index";
 import type { KeyComponentEntry } from "./cytech";
+import { targetResponseError } from "./response";
 
 const isDevelopment = process.env.NODE_ENV === "development";
 const maxFetchAttempts = 3;
@@ -89,7 +90,7 @@ async function fetchLcscHtml(entry: KeyComponentEntry) {
       }
       if (response.ok) return html;
 
-      lastError = new Error(`LCSC request failed: ${response.status}`);
+      lastError = new Error(targetResponseError("LCSC", response, html, "LCSC request failed"));
     } catch (error) {
       lastError = error;
       if (isDevelopment) {

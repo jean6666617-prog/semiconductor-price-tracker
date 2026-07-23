@@ -5,6 +5,7 @@ import * as XLSX from "xlsx";
 import keyComponentsConfig from "../config/key-components.json";
 import trackingConfig from "../config/tracking.json";
 import { runCrawler, type PriceResult, type TrackingEntry } from "../lib/crawlers";
+import { looksLikeHtml, responsePreview } from "../lib/crawlers/response";
 import type { KeyComponentEntry } from "../lib/crawlers/cytech";
 import { exportAllPriceData, exportLatestUpdateData, type PriceExportRow } from "../lib/exportExcel";
 import { categorySources, seedItems } from "./data";
@@ -456,6 +457,20 @@ function updateResultText(result: UpdateResult) {
   return `${result.material} 更新完成（${result.source}真实抓取）`;
 }
 
+async function readApiJson<T>(response: Response, label: string): Promise<T> {
+  const text = await response.text();
+  const contentType = response.headers.get("content-type") || "";
+  if (!contentType.toLowerCase().includes("application/json") || looksLikeHtml(text)) {
+    throw new Error(`${label} returned HTML instead of JSON; HTTP status ${response.status}; URL ${response.url || "unknown"}; preview: ${responsePreview(text)}`);
+  }
+  try {
+    return JSON.parse(text) as T;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Invalid JSON response";
+    throw new Error(`${label} JSON parse failed: ${message}; HTTP status ${response.status}; URL ${response.url || "unknown"}; preview: ${responsePreview(text)}`);
+  }
+}
+
 async function fetchCytechCrawler(ids: string[]) {
   if (!ids.length) return [];
   let response: Response;
@@ -476,22 +491,7 @@ async function fetchCytechCrawler(ids: string[]) {
     throw error;
   }
 
-  const responseText = await response.text();
-  let payload: { success?: boolean; error?: string; results?: KeyComponentResult[] };
-  try {
-    payload = JSON.parse(responseText) as { success?: boolean; error?: string; results?: KeyComponentResult[] };
-  } catch (error) {
-    if (process.env.NODE_ENV === "development") {
-      console.error(`[Cytech API Invalid Response] ${JSON.stringify({
-        ids,
-        status: response.status,
-        statusText: response.statusText,
-        responseText,
-        errorMessage: error instanceof Error ? error.message : String(error),
-      })}`);
-    }
-    throw new Error(`Cytech API returned invalid JSON: ${response.status}`);
-  }
+  const payload = await readApiJson<{ success?: boolean; error?: string; results?: KeyComponentResult[] }>(response, "Cytech API");
 
   if (process.env.NODE_ENV === "development") {
     console.log(`[Cytech API Response] ${JSON.stringify({
@@ -516,7 +516,7 @@ async function fetchLcscCrawler(ids: string[]) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ ids }),
   });
-  const payload = await response.json() as { success?: boolean; error?: string; results?: KeyComponentResult[] };
+  const payload = await readApiJson<{ success?: boolean; error?: string; results?: KeyComponentResult[] }>(response, "LCSC API");
   if (!response.ok || !payload.success || !Array.isArray(payload.results)) {
     throw new Error(payload.error || `LCSC API request failed: ${response.status}`);
   }
@@ -1149,11 +1149,12 @@ export default function Home() {
 
   async function fetchPlasticCrawler(entry: TrackingEntry): Promise<PriceResult> {
     try {
-      return await fetch("/api/crawler/plastic", {
+      const response = await fetch("/api/crawler/plastic", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(entry),
-      }).then((response) => response.json() as Promise<PriceResult>);
+      });
+      return await readApiJson<PriceResult>(response, "SunSirs API");
     } catch (error) {
       return {
         success: false,
@@ -1240,7 +1241,7 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ids }),
       });
-      const payload = await response.json() as { success?: boolean; error?: string; results?: Array<PriceResult & { id: string }> };
+      const payload = await readApiJson<{ success?: boolean; error?: string; results?: Array<PriceResult & { id: string }> }>(response, "TrendForce API");
       if (!response.ok || !payload.success || !Array.isArray(payload.results)) {
         throw new Error(payload.error || `TrendForce API request failed: ${response.status}`);
       }
@@ -1263,7 +1264,7 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ids }),
       });
-      const payload = await response.json() as { success?: boolean; error?: string; results?: Array<PriceResult & { id: string }> };
+      const payload = await readApiJson<{ success?: boolean; error?: string; results?: Array<PriceResult & { id: string }> }>(response, "DigiKey API");
       if (!response.ok || !payload.success || !Array.isArray(payload.results)) {
         throw new Error(payload.error || `DigiKey API request failed: ${response.status}`);
       }

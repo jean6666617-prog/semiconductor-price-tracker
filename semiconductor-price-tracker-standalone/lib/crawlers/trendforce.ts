@@ -1,4 +1,5 @@
 import type { PriceResult, TrackingEntry } from "./index";
+import { targetResponseError } from "./response";
 
 const dramSpotUrl = "https://www.trendforce.com/price/dram/dram_spot";
 const targetMaterial = "DDR5 16Gb (2Gx8) 4800/5600";
@@ -244,7 +245,7 @@ async function requestTrendForcePageOnce(url: string, attemptCount: number): Pro
       });
     }
     if (!response.ok) {
-      throw new TrendForceRequestError(`TrendForce request failed: HTTP ${response.status}`, {
+      throw new TrendForceRequestError(targetResponseError("TrendForce", response, body, "TrendForce request failed"), {
         status: response.status,
         retryable: retryableStatus(response.status),
         retryAfterMs: retryAfterMs(response),

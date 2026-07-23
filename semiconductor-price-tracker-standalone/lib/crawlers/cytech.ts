@@ -1,4 +1,5 @@
 import type { PriceHistoryPoint, PriceResult } from "./index";
+import { targetResponseError } from "./response";
 
 export type KeyComponentEntry = {
   id: string;
@@ -138,7 +139,7 @@ async function fetchCytechHtml(entry: KeyComponentEntry) {
       }
       if (response.ok) return { response, html, attempt };
 
-      lastError = new Error(`Cytech request failed: ${response.status}`);
+      lastError = new Error(targetResponseError("Cytech", response, html, "Cytech request failed"));
     } catch (error) {
       lastError = error;
       if (isDevelopment) {

@@ -1,4 +1,5 @@
 import type { PriceHistoryPoint, PriceResult, TrackingEntry } from "./index";
+import { targetResponseError } from "./response";
 import { writeFile } from "fs/promises";
 
 const isDevelopment = process.env.NODE_ENV === "development";
@@ -123,7 +124,7 @@ export async function fetchSunSirsPlastic(entry: TrackingEntry, fallbackDate: st
 
   try {
     const { response, html } = await fetchSunSirsHtml(url, material);
-    if (!response.ok) throw new Error(`SunSirs ${material} request failed: ${response.status}`);
+    if (!response.ok) throw new Error(targetResponseError("SunSirs", response, html, `SunSirs ${material} request failed`));
     const parsed = parseSunSirsHistory(html, material);
     const latest = parsed.history.at(-1);
     if (isDevelopment) {
