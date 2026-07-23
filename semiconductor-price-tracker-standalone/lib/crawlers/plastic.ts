@@ -1,6 +1,5 @@
 import type { PriceHistoryPoint, PriceResult, TrackingEntry } from "./index";
 import { targetResponseError } from "./response";
-import { writeFile } from "fs/promises";
 
 const isDevelopment = process.env.NODE_ENV === "development";
 
@@ -95,7 +94,6 @@ async function fetchSunSirsHtml(url: string, material: string) {
       htmlPreview: html.slice(0, 1000),
     });
   }
-  if (material === "ABS") await writeFile("/tmp/sunsirs-abs-debug.html", html, "utf8");
   return { response, html };
 }
 
