@@ -6,6 +6,8 @@ import type { KeyComponentEntry } from "../../../../lib/crawlers/cytech";
 const entries = keyComponents as KeyComponentEntry[];
 const isDevelopment = process.env.NODE_ENV === "development";
 
+export const runtime = "edge";
+
 function failed(entry: Partial<KeyComponentEntry>, error: string) {
   return {
     id: entry.id || "",

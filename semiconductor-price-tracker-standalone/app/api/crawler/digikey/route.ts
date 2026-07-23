@@ -9,6 +9,8 @@ type ApiResult = PriceResult & { id: string };
 const trustedEntries = trackingConfig as DigiKeyEntry[];
 const isDevelopment = process.env.NODE_ENV === "development";
 
+export const runtime = "edge";
+
 function todayKey() {
   return new Intl.DateTimeFormat("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit" })
     .format(new Date()).replaceAll("/", "-");

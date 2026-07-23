@@ -5,6 +5,8 @@ import { fetchCytechPrice, type KeyComponentEntry } from "../../../../lib/crawle
 const entries = keyComponents as KeyComponentEntry[];
 const isDevelopment = process.env.NODE_ENV === "development";
 
+export const runtime = "edge";
+
 function failed(entry: Partial<KeyComponentEntry>, error: string) {
   return {
     id: entry.id || "",
