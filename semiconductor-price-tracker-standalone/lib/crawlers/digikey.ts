@@ -141,10 +141,9 @@ async function getAccessToken() {
   });
   const { text, blockedByCloudflare } = await readResponse(response);
   if (isDevelopment) console.log("[DigiKey] tokenStatus=" + response.status);
+  const payload = parseJsonTargetResponse<{ access_token?: unknown; expires_in?: unknown }>("DigiKey token", response, text);
   if (blockedByCloudflare) throw new Error("DigiKey API token request was blocked by Cloudflare challenge");
   if (!response.ok) throw new Error(targetResponseError("DigiKey token", response, text, "DigiKey token request failed"));
-
-  const payload = parseJsonTargetResponse<{ access_token?: unknown; expires_in?: unknown }>("DigiKey token", response, text);
   const accessToken = typeof payload.access_token === "string" ? payload.access_token : "";
   const expiresIn = Number(payload.expires_in);
   if (!accessToken) throw new Error("DigiKey token response did not include access_token");
@@ -198,10 +197,9 @@ export async function fetchDigiKeyPrice(entry: TrackingEntry, fallbackDate = tod
     });
     const { text, blockedByCloudflare } = await readResponse(response);
     if (isDevelopment) console.log("[DigiKey] productStatus=" + response.status);
+    const payload = parseJsonTargetResponse<unknown>("DigiKey product", response, text);
     if (blockedByCloudflare) return failure(entry, fallbackDate, "DigiKey API request blocked by Cloudflare challenge");
     if (!response.ok) return failure(entry, fallbackDate, targetResponseError("DigiKey product", response, text, "DigiKey API request failed"));
-
-    const payload = parseJsonTargetResponse<unknown>("DigiKey product", response, text);
     const mpns = responseMpns(payload);
     if (!mpns.has(normalizeMpn(entry.mpn))) return failure(entry, fallbackDate, "Configured MPN does not match DigiKey API response");
 

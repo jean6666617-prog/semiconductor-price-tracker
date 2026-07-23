@@ -1,6 +1,6 @@
 import type { PriceHistoryPoint, PriceResult } from "./index";
 import type { KeyComponentEntry } from "./cytech";
-import { targetResponseError } from "./response";
+import { parseEmbeddedJson, targetResponseError } from "./response";
 
 const isDevelopment = process.env.NODE_ENV === "development";
 const maxFetchAttempts = 3;
@@ -117,9 +117,9 @@ function parseLcscPrice(html: string, expectedMpn: string): LcscParsedPrice {
   const nextData = html.match(/<script id=["']__NEXT_DATA__["'][^>]*>([\s\S]*?)<\/script>/i);
   if (!nextData) throw new Error("LCSC NEXT_DATA not found");
 
-  const data = JSON.parse(nextData[1]) as {
+  const data = parseEmbeddedJson<{
     props?: { pageProps?: { webData?: LcscWebData } };
-  };
+  }>("LCSC NEXT_DATA", nextData[1]);
   const webData = data.props?.pageProps?.webData;
   if (!webData) throw new Error("LCSC webData not found");
   if (webData.productModel !== expectedMpn) {

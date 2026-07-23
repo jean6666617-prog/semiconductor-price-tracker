@@ -27,3 +27,12 @@ export function parseJsonTargetResponse<T>(label: string, response: Response, te
     throw new Error(targetResponseError(label, response, text, `${label} JSON parse failed: ${message}`));
   }
 }
+
+export function parseEmbeddedJson<T>(label: string, text: string): T {
+  try {
+    return JSON.parse(text) as T;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Invalid embedded JSON";
+    throw new Error(`${label} embedded JSON parse failed: ${message}; preview: ${responsePreview(text)}`);
+  }
+}

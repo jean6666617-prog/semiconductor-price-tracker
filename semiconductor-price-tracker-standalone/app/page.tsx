@@ -5,7 +5,7 @@ import * as XLSX from "xlsx";
 import keyComponentsConfig from "../config/key-components.json";
 import trackingConfig from "../config/tracking.json";
 import { runCrawler, type PriceResult, type TrackingEntry } from "../lib/crawlers";
-import { looksLikeHtml, responsePreview } from "../lib/crawlers/response";
+import { parseJsonTargetResponse } from "../lib/crawlers/response";
 import type { KeyComponentEntry } from "../lib/crawlers/cytech";
 import { exportAllPriceData, exportLatestUpdateData, type PriceExportRow } from "../lib/exportExcel";
 import { categorySources, seedItems } from "./data";
@@ -459,16 +459,7 @@ function updateResultText(result: UpdateResult) {
 
 async function readApiJson<T>(response: Response, label: string): Promise<T> {
   const text = await response.text();
-  const contentType = response.headers.get("content-type") || "";
-  if (!contentType.toLowerCase().includes("application/json") || looksLikeHtml(text)) {
-    throw new Error(`${label} returned HTML instead of JSON; HTTP status ${response.status}; URL ${response.url || "unknown"}; preview: ${responsePreview(text)}`);
-  }
-  try {
-    return JSON.parse(text) as T;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Invalid JSON response";
-    throw new Error(`${label} JSON parse failed: ${message}; HTTP status ${response.status}; URL ${response.url || "unknown"}; preview: ${responsePreview(text)}`);
-  }
+  return parseJsonTargetResponse<T>(label, response, text);
 }
 
 async function fetchCytechCrawler(ids: string[]) {
