@@ -305,6 +305,14 @@ td a,.text-button { color:var(--green); text-decoration:none; border:0; backgrou
 .plastic-insight-head .kicker { margin-bottom:5px; color:#a47b29; }
 .plastic-insight-head h3 { margin:0; font-family:Georgia,"Noto Serif SC",serif; font-size:28px; font-weight:500; letter-spacing:-.02em; }
 .plastic-insight-head > span { color:#8f8068; font-size:10px; font-weight:800; white-space:nowrap; }
+.material-market-tabs { display:flex; flex-wrap:wrap; gap:6px; margin:0 0 12px; }
+.material-market-tabs button { border:1px solid #eadfc8; border-radius:999px; background:#fffdf8; color:#8f8068; padding:7px 12px; font-size:11px; font-weight:900; }
+.material-market-tabs button.active { background:var(--ink); border-color:var(--ink); color:var(--lime); }
+.material-insight-grid:not(.category-plastic) { grid-template-columns:1fr; }
+.material-insight-grid:not(.category-plastic) .material-insight-card { grid-column:auto; min-height:220px; }
+.material-insight-card.pending { border-style:dashed; background:linear-gradient(180deg,#fbfcfb 0%,#ffffff 100%); }
+.material-insight-card.pending .plastic-price b { color:#9aa59f; }
+.plastic-trend-pill.数据接入中 { color:#8f8068; background:#f7f9f7; border-color:#dfe6e2; }
 .plastic-insight-grid { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:12px; }
 .plastic-insight-card { grid-column:span 3; min-height:245px; padding:16px 18px; border:1px solid #e5dac5; border-radius:11px; background:white; display:flex; flex-direction:column; gap:10px; }
 .plastic-insight-card:nth-child(n+3) { grid-column:span 2; }

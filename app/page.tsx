@@ -19,8 +19,23 @@ const obsoleteMpns = new Set(["MCIMX515DVM10AC"]);
 
 const statuses: Status[] = ["已更新", "待更新", "待确认", "暂无来源", "已追踪", "待验证", "待接入"];
 const trendRanges = ["7天", "30天", "90天", "180天", "全部"] as const;
+const marketCategories: MarketCategory[] = ["Plastic", "Memory", "Display", "Battery", "SOC"];
 type TrendRange = typeof trendRanges[number];
 type TrendMode = "all" | "single" | "key";
+type MarketCategory = "Plastic" | "Memory" | "Display" | "Battery" | "SOC";
+type MarketTrend = "上涨" | "下跌" | "震荡" | "稳定" | "数据接入中";
+type MarketItem = {
+  name: string;
+  category: MarketCategory;
+  price: number | null;
+  unit: string;
+  change: number | null;
+  trend: MarketTrend;
+  source: string;
+  description: string;
+  factors: string[];
+  updateDate?: string;
+};
 type UpdateResult = PriceResult & { mode?: "real" | "mock" };
 type KeyComponentResult = PriceResult & { id: string };
 type KeyComponentTableItem = Omit<Item, "id"> & {
@@ -536,6 +551,7 @@ export default function Home() {
   const [trendCommodity, setTrendCommodity] = useState("塑料件::ABS");
   const [trendMode, setTrendMode] = useState<TrendMode>("all");
   const [selectedTrendRange, setSelectedTrendRange] = useState<TrendRange>("全部");
+  const [activeMarketCategory, setActiveMarketCategory] = useState<MarketCategory>("Plastic");
   const [trendTooltip, setTrendTooltip] = useState<TrendTooltip>(null);
   const [keyCategory, setKeyCategory] = useState("全部");
   const [selectedKeyRange, setSelectedKeyRange] = useState<TrendRange>("全部");
@@ -781,6 +797,40 @@ export default function Home() {
     };
   }, [sortedHistory, sourceByTrendKey, unitByTrendKey, updateResults]);
   const plasticAnalyses = useMemo(() => analyzePlasticTrends(sortedHistory), [sortedHistory]);
+  const marketItemsByCategory = useMemo<Record<MarketCategory, MarketItem[]>>(() => {
+    const placeholder = (category: MarketCategory, name: string, source: string, description: string): MarketItem => ({
+      name,
+      category,
+      price: null,
+      unit: "",
+      change: null,
+      trend: "数据接入中",
+      source,
+      description,
+      factors: ["接口预留", "等待正式数据源接入", "不生成模拟价格"],
+    });
+
+    return {
+      Plastic: plasticAnalyses.map((analysis) => ({
+        name: analysis.material,
+        category: "Plastic",
+        price: analysis.currentPrice,
+        unit: analysis.unit,
+        change: analysis.changeRate,
+        trend: analysis.trend,
+        source: "SunSirs",
+        description: analysis.marketView,
+        factors: [...analysis.positiveFactors, ...analysis.negativeFactors],
+        updateDate: analysis.updateDate,
+      })),
+      Memory: [placeholder("Memory", "DDR", "DRAMeXchange / TrendForce / DigiTimes", "DDR价格趋势数据接入中，后续将用于承接存储器现货与合约价格分析。")],
+      Display: [placeholder("Display", "LCD", "Future data source", "显示面板价格趋势入口已预留，等待后续接入 LCD 数据源。")],
+      Battery: [placeholder("Battery", "Battery", "Future data source", "电池原材料价格趋势入口已预留，等待后续接入电池材料数据源。")],
+      SOC: [placeholder("SOC", "SOC", "Future data source", "SOC关键器件市场趋势入口已预留，等待后续接入对应数据源。")],
+    };
+  }, [plasticAnalyses]);
+  const activeMarketItems = marketItemsByCategory[activeMarketCategory];
+  const activeMarketSource = activeMarketCategory === "Plastic" ? "SunSirs · ABS / PC / PP / PVC / PET" : `${activeMarketCategory} · 数据接入中`;
   const trendGroups = Array.from(new Set(Object.keys(sortedHistory).map((key) => key.split("::")[0])));
   const trendOptions = Object.keys(sortedHistory).filter((key) => key.startsWith(`${trendGroup}::`));
   const activeTrendKey = trendOptions.includes(trendCommodity) ? trendCommodity : trendOptions[0] || Object.keys(sortedHistory)[0];
@@ -1588,7 +1638,7 @@ export default function Home() {
 
       <div className="shell">
         <section className="workflow-section" id="daily-price-insight">
-          <div className="section-heading"><div><p className="kicker">DAILY PRICE INSIGHT</p><h2>今日价格洞察</h2></div><p>风险提示作为左侧重点提醒，价格涨跌榜完整滚动展示每日变动，塑料件市场趋势分析保留为主要判断区。</p></div>
+          <div className="section-heading"><div><p className="kicker">DAILY PRICE INSIGHT</p><h2>今日价格洞察</h2></div><p>风险提示作为左侧重点提醒，价格涨跌榜完整滚动展示每日变动，原材料市场趋势分析保留为主要判断区。</p></div>
           <div className="daily-insight-panel dashboard-priority-panel">
             <div className="price-mover-board dashboard-priority-grid">
               <div className="insight-left-stack">
@@ -1626,22 +1676,25 @@ export default function Home() {
                 </div>
               </div>
 
-              <section className="plastic-market-insight" aria-label="塑料件市场趋势分析">
-                <div className="plastic-insight-head">
-                  <div><p className="kicker">PLASTIC MATERIAL MARKET INSIGHT</p><h3>塑料件市场趋势分析</h3></div>
-                  <span>SunSirs · ABS / PC / PP / PVC / PET</span>
+              <section className="plastic-market-insight material-market-insight" aria-label="原材料市场趋势分析">
+                <div className="plastic-insight-head material-insight-head">
+                  <div><p className="kicker">MATERIAL MARKET INSIGHT</p><h3>原材料市场趋势分析</h3></div>
+                  <span>{activeMarketSource}</span>
                 </div>
-                <div className="plastic-insight-grid">
-                  {plasticAnalyses.map((analysis) => {
-                    const factors = [...analysis.positiveFactors, ...analysis.negativeFactors];
-                    const trendIcon = analysis.trend === "上涨" ? "↑" : analysis.trend === "下跌" ? "↓" : analysis.trend === "稳定" ? "→" : "↔";
-                    const trendTone = analysis.trend === "上涨" && analysis.positiveFactors.length >= analysis.negativeFactors.length ? "上涨偏强" : analysis.trend === "下跌" ? "下跌偏弱" : analysis.trend === "震荡" && analysis.positiveFactors.length > analysis.negativeFactors.length ? "震荡偏强" : analysis.trend === "震荡" && analysis.negativeFactors.length > analysis.positiveFactors.length ? "震荡偏弱" : analysis.trend;
-                    return <article className="plastic-insight-card" key={analysis.material}>
-                      <div className="plastic-card-top"><strong>{analysis.material}</strong><span>{analysis.updateDate || "暂无日期"}</span></div>
-                      <div className="plastic-price"><b>{formatTrendPrice(analysis.currentPrice)}</b><small>{analysis.unit}</small></div>
-                      <div className={`plastic-trend-pill ${analysis.trend}`}><span>{trendTone} {trendIcon}</span><em>{analysis.changeRate >= 0 ? "+" : ""}{analysis.changeRate.toFixed(2)}%</em></div>
-                      <p>{analysis.marketView}</p>
-                      <ul>{(factors.length ? factors : ["暂无明确关键词信号"]).slice(0, 3).map((factor) => <li key={factor}>{factor}</li>)}</ul>
+                <div className="material-market-tabs" role="tablist" aria-label="原材料市场分类">
+                  {marketCategories.map((category) => <button key={category} className={activeMarketCategory === category ? "active" : ""} onClick={() => setActiveMarketCategory(category)} type="button" role="tab" aria-selected={activeMarketCategory === category}>{category}</button>)}
+                </div>
+                <div className={`plastic-insight-grid material-insight-grid category-${activeMarketCategory.toLowerCase()}`}>
+                  {activeMarketItems.map((item) => {
+                    const trendIcon = item.trend === "上涨" ? "↑" : item.trend === "下跌" ? "↓" : item.trend === "稳定" ? "→" : item.trend === "数据接入中" ? "·" : "↔";
+                    const displayPrice = item.price === null ? "--" : formatTrendPrice(item.price);
+                    const displayChange = item.change === null ? "--" : `${item.change >= 0 ? "+" : ""}${item.change.toFixed(2)}%`;
+                    return <article className={`plastic-insight-card material-insight-card ${item.price === null ? "pending" : ""}`} key={`${item.category}-${item.name}`}>
+                      <div className="plastic-card-top"><strong>{item.name}</strong><span>{item.updateDate || item.source}</span></div>
+                      <div className="plastic-price"><b>{displayPrice}</b><small>{item.unit || item.source}</small></div>
+                      <div className={`plastic-trend-pill ${item.trend}`}><span>{item.trend} {trendIcon}</span><em>{displayChange}</em></div>
+                      <p>{item.description}</p>
+                      <ul>{(item.factors.length ? item.factors : ["暂无明确关键词信号"]).slice(0, 3).map((factor) => <li key={factor}>{factor}</li>)}</ul>
                     </article>;
                   })}
                 </div>
