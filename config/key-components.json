@@ -1,0 +1,88 @@
+[
+  {
+    "id": "key-nxp-mcimx515djm8c",
+    "mpn": "MCIMX515DJM8C",
+    "name": "MCIMX515DJM8C",
+    "category": "NXP",
+    "description": "i.MX515 Applications Processor",
+    "source": "Cytech",
+    "sourceUrl": "https://www.cytechsystems.com/product/mcimx515djm8c",
+    "crawler": "cytech",
+    "enabled": true,
+    "status": "已追踪"
+  },
+  {
+    "id": "key-nxp-tja1042t-3",
+    "mpn": "TJA1042T/3",
+    "name": "TJA1042T/3",
+    "category": "NXP",
+    "description": "CAN Transceiver",
+    "source": "Cytech",
+    "sourceUrl": "https://www.cytechsystems.com/product/tja1042t-3-118",
+    "crawler": "cytech",
+    "enabled": true,
+    "status": "已追踪"
+  },
+  {
+    "id": "key-nxp-tja1055t-3",
+    "mpn": "TJA1055T/C,518",
+    "name": "TJA1055T/C,518",
+    "category": "NXP",
+    "description": "CAN Transceiver",
+    "source": "Cytech",
+    "sourceUrl": "https://www.cytechsystems.com/product/tja1055t-c-518",
+    "crawler": "cytech",
+    "enabled": true,
+    "status": "已追踪"
+  },
+  {
+    "id": "key-nxp-mcimx9352cvvxmac",
+    "mpn": "MIMX9352CVVXMAC",
+    "name": "MIMX9352CVVXMAC",
+    "category": "NXP",
+    "description": "i.MX9352 Applications Processor",
+    "source": "LCSC",
+    "sourceUrl": "https://www.lcsc.com/product-detail/C48980520.html",
+    "crawler": "lcsc",
+    "enabled": true,
+    "status": "已追踪"
+  },
+  {
+    "id": "key-nxp-pca9451ahny",
+    "mpn": "PCA9451AHNY",
+    "name": "PCA9451AHNY",
+    "category": "NXP",
+    "description": "PMIC for i.MX93",
+    "source": "LCSC",
+    "sourceUrl": "https://www.lcsc.com/product-detail/Power-Management-Specialized_NXP-Semicon-PCA9451AHNY_C5365710.html",
+    "crawler": "lcsc",
+    "enabled": true,
+    "status": "已追踪"
+  },
+  {
+    "id": "key-memory-jsl4bag167zamf-05a",
+    "mpn": "JSL4BAG167ZAMF-05A",
+    "name": "JSL4BAG167ZAMF-05A",
+    "category": "Memory",
+    "description": "DDR Memory",
+    "source": "TrendForce",
+    "sourceUrl": "https://www.trendforce.com/price/dram/dram_spot",
+    "crawler": "trendforce",
+    "enabled": false,
+    "status": "市场趋势追踪"
+  },
+  {
+    "id": "key-memory-femdrm032g-a3a55",
+    "mpn": "FEMDRM032G-A3A55",
+    "name": "FEMDRM032G-A3A55",
+    "category": "Memory",
+    "description": "eMMC 32GB",
+    "manufacturer": "FORESEE（江波龙）",
+    "source": "LCSC",
+    "sourceUrl": "https://www.lcsc.com/product-detail/eMMC_FORESEE-FEMDRM032G-A3A55_C3249965.html",
+    "searchKeyword": "FEMDRM032G",
+    "crawler": "lcsc",
+    "enabled": true,
+    "status": "已追踪"
+  }
+]
