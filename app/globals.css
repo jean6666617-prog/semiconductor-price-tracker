@@ -280,9 +280,16 @@ td a,.text-button { color:var(--green); text-decoration:none; border:0; backgrou
 
 /* Dashboard priority layout: compact movers, dominant plastic insight, compact risk. */
 .dashboard-priority-panel { padding:14px; }
-.dashboard-priority-grid { grid-template-columns:minmax(240px,26%) minmax(0,1fr); gap:16px; align-items:start; }
+.dashboard-priority-grid { grid-template-columns:minmax(260px,26%) minmax(0,1fr); gap:16px; align-items:start; }
+.insight-left-stack { min-width:0; display:grid; gap:12px; align-content:start; }
 .dashboard-main-stack { min-width:0; display:grid; gap:12px; }
 .compact-mover-list { padding:13px; align-self:start; }
+.mover-side-list { max-height:330px; }
+.price-mover-scroll { max-height:262px; overflow-y:auto; padding-right:6px; scrollbar-gutter:stable; }
+.price-mover-scroll::-webkit-scrollbar { width:8px; }
+.price-mover-scroll::-webkit-scrollbar-track { background:#f1f4f2; border-radius:99px; }
+.price-mover-scroll::-webkit-scrollbar-thumb { background:#c8d4ce; border-radius:99px; }
+.price-mover-scroll::-webkit-scrollbar-thumb:hover { background:#9fb2a9; }
 .compact-head { margin-bottom:8px; }
 .compact-head span { font-size:13px; gap:2px; }
 .compact-head em { font-size:9px; letter-spacing:.06em; }
@@ -317,12 +324,19 @@ td a,.text-button { color:var(--green); text-decoration:none; border:0; backgrou
 .plastic-insight-card li { color:#65736d; font-size:10px; line-height:1.4; }
 .plastic-insight-card li::before { content:"-"; color:#b58a35; margin-right:6px; }
 .compact-risk-card { padding:12px 14px; align-self:stretch; gap:8px 14px; display:grid; grid-template-columns:minmax(120px,.55fr) minmax(160px,.8fr) minmax(0,1.6fr); align-items:center; }
+.risk-primary-card { min-height:190px; grid-template-columns:1fr; align-content:start; border-width:2px; background:linear-gradient(180deg,#fff6df 0%,#fffaf0 100%); box-shadow:0 16px 36px rgba(169,118,29,.16); }
 .compact-risk-card .compact-head { grid-column:1/-1; margin-bottom:0; padding-bottom:7px; border-bottom:1px solid #eadfc8; }
+.risk-primary-card .compact-head { grid-column:auto; }
 .compact-risk-card .risk-level { padding:8px 10px; border-radius:9px; }
+.risk-primary-card .risk-level { background:white; border:1px solid #ecd697; }
 .compact-risk-card .risk-level strong { font-size:26px; }
+.risk-primary-card .risk-level strong { font-size:34px; }
 .compact-risk-card .risk-name { font-size:14px; line-height:1.3; }
+.risk-primary-card .risk-name { font-size:16px; }
 .compact-risk-card p { margin:0; font-size:11px; line-height:1.55; }
 .compact-risk-card dl { grid-column:1/-1; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; }
+.risk-primary-card dl { grid-column:auto; grid-template-columns:1fr; }
+.risk-primary-card .risk-streak dd { color:#c86150; font-size:13px; }
 .compact-risk-card dl div { padding:8px; }
 .compact-risk-card dt { font-size:9px; }
 .compact-risk-card dd { font-size:10px; }
@@ -331,6 +345,9 @@ td a,.text-button { color:var(--green); text-decoration:none; border:0; backgrou
   .dashboard-priority-grid { grid-template-columns:1fr; }
   .dashboard-main-stack { gap:12px; }
   .compact-mover-list,.compact-risk-card { align-self:stretch; }
+  .insight-left-stack { gap:12px; }
+  .mover-side-list { max-height:none; }
+  .price-mover-scroll { max-height:360px; }
   .plastic-insight-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .plastic-insight-card,.plastic-insight-card:nth-child(n+3) { grid-column:auto; }
 }
