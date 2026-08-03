@@ -6,8 +6,8 @@ import keyComponentsConfig from "../config/key-components.json";
 import trackingConfig from "../config/tracking.json";
 import { runCrawler, type PriceResult, type TrackingEntry } from "../lib/crawlers";
 import { analyzePlasticTrends } from "../lib/analysis/plasticTrendAnalysis";
-import { buildMaterialMarketItems, getMarketSourceLabel, marketCategories, type MarketCategory } from "../lib/analysis/materialMarketInsight";
-import type { DDRMarketData } from "../lib/crawlers/ddr";
+import { buildMaterialMarketItems, getMarketSourceLabel, marketCategories, type MarketCategory, type MarketItem } from "../lib/analysis/materialMarketInsight";
+import type { DDRIndustryNewsRecord, DDRMarketAnalysisRecord, DDRMarketData } from "../lib/crawlers/ddr";
 import { parseJsonTargetResponse } from "../lib/crawlers/response";
 import type { KeyComponentEntry } from "../lib/crawlers/cytech";
 import { exportAllPriceData, exportLatestUpdateData, type PriceExportRow } from "../lib/exportExcel";
@@ -127,34 +127,108 @@ function filterObsoleteHistory(history?: Record<string, [string, number][]>) {
   }));
 }
 
-function ddrShortOutlook(trend: string) {
-  if (trend === "上涨") return "短期价格仍偏上行，需继续关注AI服务器备货、HBM产能分配和DDR4供给收缩。";
-  if (trend === "下跌") return "短期价格偏弱，需关注PC和服务器需求是否继续放缓。";
-  if (trend === "稳定") return "短期价格大概率维持窄幅波动，等待新一轮供需信号。";
-  return "短期市场以震荡观察为主，价格方向取决于需求恢复和原厂供给节奏。";
+type DDRInsightItem = MarketItem & {
+  priceUrl?: string;
+  trendUrl?: string;
+  analysisUrl?: string;
+  newsItems?: DDRIndustryNewsRecord[];
+  marketAnalysis?: DDRMarketAnalysisRecord;
+};
+
+type DDRDriverDetail = {
+  title: string;
+  body: string;
+};
+
+function trendFromChange(change: number | null, fallback: string): MarketItem["trend"] {
+  if (change !== null) {
+    if (change > 0) return "上涨";
+    if (change < 0) return "下跌";
+    return "稳定";
+  }
+  if (/上涨|上行|涨|Positive/i.test(fallback)) return "上涨";
+  if (/下跌|下行|跌|Negative/i.test(fallback)) return "下跌";
+  if (/稳定|stable/i.test(fallback)) return "稳定";
+  return "震荡";
 }
 
-function ddrDriverDetails(factors: string[]) {
-  const text = factors.join(" ");
-  const details = [
-    {
-      title: "AI服务器需求增长",
-      body: /AI|数据中心|服务器/i.test(text) ? "AI服务器和数据中心采购持续挤占DRAM供给，支撑DDR相关产品报价。" : "当前公开材料未给出明确AI服务器增量，但该项仍是后续DDR需求观察重点。",
-    },
-    {
-      title: "HBM产能竞争",
-      body: /HBM/i.test(text) ? "HBM需求提升会影响DRAM厂商产能配置，间接压缩部分传统DDR供给弹性。" : "当前公开材料未披露明确HBM分配变化，需继续跟踪TrendForce后续更新。",
-    },
-    {
-      title: "DDR4供应收缩",
-      body: /DDR4|供应收缩|Consumer DRAM|减产/i.test(text) ? "DDR4供给收缩强化现货市场支撑，成熟制程产品价格更容易受到供应变化影响。" : "当前公开材料未显示新的DDR4减产细节，价格仍需结合DRAMeXchange现货报价观察。",
-    },
-    {
-      title: "DDR5迁移影响",
-      body: /DDR5|RDIMM|升级/i.test(text) ? "服务器与PC平台向DDR5迁移，带动新规格需求提升，同时改变DDR4/DDR5之间的供需结构。" : "当前公开材料未给出明确DDR5迁移幅度，仍保留为后续需求判断项。",
-    },
-  ];
-  return details;
+function ddrMarketDirection(trend: MarketItem["trend"]) {
+  if (trend === "上涨") return "价格方向偏上行";
+  if (trend === "下跌") return "价格方向偏下行";
+  if (trend === "稳定") return "价格方向暂稳";
+  return "价格方向震荡观察";
+}
+
+function ddrMarketSummary(item: DDRInsightItem) {
+  const analysis = item.marketAnalysis;
+  const factors = item.factors.filter((factor) => !factor.startsWith("Tom's Hardware行业观察") && !factor.startsWith("DigiTimes影响方向"));
+  const factorText = factors.slice(0, 3).join("、");
+  return [
+    analysis?.summary || analysis?.title || item.description,
+    ddrMarketDirection(item.trend),
+    factorText ? `供应/需求变化集中在${factorText}。` : "",
+  ].filter(Boolean).join(" ");
+}
+
+function ddrDriverDetails(factors: string[], newsItems: DDRIndustryNewsRecord[]): DDRDriverDetail[] {
+  const text = [...factors, ...newsItems.map((news) => `${news.title} ${news.summary}`)].join(" ");
+  const details: DDRDriverDetail[] = [];
+  if (/AI|数据中心|服务器|server|hyperscaler/i.test(text)) {
+    details.push({ title: "AI服务器需求增长", body: "TrendForce 与行业新闻均指向服务器和数据中心需求增强，常规DDR与Server DRAM供给被AI相关采购持续吸收。" });
+  }
+  if (/HBM|high-bandwidth/i.test(text)) {
+    details.push({ title: "HBM产能竞争", body: "Tom's Hardware 相关报道提到HBM和服务器内存占用制造资源，这会压缩传统DDR供给弹性并强化价格支撑。" });
+  }
+  if (/DDR4|Consumer DRAM|供应收缩|减产|withdrawn|module makers/i.test(text)) {
+    details.push({ title: "DDR4供应收缩", body: "DDR4产能和模块供给出现收缩信号，成熟规格在缺货环境下更容易形成现货溢价。" });
+  }
+  if (/DDR5|RDIMM|upgrade|迁移|渗透/i.test(text)) {
+    details.push({ title: "DDR5迁移影响", body: "DDR5平台升级和服务器RDIMM需求提升改变DDR4/DDR5供需结构，使高容量与新规格报价更敏感。" });
+  }
+  return details.length ? details : factors.slice(0, 3).map((factor) => ({ title: factor, body: "该因素来自 TrendForce 市场文章关键词提炼，用于解释当前DDR价格方向。" }));
+}
+
+function ddrImpactLabel(impact: string) {
+  if (/上涨|Positive|涨|rise|increase|shortage|tight/i.test(impact)) return "↑ Positive";
+  if (/下跌|Negative|跌|decline|weak/i.test(impact)) return "↓ Negative";
+  return "→ Neutral";
+}
+
+function buildDdrInsightItems(items: Item[], history: Record<string, [string, number][]>, ddrData?: DDRMarketData): DDRInsightItem[] {
+  const analysis = ddrData?.marketAnalyses[0];
+  const tomsNews = (ddrData?.industryNews ?? []).filter((news) => news.source === "Tom's Hardware");
+  const digitimesNews = (ddrData?.industryNews ?? []).filter((news) => news.source === "DigiTimes");
+  const newsItems = [...tomsNews, ...digitimesNews].slice(0, 3);
+  const factors = analysis?.factors?.filter((factor) => !factor.startsWith("趋势：")) ?? [];
+  return ["DDR4", "DDR5"].flatMap((product) => {
+    const entry = items.find((candidate) => candidate.group === "DDR内存" && candidate.source === "TrendForce" && candidate.name.startsWith(product) && !/eTT/i.test(candidate.name))
+      || items.find((candidate) => candidate.group === "DDR内存" && candidate.source === "TrendForce" && candidate.name.startsWith(product));
+    if (!entry) return [];
+    const series = sortSeries(history[`${entry.group}::${entry.name}`] ?? []);
+    const latest = series.at(-1);
+    const previous = series.length > 1 ? series.at(-2) : undefined;
+    const rawPrice = latest?.[1] ?? Number(String(entry.price).replace(/[^0-9.-]/g, ""));
+    const parsedPrice = Number.isFinite(rawPrice) ? rawPrice : null;
+    const change = parsedPrice !== null && previous?.[1] ? ((parsedPrice - previous[1]) / previous[1]) * 100 : null;
+    const trend = trendFromChange(change, `${analysis?.summary ?? ""} ${analysis?.factors?.join(" ") ?? ""}`);
+    return [{
+      name: entry.name,
+      category: "Memory" as const,
+      price: parsedPrice,
+      unit: entry.unit || "USD",
+      change,
+      trend,
+      source: "TrendForce",
+      description: analysis?.summary || analysis?.title || "DDR market analysis from TrendForce.",
+      factors,
+      updateDate: latest?.[0] || entry.updated || analysis?.date,
+      priceUrl: entry.url,
+      trendUrl: analysis?.url || "https://www.trendforce.cn/",
+      analysisUrl: "https://www.tomshardware.com/tag/ram-shortage",
+      newsItems,
+      marketAnalysis: analysis,
+    }];
+  });
 }
 
 function trackingFor(category: string, name: string, mpn?: string) {
@@ -825,8 +899,9 @@ export default function Home() {
   }, [sortedHistory, sourceByTrendKey, unitByTrendKey, updateResults]);
   const plasticAnalyses = useMemo(() => analyzePlasticTrends(sortedHistory), [sortedHistory]);
   const marketItemsByCategory = useMemo(() => buildMaterialMarketItems(plasticAnalyses, ddrMarketData), [plasticAnalyses, ddrMarketData]);
-  const activeMarketItems = marketItemsByCategory[activeMarketCategory];
-  const activeMarketSource = getMarketSourceLabel(activeMarketCategory);
+  const ddrInsightItems = useMemo(() => buildDdrInsightItems(items, sortedHistory, ddrMarketData), [items, sortedHistory, ddrMarketData]);
+  const activeMarketItems = activeMarketCategory === "Memory" ? ddrInsightItems : marketItemsByCategory[activeMarketCategory];
+  const activeMarketSource = activeMarketCategory === "Memory" ? "TrendForce · Tom's Hardware · DigiTimes" : getMarketSourceLabel(activeMarketCategory);
   const trendGroups = Array.from(new Set(Object.keys(sortedHistory).map((key) => key.split("::")[0])));
   const trendOptions = Object.keys(sortedHistory).filter((key) => key.startsWith(`${trendGroup}::`));
   const activeTrendKey = trendOptions.includes(trendCommodity) ? trendCommodity : trendOptions[0] || Object.keys(sortedHistory)[0];
@@ -1686,33 +1761,36 @@ export default function Home() {
                     const displayPrice = item.price === null ? "--" : formatTrendPrice(item.price);
                     const displayChange = item.change === null ? "--" : `${item.change >= 0 ? "+" : ""}${item.change.toFixed(2)}%`;
                     if (activeMarketCategory === "Memory") {
-                      const driverDetails = ddrDriverDetails(item.factors);
-                      const newsItems = (ddrMarketData?.industryNews ?? []).filter((news) => news.source === "DigiTimes" || news.source === "Tom's Hardware").slice(0, 3);
+                      const ddrItem = item as DDRInsightItem;
+                      const newsItems = ddrItem.newsItems ?? [];
+                      const driverDetails = ddrDriverDetails(ddrItem.factors, newsItems);
+                      const trendUrl = ddrItem.trendUrl || "https://www.trendforce.cn/";
+                      const analysisUrl = ddrItem.analysisUrl || "https://www.tomshardware.com/tag/ram-shortage";
                       return <article className={`plastic-insight-card material-insight-card ddr-market-card ${item.price === null ? "pending" : ""}`} key={`${item.category}-${item.name}`}>
-                        <div className="plastic-card-top"><strong>{item.name}</strong><span>{item.updateDate || "暂无公开日期"}</span></div>
+                        <div className="plastic-card-top"><strong>{item.name}</strong><span>{item.updateDate || ddrItem.marketAnalysis?.date}</span></div>
                         <section className="ddr-card-section price-snapshot" aria-label={`${item.name} Price Snapshot`}>
                           <small>Price Snapshot</small>
                           <div className="plastic-price"><b>{displayPrice}</b><small>{item.unit || "USD"}</small></div>
                           <div className={`plastic-trend-pill ${item.trend}`}><span>{item.trend} {trendIcon}</span><em>{displayChange}</em></div>
+                          <a className="ddr-source-link" href={ddrItem.priceUrl || "https://www.trendforce.com/price/dram/dram_spot"} target="_blank" rel="noreferrer">TrendForce ↗</a>
                         </section>
                         <section className="ddr-card-section" aria-label={`${item.name} Market Trend Analysis`}>
-                          <small>Market Trend Analysis · TrendForce</small>
-                          <p>{item.description}</p>
-                          <p>{ddrShortOutlook(item.trend)}</p>
+                          <small>Market Trend Analysis · <a href={trendUrl} target="_blank" rel="noreferrer">TrendForce ↗</a></small>
+                          <p>{ddrMarketSummary(ddrItem)}</p>
                         </section>
                         <section className="ddr-card-section" aria-label={`${item.name} Price Movement Drivers`}>
-                          <small>{"Price Movement Drivers · TrendForce / Tom's Hardware"}</small>
+                          <small>Price Movement Drivers · <a href={trendUrl} target="_blank" rel="noreferrer">TrendForce ↗</a> / <a href={analysisUrl} target="_blank" rel="noreferrer">{"Tom's Hardware ↗"}</a></small>
                           <div className="ddr-driver-list">{driverDetails.map((driver) => <div key={driver.title}><strong>{driver.title}</strong><p>{driver.body}</p></div>)}</div>
                         </section>
-                        <section className="ddr-card-section" aria-label={`${item.name} Industry News`}>
-                          <small>{"Industry News · DigiTimes / Tom's Hardware"}</small>
-                          <div className="ddr-news-list">{newsItems.length ? newsItems.map((news) => <div key={`${news.source}-${news.title}`}><strong>{news.title}</strong><span>{news.date || "暂无公开日期"} · {news.impact}</span></div>) : <div><strong>暂无公开新闻摘要</strong><span>{"等待 DigiTimes / Tom's Hardware 可访问内容更新"}</span></div>}</div>
+                        <section className="ddr-card-section" aria-label={`${item.name} Industry Intelligence`}>
+                          <small>Industry Intelligence · <a href={analysisUrl} target="_blank" rel="noreferrer">{"Tom's Hardware ↗"}</a></small>
+                          <div className="ddr-news-list">{newsItems.map((news) => <a href={news.url} target="_blank" rel="noreferrer" key={`${news.source}-${news.title}`}><strong>{news.title}</strong><span>{news.date} · Price impact: {ddrImpactLabel(news.impact)}</span></a>)}</div>
                         </section>
                         <footer className="ddr-source-attribution" aria-label={`${item.name} Source Attribution`}>
-                          <span><b>Price:</b> DRAMeXchange</span>
-                          <span><b>Trend:</b> TrendForce</span>
-                          <span><b>Analysis:</b> {"Tom's Hardware"}</span>
-                          <span><b>News:</b> DigiTimes</span>
+                          <span><b>Price:</b> <a href={ddrItem.priceUrl || "https://www.trendforce.com/price/dram/dram_spot"} target="_blank" rel="noreferrer">TrendForce ↗</a></span>
+                          <span><b>Trend:</b> <a href={trendUrl} target="_blank" rel="noreferrer">TrendForce ↗</a></span>
+                          <span><b>Analysis:</b> <a href={analysisUrl} target="_blank" rel="noreferrer">{"Tom's Hardware ↗"}</a></span>
+                          <span><b>News:</b> {newsItems.map((news, index) => <a href={news.url} target="_blank" rel="noreferrer" key={`${news.source}-${news.url}`}>{index > 0 ? " / " : ""}{news.source} ↗</a>)}</span>
                         </footer>
                       </article>;
                     }
