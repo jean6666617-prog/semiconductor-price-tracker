@@ -1524,8 +1524,8 @@ export default function Home() {
       <header className="topbar">
         <div className="brand"><span className="brand-mark">Si</span><span>半导体价格趋势追踪中心</span></div>
         <nav className="top-navigation" aria-label="网站核心模块导航">
-          <a href="#price-trend"><span>01</span>趋势分析</a>
-          <a href="#daily-price-insight"><span>02</span>今日价格洞察</a>
+          <a href="#daily-price-insight"><span>01</span>今日价格洞察</a>
+          <a href="#price-trend"><span>02</span>趋势分析</a>
           <a href="#price-trend" onClick={() => setTrendMode("key")}><span>03</span>重点追踪对象</a>
           <a href="#tracking-matrix"><span>04</span>品类状态</a>
           <a href="#source-directory"><span>05</span>数据来源</a>
