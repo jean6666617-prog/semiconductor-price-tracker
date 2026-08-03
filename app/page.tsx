@@ -7,6 +7,7 @@ import trackingConfig from "../config/tracking.json";
 import { runCrawler, type PriceResult, type TrackingEntry } from "../lib/crawlers";
 import { analyzePlasticTrends } from "../lib/analysis/plasticTrendAnalysis";
 import { buildMaterialMarketItems, getMarketSourceLabel, marketCategories, type MarketCategory } from "../lib/analysis/materialMarketInsight";
+import type { DDRMarketData } from "../lib/crawlers/ddr";
 import { parseJsonTargetResponse } from "../lib/crawlers/response";
 import type { KeyComponentEntry } from "../lib/crawlers/cytech";
 import { exportAllPriceData, exportLatestUpdateData, type PriceExportRow } from "../lib/exportExcel";
@@ -538,6 +539,7 @@ export default function Home() {
   const [trendMode, setTrendMode] = useState<TrendMode>("all");
   const [selectedTrendRange, setSelectedTrendRange] = useState<TrendRange>("全部");
   const [activeMarketCategory, setActiveMarketCategory] = useState<MarketCategory>("Plastic");
+  const [ddrMarketData, setDdrMarketData] = useState<DDRMarketData | undefined>();
   const [trendTooltip, setTrendTooltip] = useState<TrendTooltip>(null);
   const [keyCategory, setKeyCategory] = useState("全部");
   const [selectedKeyRange, setSelectedKeyRange] = useState<TrendRange>("全部");
@@ -635,6 +637,15 @@ export default function Home() {
   }, [setKeyComponentResults]);
 
   useEffect(() => () => clearToastTimer(), []);
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/crawler/ddr")
+      .then((response) => response.ok ? response.json() as Promise<DDRMarketData> : undefined)
+      .then((data) => { if (active && data) setDdrMarketData(data); })
+      .catch(() => { if (active) setDdrMarketData(undefined); });
+    return () => { active = false; };
+  }, []);
 
   useEffect(() => {
     if (!updateMenuOpen) return;
@@ -783,7 +794,7 @@ export default function Home() {
     };
   }, [sortedHistory, sourceByTrendKey, unitByTrendKey, updateResults]);
   const plasticAnalyses = useMemo(() => analyzePlasticTrends(sortedHistory), [sortedHistory]);
-  const marketItemsByCategory = useMemo(() => buildMaterialMarketItems(plasticAnalyses), [plasticAnalyses]);
+  const marketItemsByCategory = useMemo(() => buildMaterialMarketItems(plasticAnalyses, ddrMarketData), [plasticAnalyses, ddrMarketData]);
   const activeMarketItems = marketItemsByCategory[activeMarketCategory];
   const activeMarketSource = getMarketSourceLabel(activeMarketCategory);
   const trendGroups = Array.from(new Set(Object.keys(sortedHistory).map((key) => key.split("::")[0])));

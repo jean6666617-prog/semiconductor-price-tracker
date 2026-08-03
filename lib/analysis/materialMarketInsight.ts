@@ -71,23 +71,29 @@ export function ddrMarketDataToMarketItems(ddrData?: DDRMarketData): MarketItem[
   const analysis = ddrData.marketAnalyses[0];
   const news = ddrData.industryNews[0];
   const contractByProduct = new Map(ddrData.contractPrices.map((record) => [record.product, record]));
-  const spotItems = ddrData.spotPrices.map((spot) => {
-    const contract = contractByProduct.get(spot.product);
+  const products = ["DDR4", "DDR5"];
+  return products.map((product) => {
+    const spot = ddrData.spotPrices.find((record) => record.product === product);
+    const contract = contractByProduct.get(product);
+    const price = spot ? parsePrice(spot.price) : null;
+    const change = spot?.change ? parsePrice(spot.change) : null;
+    const factors = [
+      ...(analysis?.factors?.filter((factor) => !factor.startsWith("趋势：")) ?? []),
+      ...(news?.impact ? [`DigiTimes影响方向：${news.impact}`] : []),
+    ];
     return {
-      name: spot.product || "DDR",
+      name: product,
       category: "Memory" as const,
-      price: parsePrice(spot.price),
-      unit: spot.unit,
-      change: null,
-      trend: trendFromText(contract?.trend || analysis?.summary || news?.summary || ""),
+      price,
+      unit: spot?.currency || "USD",
+      change,
+      trend: trendFromText(contract?.trend || analysis?.factors?.[0] || analysis?.summary || news?.summary || ""),
       source: ddrSourceLabel,
-      description: analysis?.summary || news?.summary || "DDR现货价格已接入，市场分析等待 TrendForce / DigiTimes 补充。",
-      factors: analysis?.factors?.length ? analysis.factors : ["DRAMeXchange Spot Price", "TrendForce Contract / Analysis", "DigiTimes Industry News"],
-      updateDate: spot.date,
+      description: analysis?.summary || news?.summary || "DDR市场公开分析数据接入中。",
+      factors: factors.length ? factors : ["暂无公开数据", "DRAMeXchange / TrendForce / DigiTimes接口保留"],
+      updateDate: spot?.date || contract?.date || analysis?.date || news?.date,
     };
   });
-
-  return spotItems.length ? spotItems : [pendingItem("Memory", "DDR", ddrSourceLabel, "DDR来源结构已接入，但当前没有可展示的现货价格记录。")];
 }
 
 export function buildMaterialMarketItems(plasticAnalyses: PlasticTrendAnalysis[], ddrData?: DDRMarketData): Record<MarketCategory, MarketItem[]> {
