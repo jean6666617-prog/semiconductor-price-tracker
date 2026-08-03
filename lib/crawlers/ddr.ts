@@ -239,22 +239,27 @@ export async function fetchDDRIndustryNews(): Promise<DDRIndustryNewsRecord[]> {
   }];
 }
 
+function cleanTomsHardwareText(value: string) {
+  return value.replace(/\s+/g, " ").trim();
+}
+
 function parseTomsHardwareItems(text: string): DDRIndustryNewsRecord[] {
-  const itemPattern = new RegExp("([^。]*?(?:RAM|DRAM|DDR5|Micron|memory)[^.。]{12,180}?published\\s+([0-9]{1,2}\\s+[A-Z][a-z]+\\s+[0-9]{2})\\s+([^。]*?)(?=\\s+[A-Z][a-z]+\\s|$))", "gi");
+  const section = text.split("Latest about RAM shortage")[1]?.split("Stay On the Cutting Edge")[0] || text;
+  const itemPattern = /(.{12,220}?)\s+By\s+[A-Z][A-Za-z .'-]+(?:,\s*[A-Z][A-Za-z .'-]+)?\s+published\s+(\d{1,2}\s+[A-Z][a-z]+\s+\d{2})\s+(.{24,320}?)(?=\s+.{12,220}?\s+By\s+[A-Z][A-Za-z .'-]+(?:,\s*[A-Z][A-Za-z .'-]+)?\s+published\s+\d{1,2}\s+[A-Z][a-z]+\s+\d{2}|\s+1\s+2\s+3\s+Archives|$)/gi;
   const records: DDRIndustryNewsRecord[] = [];
-  for (const match of text.matchAll(itemPattern)) {
-    const title = match[1].trim();
-    const date = match[2].trim();
-    const summary = match[3].trim();
+  for (const match of section.matchAll(itemPattern)) {
+    const title = cleanTomsHardwareText(match[1]);
+    const date = cleanTomsHardwareText(match[2]);
+    const summary = cleanTomsHardwareText(match[3]).replace(/\s+(RAM|DRAM|DDR5|PC Building|Laptops|Operating Systems)$/i, "");
     const combined = `${title} ${summary}`;
-    if (!/RAM|DRAM|DDR5|Micron|memory|shortage|AI/i.test(combined)) continue;
+    if (!/RAM|DRAM|DDR5|Micron|memory|shortage|AI|supply|price/i.test(combined)) continue;
     records.push({
       type: "industry_news",
       source: "Tom's Hardware",
       title,
       date,
       summary,
-      impact: /AI|shortage|price|increase|crunch|supply|Micron/i.test(combined) ? "上涨原因" : "行业观察",
+      impact: /AI|shortage|price|increase|crunch|supply|constraint|soar|hike|4x/i.test(combined) ? "上涨原因" : "行业观察",
       url: tomsHardwareAnalysisUrl,
     });
     if (records.length >= 4) break;
@@ -267,17 +272,18 @@ export async function fetchTomsHardwareAnalysis(): Promise<DDRIndustryNewsRecord
   const text = stripHtml(html);
   const parsed = parseTomsHardwareItems(text);
   if (parsed.length) return parsed;
-  const fallbackSummary = text.match(/Latest about RAM shortage\s+(.{40,260})/)?.[1]?.trim();
+  const fallbackSummary = cleanTomsHardwareText(text.match(/Latest about RAM shortage\s+(.{40,360})/)?.[1] || "");
   return fallbackSummary ? [{
     type: "industry_news",
     source: "Tom's Hardware",
     title: "RAM shortage coverage",
     date: "",
     summary: fallbackSummary,
-    impact: "行业观察",
+    impact: /AI|shortage|price|increase|crunch|supply|constraint|soar|hike/i.test(fallbackSummary) ? "上涨原因" : "行业观察",
     url: tomsHardwareAnalysisUrl,
   }] : [];
 }
+
 
 export async function fetchDDRMarketData(fallback?: DDRFallbackInput): Promise<DDRMarketData> {
   if (hasFallbackData(fallback)) {
