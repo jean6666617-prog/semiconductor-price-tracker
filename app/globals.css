@@ -340,7 +340,7 @@ td a,.text-button { color:var(--green); text-decoration:none; border:0; backgrou
 .ddr-driver-list div,.ddr-news-list a { display:grid; gap:3px; }
 .ddr-news-list a { padding:8px 9px; border:1px solid #f0eadf; border-radius:8px; background:#fffdf8; text-decoration:none; }
 .ddr-driver-list strong,.ddr-news-list strong { color:var(--ink); font-size:11px; line-height:1.35; }
-.ddr-driver-list p { color:#65736d; font-size:10px; line-height:1.55; }
+.ddr-driver-list p,.ddr-news-list p { color:#65736d; font-size:10px; line-height:1.55; }
 .ddr-news-list span { color:#8f8068; font-size:9px; font-weight:800; line-height:1.4; }
 .ddr-card-section a,.ddr-source-link,.ddr-source-attribution a { color:#8a6a24; font-weight:900; text-decoration:none; }
 .ddr-source-link { justify-self:start; font-size:9px; letter-spacing:.08em; text-transform:uppercase; }
