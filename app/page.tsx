@@ -6,6 +6,7 @@ import keyComponentsConfig from "../config/key-components.json";
 import trackingConfig from "../config/tracking.json";
 import { runCrawler, type PriceResult, type TrackingEntry } from "../lib/crawlers";
 import { analyzePlasticTrends } from "../lib/analysis/plasticTrendAnalysis";
+import { buildMaterialMarketItems, getMarketSourceLabel, marketCategories, type MarketCategory } from "../lib/analysis/materialMarketInsight";
 import { parseJsonTargetResponse } from "../lib/crawlers/response";
 import type { KeyComponentEntry } from "../lib/crawlers/cytech";
 import { exportAllPriceData, exportLatestUpdateData, type PriceExportRow } from "../lib/exportExcel";
@@ -19,23 +20,8 @@ const obsoleteMpns = new Set(["MCIMX515DVM10AC"]);
 
 const statuses: Status[] = ["已更新", "待更新", "待确认", "暂无来源", "已追踪", "待验证", "待接入"];
 const trendRanges = ["7天", "30天", "90天", "180天", "全部"] as const;
-const marketCategories: MarketCategory[] = ["Plastic", "Memory", "Display", "Battery", "SOC"];
 type TrendRange = typeof trendRanges[number];
 type TrendMode = "all" | "single" | "key";
-type MarketCategory = "Plastic" | "Memory" | "Display" | "Battery" | "SOC";
-type MarketTrend = "上涨" | "下跌" | "震荡" | "稳定" | "数据接入中";
-type MarketItem = {
-  name: string;
-  category: MarketCategory;
-  price: number | null;
-  unit: string;
-  change: number | null;
-  trend: MarketTrend;
-  source: string;
-  description: string;
-  factors: string[];
-  updateDate?: string;
-};
 type UpdateResult = PriceResult & { mode?: "real" | "mock" };
 type KeyComponentResult = PriceResult & { id: string };
 type KeyComponentTableItem = Omit<Item, "id"> & {
@@ -797,40 +783,9 @@ export default function Home() {
     };
   }, [sortedHistory, sourceByTrendKey, unitByTrendKey, updateResults]);
   const plasticAnalyses = useMemo(() => analyzePlasticTrends(sortedHistory), [sortedHistory]);
-  const marketItemsByCategory = useMemo<Record<MarketCategory, MarketItem[]>>(() => {
-    const placeholder = (category: MarketCategory, name: string, source: string, description: string): MarketItem => ({
-      name,
-      category,
-      price: null,
-      unit: "",
-      change: null,
-      trend: "数据接入中",
-      source,
-      description,
-      factors: ["接口预留", "等待正式数据源接入", "不生成模拟价格"],
-    });
-
-    return {
-      Plastic: plasticAnalyses.map((analysis) => ({
-        name: analysis.material,
-        category: "Plastic",
-        price: analysis.currentPrice,
-        unit: analysis.unit,
-        change: analysis.changeRate,
-        trend: analysis.trend,
-        source: "SunSirs",
-        description: analysis.marketView,
-        factors: [...analysis.positiveFactors, ...analysis.negativeFactors],
-        updateDate: analysis.updateDate,
-      })),
-      Memory: [placeholder("Memory", "DDR", "DRAMeXchange / TrendForce / DigiTimes", "DDR价格趋势数据接入中，后续将用于承接存储器现货与合约价格分析。")],
-      Display: [placeholder("Display", "LCD", "Future data source", "显示面板价格趋势入口已预留，等待后续接入 LCD 数据源。")],
-      Battery: [placeholder("Battery", "Battery", "Future data source", "电池原材料价格趋势入口已预留，等待后续接入电池材料数据源。")],
-      SOC: [placeholder("SOC", "SOC", "Future data source", "SOC关键器件市场趋势入口已预留，等待后续接入对应数据源。")],
-    };
-  }, [plasticAnalyses]);
+  const marketItemsByCategory = useMemo(() => buildMaterialMarketItems(plasticAnalyses), [plasticAnalyses]);
   const activeMarketItems = marketItemsByCategory[activeMarketCategory];
-  const activeMarketSource = activeMarketCategory === "Plastic" ? "SunSirs · ABS / PC / PP / PVC / PET" : `${activeMarketCategory} · 数据接入中`;
+  const activeMarketSource = getMarketSourceLabel(activeMarketCategory);
   const trendGroups = Array.from(new Set(Object.keys(sortedHistory).map((key) => key.split("::")[0])));
   const trendOptions = Object.keys(sortedHistory).filter((key) => key.startsWith(`${trendGroup}::`));
   const activeTrendKey = trendOptions.includes(trendCommodity) ? trendCommodity : trendOptions[0] || Object.keys(sortedHistory)[0];
