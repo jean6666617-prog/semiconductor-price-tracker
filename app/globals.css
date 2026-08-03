@@ -280,7 +280,8 @@ td a,.text-button { color:var(--green); text-decoration:none; border:0; backgrou
 
 /* Dashboard priority layout: compact movers, dominant plastic insight, compact risk. */
 .dashboard-priority-panel { padding:14px; }
-.dashboard-priority-grid { grid-template-columns:3fr 5fr 2fr; gap:12px; align-items:stretch; }
+.dashboard-priority-grid { grid-template-columns:minmax(240px,26%) minmax(0,1fr); gap:16px; align-items:start; }
+.dashboard-main-stack { min-width:0; display:grid; gap:12px; }
 .compact-mover-list { padding:13px; align-self:start; }
 .compact-head { margin-bottom:8px; }
 .compact-head span { font-size:13px; gap:2px; }
@@ -292,14 +293,15 @@ td a,.text-button { color:var(--green); text-decoration:none; border:0; backgrou
 .compact-mover-row .mover-rate { font-size:17px; }
 .compact-mover-row .mover-price { font-size:9px; }
 .compact-empty { min-height:72px; font-size:11px; }
-.plastic-market-insight { min-width:0; border:1px solid #ead79b; border-radius:13px; background:linear-gradient(180deg,#fffdf8 0%,#ffffff 54%); padding:16px; box-shadow:0 14px 34px rgba(120,86,31,.08); }
-.plastic-insight-head { display:flex; align-items:flex-end; justify-content:space-between; gap:18px; margin-bottom:14px; padding-bottom:12px; border-bottom:1px solid #eadfc8; }
-.plastic-insight-head .kicker { margin-bottom:7px; color:#a47b29; }
+.plastic-market-insight { min-width:0; border:1px solid #ead79b; border-radius:13px; background:linear-gradient(180deg,#fffdf8 0%,#ffffff 54%); padding:14px 18px 18px; box-shadow:0 14px 34px rgba(120,86,31,.08); }
+.plastic-insight-head { display:flex; align-items:flex-end; justify-content:space-between; gap:16px; margin-bottom:10px; padding-bottom:9px; border-bottom:1px solid #eadfc8; }
+.plastic-insight-head .kicker { margin-bottom:5px; color:#a47b29; }
 .plastic-insight-head h3 { margin:0; font-family:Georgia,"Noto Serif SC",serif; font-size:28px; font-weight:500; letter-spacing:-.02em; }
 .plastic-insight-head > span { color:#8f8068; font-size:10px; font-weight:800; white-space:nowrap; }
-.plastic-insight-grid { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:9px; }
-.plastic-insight-card { min-height:290px; padding:14px; border:1px solid #e5dac5; border-radius:11px; background:white; display:flex; flex-direction:column; gap:10px; }
-.plastic-card-top { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; }
+.plastic-insight-grid { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:12px; }
+.plastic-insight-card { grid-column:span 3; min-height:245px; padding:16px 18px; border:1px solid #e5dac5; border-radius:11px; background:white; display:flex; flex-direction:column; gap:10px; }
+.plastic-insight-card:nth-child(n+3) { grid-column:span 2; }
+.plastic-card-top { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
 .plastic-card-top strong { font-family:Georgia,serif; font-size:26px; font-weight:500; color:var(--ink); }
 .plastic-card-top span { color:#9b8a6d; font-size:9px; font-family:"SFMono-Regular",Consolas,monospace; text-align:right; }
 .plastic-price { display:grid; gap:2px; }
@@ -314,25 +316,31 @@ td a,.text-button { color:var(--green); text-decoration:none; border:0; backgrou
 .plastic-insight-card ul { margin:auto 0 0; padding:10px 0 0; border-top:1px solid #f0eadf; list-style:none; display:grid; gap:5px; }
 .plastic-insight-card li { color:#65736d; font-size:10px; line-height:1.4; }
 .plastic-insight-card li::before { content:"-"; color:#b58a35; margin-right:6px; }
-.compact-risk-card { padding:13px; align-self:start; gap:9px; }
+.compact-risk-card { padding:12px 14px; align-self:stretch; gap:8px 14px; display:grid; grid-template-columns:minmax(120px,.55fr) minmax(160px,.8fr) minmax(0,1.6fr); align-items:center; }
+.compact-risk-card .compact-head { grid-column:1/-1; margin-bottom:0; padding-bottom:7px; border-bottom:1px solid #eadfc8; }
 .compact-risk-card .risk-level { padding:8px 10px; border-radius:9px; }
 .compact-risk-card .risk-level strong { font-size:26px; }
 .compact-risk-card .risk-name { font-size:14px; line-height:1.3; }
-.compact-risk-card p { font-size:11px; line-height:1.55; }
-.compact-risk-card dl { grid-template-columns:1fr; gap:6px; }
+.compact-risk-card p { margin:0; font-size:11px; line-height:1.55; }
+.compact-risk-card dl { grid-column:1/-1; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; }
 .compact-risk-card dl div { padding:8px; }
 .compact-risk-card dt { font-size:9px; }
 .compact-risk-card dd { font-size:10px; }
 
 @media (max-width:1180px) {
   .dashboard-priority-grid { grid-template-columns:1fr; }
+  .dashboard-main-stack { gap:12px; }
   .compact-mover-list,.compact-risk-card { align-self:stretch; }
-  .plastic-insight-grid { grid-template-columns:repeat(3,minmax(0,1fr)); }
+  .plastic-insight-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .plastic-insight-card,.plastic-insight-card:nth-child(n+3) { grid-column:auto; }
 }
 @media (max-width:760px) {
   .plastic-insight-head { align-items:flex-start; flex-direction:column; gap:8px; }
   .plastic-insight-head > span { white-space:normal; }
   .plastic-insight-grid { grid-template-columns:1fr; }
   .plastic-insight-card { min-height:auto; }
+  .compact-risk-card { grid-template-columns:1fr; }
+  .compact-risk-card .compact-head,.compact-risk-card dl { grid-column:auto; }
+  .compact-risk-card dl { grid-template-columns:1fr; }
   .compact-mover-row { grid-template-columns:minmax(0,1fr) 66px 78px; }
 }

@@ -1628,37 +1628,39 @@ export default function Home() {
                 }) : <div className="price-mover-empty compact-empty">今日暂无发生价格变化的追踪对象。</div>}
               </div>
 
-              <section className="plastic-market-insight" aria-label="塑料件市场趋势分析">
-                <div className="plastic-insight-head">
-                  <div><p className="kicker">PLASTIC MATERIAL MARKET INSIGHT</p><h3>塑料件市场趋势分析</h3></div>
-                  <span>SunSirs · ABS / PC / PP / PVC / PET</span>
-                </div>
-                <div className="plastic-insight-grid">
-                  {plasticAnalyses.map((analysis) => {
-                    const factors = [...analysis.positiveFactors, ...analysis.negativeFactors];
-                    const trendIcon = analysis.trend === "上涨" ? "↑" : analysis.trend === "下跌" ? "↓" : analysis.trend === "稳定" ? "→" : "↔";
-                    const trendTone = analysis.trend === "上涨" && analysis.positiveFactors.length >= analysis.negativeFactors.length ? "上涨偏强" : analysis.trend === "下跌" ? "下跌偏弱" : analysis.trend === "震荡" && analysis.positiveFactors.length > analysis.negativeFactors.length ? "震荡偏强" : analysis.trend === "震荡" && analysis.negativeFactors.length > analysis.positiveFactors.length ? "震荡偏弱" : analysis.trend;
-                    return <article className="plastic-insight-card" key={analysis.material}>
-                      <div className="plastic-card-top"><strong>{analysis.material}</strong><span>{analysis.updateDate || "暂无日期"}</span></div>
-                      <div className="plastic-price"><b>{formatTrendPrice(analysis.currentPrice)}</b><small>{analysis.unit}</small></div>
-                      <div className={`plastic-trend-pill ${analysis.trend}`}><span>{trendTone} {trendIcon}</span><em>{analysis.changeRate >= 0 ? "+" : ""}{analysis.changeRate.toFixed(2)}%</em></div>
-                      <p>{analysis.marketView}</p>
-                      <ul>{(factors.length ? factors : ["暂无明确关键词信号"]).slice(0, 3).map((factor) => <li key={factor}>{factor}</li>)}</ul>
-                    </article>;
-                  })}
-                </div>
-              </section>
+              <div className="dashboard-main-stack">
+                <section className="plastic-market-insight" aria-label="塑料件市场趋势分析">
+                  <div className="plastic-insight-head">
+                    <div><p className="kicker">PLASTIC MATERIAL MARKET INSIGHT</p><h3>塑料件市场趋势分析</h3></div>
+                    <span>SunSirs · ABS / PC / PP / PVC / PET</span>
+                  </div>
+                  <div className="plastic-insight-grid">
+                    {plasticAnalyses.map((analysis) => {
+                      const factors = [...analysis.positiveFactors, ...analysis.negativeFactors];
+                      const trendIcon = analysis.trend === "上涨" ? "↑" : analysis.trend === "下跌" ? "↓" : analysis.trend === "稳定" ? "→" : "↔";
+                      const trendTone = analysis.trend === "上涨" && analysis.positiveFactors.length >= analysis.negativeFactors.length ? "上涨偏强" : analysis.trend === "下跌" ? "下跌偏弱" : analysis.trend === "震荡" && analysis.positiveFactors.length > analysis.negativeFactors.length ? "震荡偏强" : analysis.trend === "震荡" && analysis.negativeFactors.length > analysis.positiveFactors.length ? "震荡偏弱" : analysis.trend;
+                      return <article className="plastic-insight-card" key={analysis.material}>
+                        <div className="plastic-card-top"><strong>{analysis.material}</strong><span>{analysis.updateDate || "暂无日期"}</span></div>
+                        <div className="plastic-price"><b>{formatTrendPrice(analysis.currentPrice)}</b><small>{analysis.unit}</small></div>
+                        <div className={`plastic-trend-pill ${analysis.trend}`}><span>{trendTone} {trendIcon}</span><em>{analysis.changeRate >= 0 ? "+" : ""}{analysis.changeRate.toFixed(2)}%</em></div>
+                        <p>{analysis.marketView}</p>
+                        <ul>{(factors.length ? factors : ["暂无明确关键词信号"]).slice(0, 3).map((factor) => <li key={factor}>{factor}</li>)}</ul>
+                      </article>;
+                    })}
+                  </div>
+                </section>
 
-              <aside className={`risk-alert-card compact-risk-card level-${dailyInsights.risk.level}`}>
-                <div className="insight-block-head compact-head"><span>风险提示</span><small>Risk Alert</small></div>
-                <div className="risk-level"><span>风险等级</span><strong>{dailyInsights.risk.level}</strong></div>
-                <strong className="risk-name">{dailyInsights.risk.entry.name}</strong>
-                <p>{dailyInsights.risk.reason}</p>
-                <dl>
-                  <div><dt>当前价格</dt><dd>{formatTrendPrice(dailyInsights.risk.entry.price)} {dailyInsights.risk.entry.unit}</dd></div>
-                  <div><dt>历史偏离</dt><dd title={dailyInsights.risk.averageTooltip}>{dailyInsights.risk.entry.averageGapRate >= 0 ? "+" : ""}{dailyInsights.risk.entry.averageGapRate.toFixed(2)}%</dd></div>
-                </dl>
-              </aside>
+                <aside className={`risk-alert-card compact-risk-card level-${dailyInsights.risk.level}`}>
+                  <div className="insight-block-head compact-head"><span>风险提示</span><small>Risk Alert</small></div>
+                  <div className="risk-level"><span>风险等级</span><strong>{dailyInsights.risk.level}</strong></div>
+                  <strong className="risk-name">{dailyInsights.risk.entry.name}</strong>
+                  <p>{dailyInsights.risk.reason}</p>
+                  <dl>
+                    <div><dt>当前价格</dt><dd>{formatTrendPrice(dailyInsights.risk.entry.price)} {dailyInsights.risk.entry.unit}</dd></div>
+                    <div><dt>历史偏离</dt><dd title={dailyInsights.risk.averageTooltip}>{dailyInsights.risk.entry.averageGapRate >= 0 ? "+" : ""}{dailyInsights.risk.entry.averageGapRate.toFixed(2)}%</dd></div>
+                  </dl>
+                </aside>
+              </div>
             </div>
           </div>
         </section>
