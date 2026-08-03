@@ -127,6 +127,36 @@ function filterObsoleteHistory(history?: Record<string, [string, number][]>) {
   }));
 }
 
+function ddrShortOutlook(trend: string) {
+  if (trend === "上涨") return "短期价格仍偏上行，需继续关注AI服务器备货、HBM产能分配和DDR4供给收缩。";
+  if (trend === "下跌") return "短期价格偏弱，需关注PC和服务器需求是否继续放缓。";
+  if (trend === "稳定") return "短期价格大概率维持窄幅波动，等待新一轮供需信号。";
+  return "短期市场以震荡观察为主，价格方向取决于需求恢复和原厂供给节奏。";
+}
+
+function ddrDriverDetails(factors: string[]) {
+  const text = factors.join(" ");
+  const details = [
+    {
+      title: "AI服务器需求增长",
+      body: /AI|数据中心|服务器/i.test(text) ? "AI服务器和数据中心采购持续挤占DRAM供给，支撑DDR相关产品报价。" : "当前公开材料未给出明确AI服务器增量，但该项仍是后续DDR需求观察重点。",
+    },
+    {
+      title: "HBM产能竞争",
+      body: /HBM/i.test(text) ? "HBM需求提升会影响DRAM厂商产能配置，间接压缩部分传统DDR供给弹性。" : "当前公开材料未披露明确HBM分配变化，需继续跟踪TrendForce后续更新。",
+    },
+    {
+      title: "DDR4供应收缩",
+      body: /DDR4|供应收缩|Consumer DRAM|减产/i.test(text) ? "DDR4供给收缩强化现货市场支撑，成熟制程产品价格更容易受到供应变化影响。" : "当前公开材料未显示新的DDR4减产细节，价格仍需结合DRAMeXchange现货报价观察。",
+    },
+    {
+      title: "DDR5迁移影响",
+      body: /DDR5|RDIMM|升级/i.test(text) ? "服务器与PC平台向DDR5迁移，带动新规格需求提升，同时改变DDR4/DDR5之间的供需结构。" : "当前公开材料未给出明确DDR5迁移幅度，仍保留为后续需求判断项。",
+    },
+  ];
+  return details;
+}
+
 function trackingFor(category: string, name: string, mpn?: string) {
   return trackingEntries.find((entry) => entry.enabled
     && normalize(entry.category) === normalize(category)
@@ -1655,6 +1685,37 @@ export default function Home() {
                     const trendIcon = item.trend === "上涨" ? "↑" : item.trend === "下跌" ? "↓" : item.trend === "稳定" ? "→" : item.trend === "数据接入中" ? "·" : "↔";
                     const displayPrice = item.price === null ? "--" : formatTrendPrice(item.price);
                     const displayChange = item.change === null ? "--" : `${item.change >= 0 ? "+" : ""}${item.change.toFixed(2)}%`;
+                    if (activeMarketCategory === "Memory") {
+                      const driverDetails = ddrDriverDetails(item.factors);
+                      const newsItems = (ddrMarketData?.industryNews ?? []).filter((news) => news.source === "DigiTimes" || news.source === "Tom's Hardware").slice(0, 3);
+                      return <article className={`plastic-insight-card material-insight-card ddr-market-card ${item.price === null ? "pending" : ""}`} key={`${item.category}-${item.name}`}>
+                        <div className="plastic-card-top"><strong>{item.name}</strong><span>{item.updateDate || "暂无公开日期"}</span></div>
+                        <section className="ddr-card-section price-snapshot" aria-label={`${item.name} Price Snapshot`}>
+                          <small>Price Snapshot</small>
+                          <div className="plastic-price"><b>{displayPrice}</b><small>{item.unit || "USD"}</small></div>
+                          <div className={`plastic-trend-pill ${item.trend}`}><span>{item.trend} {trendIcon}</span><em>{displayChange}</em></div>
+                        </section>
+                        <section className="ddr-card-section" aria-label={`${item.name} Market Trend Analysis`}>
+                          <small>Market Trend Analysis · TrendForce</small>
+                          <p>{item.description}</p>
+                          <p>{ddrShortOutlook(item.trend)}</p>
+                        </section>
+                        <section className="ddr-card-section" aria-label={`${item.name} Price Movement Drivers`}>
+                          <small>{"Price Movement Drivers · TrendForce / Tom's Hardware"}</small>
+                          <div className="ddr-driver-list">{driverDetails.map((driver) => <div key={driver.title}><strong>{driver.title}</strong><p>{driver.body}</p></div>)}</div>
+                        </section>
+                        <section className="ddr-card-section" aria-label={`${item.name} Industry News`}>
+                          <small>{"Industry News · DigiTimes / Tom's Hardware"}</small>
+                          <div className="ddr-news-list">{newsItems.length ? newsItems.map((news) => <div key={`${news.source}-${news.title}`}><strong>{news.title}</strong><span>{news.date || "暂无公开日期"} · {news.impact}</span></div>) : <div><strong>暂无公开新闻摘要</strong><span>{"等待 DigiTimes / Tom's Hardware 可访问内容更新"}</span></div>}</div>
+                        </section>
+                        <footer className="ddr-source-attribution" aria-label={`${item.name} Source Attribution`}>
+                          <span><b>Price:</b> DRAMeXchange</span>
+                          <span><b>Trend:</b> TrendForce</span>
+                          <span><b>Analysis:</b> {"Tom's Hardware"}</span>
+                          <span><b>News:</b> DigiTimes</span>
+                        </footer>
+                      </article>;
+                    }
                     return <article className={`plastic-insight-card material-insight-card ${item.price === null ? "pending" : ""}`} key={`${item.category}-${item.name}`}>
                       <div className="plastic-card-top"><strong>{item.name}</strong><span>{item.updateDate || item.source}</span></div>
                       <div className="plastic-price"><b>{displayPrice}</b><small>{item.unit || item.source}</small></div>
