@@ -19,7 +19,7 @@ export type MarketItem = {
 
 export const marketCategories: MarketCategory[] = ["Plastic", "Memory", "Display", "Battery", "SOC"];
 
-const ddrSourceLabel = "Price: DRAMeXchange | Contract: DRAMeXchange / TrendForce | Analysis: TrendForce | News: DigiTimes";
+const ddrSourceLabel = "Price: DRAMeXchange | Contract: DRAMeXchange / TrendForce | Market Trend: TrendForce | Analysis: Tom's Hardware | Industry News: DigiTimes";
 
 function pendingItem(category: MarketCategory, name: string, source: string, description: string): MarketItem {
   return {
@@ -69,7 +69,8 @@ export function ddrMarketDataToMarketItems(ddrData?: DDRMarketData): MarketItem[
   }
 
   const analysis = ddrData.marketAnalyses[0];
-  const news = ddrData.industryNews[0];
+  const news = ddrData.industryNews.find((record) => record.source === "DigiTimes");
+  const tomsHardwareNews = ddrData.industryNews.filter((record) => record.source === "Tom's Hardware");
   const contractByProduct = new Map(ddrData.contractPrices.map((record) => [record.product, record]));
   const products = ["DDR4", "DDR5"];
   return products.map((product) => {
@@ -79,6 +80,7 @@ export function ddrMarketDataToMarketItems(ddrData?: DDRMarketData): MarketItem[
     const change = spot?.change ? parsePrice(spot.change) : null;
     const factors = [
       ...(analysis?.factors?.filter((factor) => !factor.startsWith("趋势：")) ?? []),
+      ...tomsHardwareNews.slice(0, 3).map((record) => `Tom's Hardware行业观察：${record.summary}`),
       ...(news?.impact ? [`DigiTimes影响方向：${news.impact}`] : []),
     ];
     return {

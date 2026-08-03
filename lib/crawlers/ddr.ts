@@ -33,7 +33,7 @@ export type DDRMarketAnalysisRecord = {
 
 export type DDRIndustryNewsRecord = {
   type: "industry_news";
-  source: "DigiTimes";
+  source: "DigiTimes" | "Tom's Hardware";
   title: string;
   date: string;
   summary: string;
@@ -60,6 +60,7 @@ export const ddrSourceUrls = {
   contractPriceTrendForce: "https://www.trendforce.cn/",
   marketAnalysis: "https://www.trendforce.cn/",
   industryNews: "https://www.digitimes.com/",
+  tomsHardwareAnalysis: "https://www.tomshardware.com/tag/ram-shortage",
 } as const;
 
 const trendForceTrendUrls = [
@@ -68,6 +69,7 @@ const trendForceTrendUrls = [
   "https://www.trendforce.cn/presscenter/news/20260331-12993.html",
 ];
 const digiTimesNewsUrl = "https://www.digitimes.com/news/a20260603VL216/dram-ddr4-ddr5-demand-price.html";
+const tomsHardwareAnalysisUrl = ddrSourceUrls.tomsHardwareAnalysis;
 
 function hasFallbackData(fallback?: DDRFallbackInput) {
   return Boolean(
@@ -237,6 +239,46 @@ export async function fetchDDRIndustryNews(): Promise<DDRIndustryNewsRecord[]> {
   }];
 }
 
+function parseTomsHardwareItems(text: string): DDRIndustryNewsRecord[] {
+  const itemPattern = new RegExp("([^。]*?(?:RAM|DRAM|DDR5|Micron|memory)[^.。]{12,180}?published\\s+([0-9]{1,2}\\s+[A-Z][a-z]+\\s+[0-9]{2})\\s+([^。]*?)(?=\\s+[A-Z][a-z]+\\s|$))", "gi");
+  const records: DDRIndustryNewsRecord[] = [];
+  for (const match of text.matchAll(itemPattern)) {
+    const title = match[1].trim();
+    const date = match[2].trim();
+    const summary = match[3].trim();
+    const combined = `${title} ${summary}`;
+    if (!/RAM|DRAM|DDR5|Micron|memory|shortage|AI/i.test(combined)) continue;
+    records.push({
+      type: "industry_news",
+      source: "Tom's Hardware",
+      title,
+      date,
+      summary,
+      impact: /AI|shortage|price|increase|crunch|supply|Micron/i.test(combined) ? "上涨原因" : "行业观察",
+      url: tomsHardwareAnalysisUrl,
+    });
+    if (records.length >= 4) break;
+  }
+  return records;
+}
+
+export async function fetchTomsHardwareAnalysis(): Promise<DDRIndustryNewsRecord[]> {
+  const html = await fetchText(tomsHardwareAnalysisUrl);
+  const text = stripHtml(html);
+  const parsed = parseTomsHardwareItems(text);
+  if (parsed.length) return parsed;
+  const fallbackSummary = text.match(/Latest about RAM shortage\s+(.{40,260})/)?.[1]?.trim();
+  return fallbackSummary ? [{
+    type: "industry_news",
+    source: "Tom's Hardware",
+    title: "RAM shortage coverage",
+    date: "",
+    summary: fallbackSummary,
+    impact: "行业观察",
+    url: tomsHardwareAnalysisUrl,
+  }] : [];
+}
+
 export async function fetchDDRMarketData(fallback?: DDRFallbackInput): Promise<DDRMarketData> {
   if (hasFallbackData(fallback)) {
     return {
@@ -252,17 +294,22 @@ export async function fetchDDRMarketData(fallback?: DDRFallbackInput): Promise<D
   }
 
   const errors: string[] = [];
-  const [spotResult, analysisResult, newsResult] = await Promise.allSettled([
+  const [spotResult, analysisResult, newsResult, tomsHardwareResult] = await Promise.allSettled([
     fetchDDRSpotPrices(),
     fetchDDRMarketAnalyses(),
     fetchDDRIndustryNews(),
+    fetchTomsHardwareAnalysis(),
   ]);
   const spotPrices = spotResult.status === "fulfilled" ? spotResult.value : [];
   const marketAnalyses = analysisResult.status === "fulfilled" ? analysisResult.value : [];
-  const industryNews = newsResult.status === "fulfilled" ? newsResult.value : [];
+  const industryNews = [
+    ...(newsResult.status === "fulfilled" ? newsResult.value : []),
+    ...(tomsHardwareResult.status === "fulfilled" ? tomsHardwareResult.value : []),
+  ];
   if (spotResult.status === "rejected") errors.push(`DRAMeXchange spot price unavailable: ${spotResult.reason instanceof Error ? spotResult.reason.message : "unknown error"}`);
   if (analysisResult.status === "rejected") errors.push(`TrendForce analysis unavailable: ${analysisResult.reason instanceof Error ? analysisResult.reason.message : "unknown error"}`);
   if (newsResult.status === "rejected") errors.push(`DigiTimes news unavailable: ${newsResult.reason instanceof Error ? newsResult.reason.message : "unknown error"}`);
+  if (tomsHardwareResult.status === "rejected") errors.push(`Tom's Hardware analysis unavailable: ${tomsHardwareResult.reason instanceof Error ? tomsHardwareResult.reason.message : "unknown error"}`);
 
   const contractPrices = marketAnalyses[0]
     ? ["DDR4", "DDR5"].map((product) => ({
