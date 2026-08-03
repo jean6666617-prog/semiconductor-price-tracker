@@ -961,16 +961,6 @@ export default function Home() {
     setEditing(null);
   }
 
-  function resetData() {
-    setItems(seed);
-    setHistory(initialHistory);
-    localStorage.removeItem("semiconductor-price-latest-date-v3");
-    setImportMessage("");
-    setUpdateMessage("");
-    setLatestUpdateRows([]);
-    setQuery(""); setGroup("全部品类"); setStatus("全部状态");
-  }
-
   async function updatePrices(scope?: UpdateScope) {
     setUpdateMenuOpen(false);
     setExpandedUpdateMenuGroup(null);
@@ -1550,7 +1540,6 @@ export default function Home() {
           <button className="ghost-button" onClick={handleExportLatestUpdate}>导出本次更新</button>
           <button className="ghost-button" onClick={handleExportAll}>导出全部</button>
           <button className="ghost-button" onClick={() => fileInput.current?.click()}>↑ 导入 Excel</button>
-          <button className="ghost-button" onClick={resetData}>恢复示例数据</button>
         </div>
       </aside>
 
