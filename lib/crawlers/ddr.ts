@@ -96,6 +96,7 @@ function stripHtml(html: string) {
 
 async function fetchText(url: string) {
   const response = await fetch(url, {
+    cache: "no-store",
     headers: {
       "user-agent": "Mozilla/5.0 (compatible; SemiconductorPriceTracker/1.0)",
       accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -194,13 +195,33 @@ export async function fetchDDRContractPrices(): Promise<DDRContractPriceRecord[]
   }));
 }
 
+function extractTrendForceArticleUrls(html: string) {
+  const urls = new Set<string>();
+  for (const match of html.matchAll(/href=["']([^"']*presscenter\/news\/[^"']+\.html)["']/gi)) {
+    try {
+      const url = new URL(match[1], ddrSourceUrls.marketAnalysis).toString();
+      if (/trendforce\.cn$/i.test(new URL(url).hostname)) urls.add(url);
+    } catch {
+      continue;
+    }
+  }
+  return [...urls].slice(0, 8);
+}
+
 export async function fetchDDRMarketAnalyses(): Promise<DDRMarketAnalysisRecord[]> {
-  for (const url of trendForceTrendUrls) {
+  let discoveredUrls: string[] = [];
+  try {
+    discoveredUrls = extractTrendForceArticleUrls(await fetchText(ddrSourceUrls.marketAnalysis));
+  } catch {
+    discoveredUrls = [];
+  }
+  const candidateUrls = Array.from(new Set([...discoveredUrls, ...trendForceTrendUrls]));
+  for (const url of candidateUrls) {
     try {
       const html = await fetchText(url);
       const text = stripHtml(html);
       const title = titleFromHtml(html);
-      if (!/DRAM|DDR|存储器|内存/.test(`${title} ${text}`)) continue;
+      if (!/DRAM|DDR|存储器|内存/.test(title + " " + text)) continue;
       const factors = extractTrendFactors(text);
       const analysis = summarizeTrendForce(text, factors);
       return [{
@@ -209,7 +230,7 @@ export async function fetchDDRMarketAnalyses(): Promise<DDRMarketAnalysisRecord[
         title,
         date: dateFromTrendForce(text),
         summary: analysis.summary,
-        factors: [`趋势：${analysis.trend}`, ...factors],
+        factors: ["趋势：" + analysis.trend, ...factors],
         url,
       }];
     } catch {
@@ -218,7 +239,6 @@ export async function fetchDDRMarketAnalyses(): Promise<DDRMarketAnalysisRecord[
   }
   return [];
 }
-
 export async function fetchDDRIndustryNews(): Promise<DDRIndustryNewsRecord[]> {
   const html = await fetchText(digiTimesNewsUrl);
   const text = stripHtml(html);

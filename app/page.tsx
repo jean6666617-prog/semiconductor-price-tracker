@@ -211,42 +211,46 @@ function ddrNewsImpact(news: DDRIndustryNewsRecord) {
 }
 
 function buildDdrInsightItems(items: Item[], history: Record<string, [string, number][]>, ddrData?: DDRMarketData): DDRInsightItem[] {
-  const analysis = ddrData?.marketAnalyses[0];
+  const analysis = [...(ddrData?.marketAnalyses ?? [])].sort((a, b) => b.date.localeCompare(a.date))[0];
   const tomsNews = (ddrData?.industryNews ?? []).filter((news) => news.source === "Tom's Hardware");
   const digitimesNews = (ddrData?.industryNews ?? []).filter((news) => news.source === "DigiTimes");
-  const newsItems = [...tomsNews, ...digitimesNews].slice(0, 3);
+  const newsItems = [...tomsNews, ...digitimesNews].slice(0, 4);
   const factors = analysis?.factors?.filter((factor) => !factor.startsWith("趋势：")) ?? [];
-  return ["DDR4", "DDR5"].flatMap((product) => {
-    const entry = items.find((candidate) => candidate.group === "DDR内存" && candidate.source === "TrendForce" && candidate.name.startsWith(product) && !/eTT/i.test(candidate.name))
-      || items.find((candidate) => candidate.group === "DDR内存" && candidate.source === "TrendForce" && candidate.name.startsWith(product));
-    if (!entry) return [];
-    const series = sortSeries(history[`${entry.group}::${entry.name}`] ?? []);
-    const latest = series.at(-1);
-    const previous = series.length > 1 ? series.at(-2) : undefined;
-    const rawPrice = latest?.[1] ?? Number(String(entry.price).replace(/[^0-9.-]/g, ""));
-    const parsedPrice = Number.isFinite(rawPrice) ? rawPrice : null;
-    const change = parsedPrice !== null && previous?.[1] ? ((parsedPrice - previous[1]) / previous[1]) * 100 : null;
-    const trend = trendFromChange(change, `${analysis?.summary ?? ""} ${analysis?.factors?.join(" ") ?? ""}`);
-    return [{
-      name: entry.name,
-      category: "Memory" as const,
-      price: parsedPrice,
-      unit: entry.unit || "USD",
-      change,
-      trend,
-      source: "TrendForce",
-      description: analysis?.summary || analysis?.title || "DDR market analysis from TrendForce.",
-      factors,
-      updateDate: latest?.[0] || entry.updated || analysis?.date,
-      priceUrl: entry.url,
-      trendUrl: analysis?.url || "https://www.trendforce.cn/",
-      analysisUrl: "https://www.tomshardware.com/tag/ram-shortage",
-      newsItems,
-      marketAnalysis: analysis,
-    }];
-  });
+  const candidates = items
+    .filter((candidate) => candidate.group === "DDR内存" && candidate.source === "TrendForce")
+    .map((entry) => {
+      const series = sortSeries(history[entry.group + "::" + entry.name] ?? []);
+      const latest = series.at(-1);
+      const previous = series.length > 1 ? series.at(-2) : undefined;
+      const rawPrice = latest?.[1] ?? Number(entry.price);
+      return { entry, latest, previous, price: Number.isFinite(rawPrice) ? rawPrice : null };
+    })
+    .filter((candidate) => candidate.price !== null)
+    .sort((a, b) => (b.latest?.[0] || "").localeCompare(a.latest?.[0] || "") );
+  const selected = candidates[0];
+  if (!selected) return [];
+  const change = selected.price !== null && selected.previous?.[1]
+    ? ((selected.price - selected.previous[1]) / selected.previous[1]) * 100
+    : null;
+  const trend = trendFromChange(change, (analysis?.summary ?? "") + " " + (analysis?.factors?.join(" ") ?? "") );
+  return [{
+    name: "DDR / DRAM",
+    category: "Memory" as const,
+    price: selected.price,
+    unit: selected.entry.unit || "USD",
+    change,
+    trend,
+    source: "TrendForce",
+    description: analysis?.summary || analysis?.title || "TrendForce DDR/DRAM market analysis.",
+    factors,
+    updateDate: analysis?.date || selected.latest?.[0] || selected.entry.updated,
+    priceUrl: selected.entry.url,
+    trendUrl: analysis?.url || "https://www.trendforce.cn/",
+    analysisUrl: "https://www.tomshardware.com/tag/ram-shortage",
+    newsItems,
+    marketAnalysis: analysis,
+  }];
 }
-
 function trackingFor(category: string, name: string, mpn?: string) {
   return trackingEntries.find((entry) => entry.enabled
     && normalize(entry.category) === normalize(category)
@@ -760,11 +764,15 @@ export default function Home() {
 
   useEffect(() => {
     let active = true;
-    fetch("/api/crawler/ddr")
-      .then((response) => response.ok ? response.json() as Promise<DDRMarketData> : undefined)
-      .then((data) => { if (active && data) setDdrMarketData(data); })
-      .catch(() => { if (active) setDdrMarketData(undefined); });
-    return () => { active = false; };
+    const loadDdrMarketData = () => {
+      fetch("/api/crawler/ddr?refresh=" + Date.now(), { cache: "no-store" })
+        .then((response) => response.ok ? response.json() as Promise<DDRMarketData> : undefined)
+        .then((data) => { if (active && data) setDdrMarketData(data); })
+        .catch(() => { if (active) setDdrMarketData(undefined); });
+    };
+    loadDdrMarketData();
+    const refreshTimer = window.setInterval(loadDdrMarketData, 15 * 60 * 1000);
+    return () => { active = false; window.clearInterval(refreshTimer); };
   }, []);
 
   useEffect(() => {
