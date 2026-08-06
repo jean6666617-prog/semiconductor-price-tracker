@@ -31,6 +31,21 @@ const cytechHeaders = {
   "Upgrade-Insecure-Requests": "1",
 };
 
+function cytechCandidateUrls(sourceUrl: string) {
+  const original = new URL(sourceUrl);
+  const candidates = new Set<string>();
+  const path = original.pathname;
+  const cnOrigin = original.protocol + "//www.cytechsystems.com.cn";
+  const globalOrigin = original.protocol + "//www.cytechsystems.com";
+
+  candidates.add(cnOrigin + path);
+  if (path.endsWith("/tja1042t-3-118")) candidates.add(cnOrigin + "/product/tja1042t3%2C118");
+  if (path.endsWith("/tja1055t-c-518")) candidates.add(cnOrigin + "/product/tja1055tc%2C518");
+  candidates.add(globalOrigin + path);
+
+  return [...candidates];
+}
+
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -82,13 +97,12 @@ function parsePriceText(value: string) {
 }
 
 function parseCytechPrice(html: string) {
-  const priceBlock = html.match(/<div\s+class=["']product-price["'][^>]*>([\s\S]*?)<p>/i);
-  if (!priceBlock) return null;
-
-  const title = decodeEntities(priceBlock[1].match(/<div\s+class=["']product-price-title["'][^>]*>([\s\S]*?)<\/div>/i)?.[1] || "");
+  const priceBlock = html.match(/<div\s+class=[\"'][^\"']*product-price[^\"']*[\"'][^>]*>([\s\S]*?)<\/div>\s*<\/div>/i);
+  const priceHtml = priceBlock?.[1] || html;
+  const title = decodeEntities(priceHtml.match(/<div\s+class=[\"'][^\"']*product-price-title[^\"']*[\"'][^>]*>([\s\S]*?)<\/div>/i)?.[1] || "");
   const currency = /\bUSD\b|\$/.test(title) ? "USD" : /RMB|CNY|¥/.test(title) ? "RMB" : "USD";
   const unit = currency === "USD" ? "USD/pcs" : "RMB/pcs";
-  const tiers = Array.from(priceBlock[1].matchAll(
+  const tiers = Array.from(priceHtml.matchAll(
     /<div\s+class=["']product-price-item["'][^>]*>[\s\S]*?<div\s+class=["']product-price-qnty["'][^>]*>([\s\S]*?)<\/div>[\s\S]*?<div\s+class=["']product-price-num["'][^>]*>([\s\S]*?)<\/div>[\s\S]*?<\/div>/gi,
   ));
   const quantityOneTier = tiers.find((tier) => decodeEntities(tier[1]).replace(/\s+/g, "") === "1+");
@@ -155,12 +169,14 @@ function failedResult(entry: KeyComponentEntry, error: string): PriceResult & { 
 
 async function fetchCytechHtml(entry: KeyComponentEntry) {
   let lastError: unknown;
+  const urls = cytechCandidateUrls(entry.sourceUrl);
+  for (const candidateUrl of urls) {
   for (let attempt = 1; attempt <= maxFetchAttempts; attempt += 1) {
-    const releaseDomain = await waitForCytechDomain(entry.sourceUrl);
+    const releaseDomain = await waitForCytechDomain(candidateUrl);
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), cytechTimeoutMs);
     try {
-      const response = await fetch(entry.sourceUrl, {
+      const response = await fetch(candidateUrl, {
         cache: "no-store",
         signal: controller.signal,
         headers: cytechHeaders,
@@ -170,7 +186,7 @@ async function fetchCytechHtml(entry: KeyComponentEntry) {
       const blockedByCloudflare = isCloudflareChallenge(html);
       logCytechAttempt("response", {
         mpn: entry.mpn,
-        url: entry.sourceUrl,
+        url: candidateUrl,
         finalUrl: response.url || entry.sourceUrl,
         attempt,
         maxAttempts: maxFetchAttempts,
@@ -180,7 +196,7 @@ async function fetchCytechHtml(entry: KeyComponentEntry) {
         blockedByCloudflare,
       });
 
-      if (response.ok && !blockedByCloudflare) return { response, html, attempt };
+      if (response.ok && !blockedByCloudflare) return { response, html, attempt, sourceUrl: candidateUrl };
 
       lastError = cytechResponseError(response, html, "Cytech request failed");
       if (!isRetryableStatus(response.status)) break;
@@ -188,7 +204,7 @@ async function fetchCytechHtml(entry: KeyComponentEntry) {
       lastError = error;
       logCytechAttemptError("attempt failed", {
         mpn: entry.mpn,
-        url: entry.sourceUrl,
+        url: candidateUrl,
         attempt,
         maxAttempts: maxFetchAttempts,
         timeoutMs: cytechTimeoutMs,
@@ -205,13 +221,14 @@ async function fetchCytechHtml(entry: KeyComponentEntry) {
     if (attempt < maxFetchAttempts && delay) {
       logCytechAttempt("retry scheduled", {
         mpn: entry.mpn,
-        url: entry.sourceUrl,
+        url: candidateUrl,
         attempt,
         nextAttempt: attempt + 1,
         retryInMs: delay,
       });
       await sleep(delay);
     }
+  }
   }
 
   throw lastError instanceof Error ? lastError : new Error("Cytech request failed");
@@ -224,7 +241,7 @@ export async function fetchCytechPrice(entry: KeyComponentEntry): Promise<PriceR
 
   let responseStatus: number | "network-error" = "network-error";
   try {
-    const { response, html } = await fetchCytechHtml(entry);
+    const { response, html, sourceUrl } = await fetchCytechHtml(entry);
     responseStatus = response.status;
     const parsed = parseCytechPrice(html);
     if (!parsed) throw new Error("Cytech price not found");
@@ -240,7 +257,7 @@ export async function fetchCytechPrice(entry: KeyComponentEntry): Promise<PriceR
       currency: parsed.currency,
       unit: parsed.unit,
       source: entry.source,
-      sourceUrl: entry.sourceUrl,
+      sourceUrl,
       updateDate,
       crawlTime: new Date().toISOString(),
       mode: "real",
