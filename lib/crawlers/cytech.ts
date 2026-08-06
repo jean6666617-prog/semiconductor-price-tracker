@@ -97,21 +97,29 @@ function parsePriceText(value: string) {
 }
 
 function parseCytechPrice(html: string) {
-  const priceBlock = html.match(/<div\s+class=[\"'][^\"']*product-price[^\"']*[\"'][^>]*>([\s\S]*?)<\/div>\s*<\/div>/i);
+  const priceBlock = html.match(/<div\s+class=["'][^"']*product-price[^"']*["'][^>]*>([\s\S]*?)<\/div>\s*<\/div>/i);
   const priceHtml = priceBlock?.[1] || html;
-  const title = decodeEntities(priceHtml.match(/<div\s+class=[\"'][^\"']*product-price-title[^\"']*[\"'][^>]*>([\s\S]*?)<\/div>/i)?.[1] || "");
+  const title = decodeEntities(priceHtml.match(/<div\s+class=["'][^"']*product-price-title[^"']*["'][^>]*>([\s\S]*?)<\/div>/i)?.[1] || "");
   const currency = /\bUSD\b|\$/.test(title) ? "USD" : /RMB|CNY|¥/.test(title) ? "RMB" : "USD";
   const unit = currency === "USD" ? "USD/pcs" : "RMB/pcs";
   const tiers = Array.from(priceHtml.matchAll(
     /<div\s+class=["']product-price-item["'][^>]*>[\s\S]*?<div\s+class=["']product-price-qnty["'][^>]*>([\s\S]*?)<\/div>[\s\S]*?<div\s+class=["']product-price-num["'][^>]*>([\s\S]*?)<\/div>[\s\S]*?<\/div>/gi,
   ));
   const quantityOneTier = tiers.find((tier) => decodeEntities(tier[1]).replace(/\s+/g, "") === "1+");
-  if (!quantityOneTier) return null;
+  if (quantityOneTier) {
+    const parsed = parsePriceText(quantityOneTier[2]);
+    if (parsed) return { price: parsed.price, currency, unit };
+  }
 
-  const parsed = parsePriceText(quantityOneTier[2]);
-  return parsed ? { price: parsed.price, currency, unit } : null;
+  const visibleText = decodeEntities(html);
+  const referenceBlock = visibleText.match(/Reference\s+Price\s*(?:\((USD|RMB|CNY|SGD|EUR)\))?([\s\S]*?)(?:Considering\s+price\s+fluctuations|Product\s+Specifications|产品属性|$)/i);
+  if (!referenceBlock) return null;
+  const referenceCurrency = referenceBlock[1] || currency;
+  const onePiecePrice = referenceBlock[2].match(/(?:^|\s)1\+\s*(?:USD|US\$|\$|RMB|CNY|¥)?\s*([0-9][0-9,]*(?:\.[0-9]+)?)/i);
+  if (!onePiecePrice) return null;
+  const parsed = parsePriceText(referenceCurrency + " " + onePiecePrice[1]);
+  return parsed ? { price: parsed.price, currency: parsed.currency, unit: parsed.unit } : null;
 }
-
 function errorCauseCode(error: unknown) {
   if (!error || typeof error !== "object") return "";
   const cause = "cause" in error ? (error as { cause?: unknown }).cause : undefined;
