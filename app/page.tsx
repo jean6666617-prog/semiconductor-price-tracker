@@ -187,6 +187,16 @@ function cleanDdrSummary(value: string) {
   return decodeDdrEntities(value).replace(/\s+/g, " ").trim().slice(0, 180);
 }
 
+function heroNewsChineseTitle(news: DDRIndustryNewsRecord) {
+  const title = cleanDdrSummary(news.title);
+  if (/Microsoft.*Xbox.*£?200|Xbox.*200.*pound/i.test(title)) return "微软上调欧洲 Xbox 售价，最高涨价 200 英镑";
+  if (/RAM shortage|memory shortage|DRAM shortage/i.test(title)) return "内存短缺持续，供应压力推高相关零部件价格";
+  if (/DDR4.*DDR5|DDR5.*DDR4/i.test(title)) return "DDR4 与 DDR5 供需变化影响内存价格";
+  if (/AI.*server|server.*AI|DRAM demand/i.test(title)) return "AI 服务器需求继续影响 DRAM 市场";
+  if (/Samsung|SK hynix|Micron/i.test(title)) return "主要内存厂商供应变化影响市场价格";
+  return "半导体供应链最新市场动态";
+}
+
 function ddrDriverDetails(item: DDRInsightItem, newsItems: DDRIndustryNewsRecord[]): DDRDriverDetail[] {
   const factors = item.factors;
   const text = [...factors, ...newsItems.map((news) => `${news.title} ${news.summary}`)].join(" ");
@@ -1800,11 +1810,12 @@ export default function Home() {
 
       <section className="landing-hero" aria-labelledby="landing-hero-title">
         <div className="landing-hero-content">
-          <p className="landing-hero-kicker">SEMICONDUCTOR PRICE INTELLIGENCE</p>
-          <h1 id="landing-hero-title">今日半导体市场最新情报</h1>
-          {latestIndustryNews && <p className="landing-hero-news-title">{cleanDdrSummary(latestIndustryNews.title)}</p>}
+          {latestIndustryNews ? <a className="landing-hero-news" href={latestIndustryNews.url} target="_blank" rel="noreferrer">
+            <h1 id="landing-hero-title">{heroNewsChineseTitle(latestIndustryNews)}</h1>
+            <p className="landing-hero-news-title">{cleanDdrSummary(latestIndustryNews.title)}</p>
+          </a> : <h1 id="landing-hero-title">半导体供应链最新市场动态</h1>}
           <p className="landing-hero-copy">{latestIndustryNews ? cleanDdrSummary(latestIndustryNews.summary) : "每日同步行业公开信息，聚焦价格、供需与供应链变化。"}</p>
-          <a className="landing-hero-link" href={latestIndustryNews?.url || "#daily-price-insight"} target={latestIndustryNews ? "_blank" : undefined} rel={latestIndustryNews ? "noreferrer" : undefined}>{latestIndustryNews ? latestIndustryNews.source + " · " + latestIndustryNews.date : "进入今日价格洞察"} <span aria-hidden="true">→</span></a>
+          {latestIndustryNews && <a className="landing-hero-link" href={latestIndustryNews.url} target="_blank" rel="noreferrer">{latestIndustryNews.source} · {latestIndustryNews.date} <span aria-hidden="true">→</span></a>}
         </div>
         <div className="landing-hero-meta" aria-hidden="true"><span>WAFER / MEMORY / COMPONENTS</span><span>LIVE MARKET VIEW</span></div>
       </section>
