@@ -906,3 +906,11 @@ body { background:var(--paper); color:var(--ink); }
 .dashboard-root.view-status .tracker-section { margin-top:24px; }
 .dashboard-root.view-status .tracker-heading .legend { display:none; }
 @media (max-width:760px) { .dashboard-root.view-status .tracker-section { margin-top:18px; } }
+
+
+/* Give daily insight cards more lower breathing room and unify Latin material labels. */
+.risk-primary-card,.compact-mover-list { min-height:440px; height:440px; }
+.compact-mover-list .price-mover-scroll { max-height:366px; }
+.plastic-card-top strong { font-family:"Times New Roman",serif; font-weight:600; letter-spacing:.015em; }
+@media (max-width:1180px) { .risk-primary-card,.compact-mover-list { height:auto; min-height:340px; } .compact-mover-list .price-mover-scroll { max-height:280px; } }
+@media (max-width:760px) { .risk-primary-card,.compact-mover-list { min-height:0; height:auto; } }
