@@ -795,3 +795,35 @@ body { background:var(--paper); color:var(--ink); }
   .top-navigation a { min-height:40px; padding:0 12px; font-size:13px; }
   .top-navigation a span { font-size:14px; }
 }
+
+
+/* Editorial material heading: outside the framed analysis body. */
+.material-market-insight { border:0; background:transparent; box-shadow:none; padding:0; }
+.material-insight-head { margin:0 0 18px; padding:4px 4px 14px; border:0; align-items:flex-end; }
+.material-insight-head .kicker { margin-bottom:8px; background:linear-gradient(110deg,#1c4d9f 0%,#641887 52%,#a20d79 100%); -webkit-background-clip:text; background-clip:text; color:transparent; }
+.material-insight-head h3 { font-size:clamp(36px,4vw,58px); line-height:1.08; font-weight:800; letter-spacing:-.035em; background:linear-gradient(110deg,#183f91 0%,#5c2189 52%,#a20d79 100%); -webkit-background-clip:text; background-clip:text; color:transparent; }
+.material-insight-head > span { color:#5c2189; font-size:12px; }
+.material-insight-body { border:1px solid #c9c2e4; border-radius:16px; background:linear-gradient(145deg,#fbfaff 0%,#f2f0fb 54%,#fff6fc 100%); padding:18px; box-shadow:0 14px 34px rgba(55,31,111,.1); }
+.dashboard-root.view-trend #daily-price-insight .daily-insight-panel { border:0; background:transparent; box-shadow:none; padding:0; }
+@media (max-width:760px) { .material-insight-head { padding-inline:0; }.material-insight-head h3 { font-size:34px; }.material-insight-body { padding:12px; } }
+
+/* Match the material title to the existing daily insight heading scale. */
+.material-insight-head h3 { font-family:Georgia,"Noto Serif SC",serif; font-size:34px; line-height:1.08; font-weight:500; letter-spacing:-.03em; }
+@media (max-width:760px) { .material-insight-head h3 { font-size:32px; } }
+
+/* Separate the two primary homepage sections with intentional breathing room. */
+.material-market-insight { margin-top:56px; }
+@media (max-width:760px) { .material-market-insight { margin-top:40px; } }
+
+/* Unified heading hierarchy: Chinese title first, English subtitle below. */
+.section-heading > div,
+.material-insight-head > div { display:flex; flex-direction:column; align-items:flex-start; }
+.section-heading > div > h2,
+.material-insight-head > div > h3 { order:1; }
+.section-heading > div > .kicker,
+.material-insight-head > div > .kicker { order:2; margin:8px 0 0; }
+.material-brief-copy { display:flex; flex-direction:column; }
+.material-brief-copy > h4 { order:1; }
+.material-brief-copy > .kicker { order:2; margin:8px 0 0; }
+.material-brief-copy > p:not(.kicker) { order:3; }
+.material-brief-copy > .material-article-link { order:4; }

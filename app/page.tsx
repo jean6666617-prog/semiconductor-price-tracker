@@ -1897,12 +1897,15 @@ export default function Home() {
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
 
-              <section className="plastic-market-insight material-market-insight" id="material-market-insight" aria-label="原材料市场趋势分析">
+          <section className="plastic-market-insight material-market-insight" id="material-market-insight" aria-label="原材料市场趋势分析">
                 <div className="plastic-insight-head material-insight-head">
                   <div><p className="kicker">MATERIAL MARKET INSIGHT</p><h3>原材料市场趋势分析</h3></div>
                   <span>{activeMarketSource}</span>
                 </div>
+                <div className="material-insight-body">
                 <div className="material-market-tabs" role="tablist" aria-label="原材料市场分类">
                   {marketCategories.map((category) => <button key={category} className={activeMarketCategory === category ? "active" : ""} onClick={() => setActiveMarketCategory(category)} type="button" role="tab" aria-selected={activeMarketCategory === category}>{category}</button>)}
                 </div>
@@ -1974,9 +1977,8 @@ export default function Home() {
                     </article>;
                   })}
                 </div>
+                </div>
               </section>
-            </div>
-          </div>
         </section>
 
         <section className="trend-section hero-trend-section" id="price-trend">
