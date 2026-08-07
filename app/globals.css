@@ -835,3 +835,13 @@ body { background:var(--paper); color:var(--ink); }
 /* Keep the Chinese title and English subtitle left-aligned. */
 .section-heading > div,
 .material-insight-head > div { align-items:flex-start; text-align:left; }
+
+/* Give English subtitle lines a one-character visual indent. */
+.section-heading > div > .kicker,
+.material-insight-head > div > .kicker,
+.material-brief-copy > .kicker { margin-left:1em; }
+
+/* Increase the English subtitle indent to two Latin character widths. */
+.section-heading > div > .kicker,
+.material-insight-head > div > .kicker,
+.material-brief-copy > .kicker { margin-left:2ch; }
