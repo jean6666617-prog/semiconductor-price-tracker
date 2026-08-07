@@ -720,6 +720,7 @@ export default function Home() {
   const [updateMenuOpen, setUpdateMenuOpen] = useState(false);
   const [expandedUpdateMenuGroup, setExpandedUpdateMenuGroup] = useState<string | null>(null);
   const [trendMenuOpen, setTrendMenuOpen] = useState(false);
+  const [expandedTrendCategoryMenu, setExpandedTrendCategoryMenu] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const updateMenuRef = useRef<HTMLDivElement>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -829,6 +830,7 @@ export default function Home() {
 
   function navigateTo(view: DashboardView, hash: string, mode?: TrendMode) {
     setTrendMenuOpen(false);
+    setExpandedTrendCategoryMenu(false);
     setActiveView(view);
     if (mode) {
       setTrendMode(mode);
@@ -1788,12 +1790,17 @@ export default function Home() {
               <button type="button" role="menuitem" onClick={() => navigateTo("history", "#price-trend", "all")}>全类别趋势</button>
               <button type="button" role="menuitem" onClick={() => navigateTo("history", "#price-trend", "single")}>单类别趋势</button>
               <button type="button" role="menuitem" onClick={() => navigateTo("history", "#price-trend-key", "key")}>重点追踪对象</button>
-              {trendGroups.map((trendCategory) => <button key={trendCategory} type="button" role="menuitem" onClick={() => {
-                const firstCommodity = Object.keys(sortedHistory).find((key) => key.startsWith(`${trendCategory}::`));
-                setTrendGroup(trendCategory);
-                if (firstCommodity) setTrendCommodity(firstCommodity);
-                navigateTo("history", "#price-trend", "single");
-              }}>{trendCategory}</button>)}
+              <div className={`top-nav-nested-menu ${expandedTrendCategoryMenu ? "open" : ""}`} onMouseEnter={() => setExpandedTrendCategoryMenu(true)} onMouseLeave={() => setExpandedTrendCategoryMenu(false)}>
+                <button className="top-nav-nested-trigger" type="button" role="menuitem" aria-haspopup="menu" aria-expanded={expandedTrendCategoryMenu} onFocus={() => setExpandedTrendCategoryMenu(true)}>按分类查看 <span aria-hidden="true">›</span></button>
+                {expandedTrendCategoryMenu && <div className="top-nav-nested-panel" role="menu" aria-label="趋势图分类">
+                  {trendGroups.map((trendCategory) => <button key={trendCategory} type="button" role="menuitem" onClick={() => {
+                    const firstCommodity = Object.keys(sortedHistory).find((key) => key.startsWith(`${trendCategory}::`));
+                    setTrendGroup(trendCategory);
+                    if (firstCommodity) setTrendCommodity(firstCommodity);
+                    navigateTo("history", "#price-trend", "single");
+                  }}>{trendCategory}</button>)}
+                </div>}
+              </div>
             </div>}
           </div>
           <a href="#tracking-matrix" onClick={(event) => { event.preventDefault(); navigateTo("status", "#tracking-matrix"); }}><span>04</span>品类状态</a>
