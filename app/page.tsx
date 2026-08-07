@@ -1780,8 +1780,8 @@ export default function Home() {
         <nav className="top-navigation" aria-label="网站核心模块导航">
           <a href="#daily-price-insight" onClick={(event) => { event.preventDefault(); navigateTo("home", "#daily-price-insight"); }}><span>01</span>首页</a>
           <a href="#material-market-insight" onClick={(event) => { event.preventDefault(); navigateTo("trend", "#material-market-insight"); }}><span>02</span>原材料趋势分析</a>
-          <div className={`top-nav-dropdown ${trendMenuOpen ? "open" : ""}`}>
-            <button className="top-nav-dropdown-trigger" type="button" aria-haspopup="menu" aria-expanded={trendMenuOpen} onClick={() => setTrendMenuOpen((open) => !open)}>
+          <div className={`top-nav-dropdown ${trendMenuOpen ? "open" : ""}`} onMouseEnter={() => setTrendMenuOpen(true)} onMouseLeave={() => setTrendMenuOpen(false)}>
+            <button className="top-nav-dropdown-trigger" type="button" aria-haspopup="menu" aria-expanded={trendMenuOpen} onFocus={() => setTrendMenuOpen(true)}>
               <span>03</span>历史价格趋势 <i aria-hidden="true">⌄</i>
             </button>
             {trendMenuOpen && <div className="top-nav-dropdown-menu" role="menu" aria-label="历史价格趋势分类">

@@ -774,7 +774,7 @@ body { background:var(--paper); color:var(--ink); }
 .dashboard-root.view-trend #daily-price-insight { display:block !important; }
 .dashboard-root.view-trend #daily-price-insight > .section-heading,
 .dashboard-root.view-trend #daily-price-insight .insight-left-stack { display:none !important; }
-.dashboard-root.view-trend #daily-price-insight .daily-insight-panel { margin-top:0; }
+.dashboard-root.view-trend #daily-price-insight .daily-insight-panel { display:none !important; margin-top:0; }
 .dashboard-root.view-trend #price-trend { display:none !important; }
 .dashboard-root.view-history #daily-price-insight { display:none !important; }
 .dashboard-root.view-history #price-trend { display:block !important; }
@@ -863,7 +863,7 @@ body { background:var(--paper); color:var(--ink); }
 .top-nav-dropdown-trigger i { color:#f2c86e; font-size:12px; font-style:normal; transition:transform .18s ease; }
 .top-nav-dropdown.open .top-nav-dropdown-trigger i { transform:rotate(180deg); }
 .top-nav-dropdown-trigger:hover,
-.top-nav-dropdown.open .top-nav-dropdown-trigger { background:rgba(255,255,255,.12); border-color:rgba(255,255,255,.22); }
+.top-nav-dropdown.open .top-nav-dropdown-trigger { background:transparent; border-color:transparent; }
 .top-nav-dropdown-menu {
   position:absolute; top:calc(100% + 8px); left:50%; transform:translateX(-50%);
   min-width:190px; padding:8px; display:grid; gap:4px; z-index:110;
