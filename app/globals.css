@@ -881,3 +881,10 @@ body { background:var(--paper); color:var(--ink); }
   .top-nav-dropdown-menu { min-width:158px; }
   .top-nav-dropdown-menu button { padding:8px 9px; font-size:11px; }
 }
+
+
+/* Keep the trend dropdown above the sticky navigation without clipping its menu. */
+.top-navigation { overflow:visible; }
+.top-nav-dropdown { z-index:120; }
+.top-nav-dropdown-menu { z-index:130; }
+@media (max-width:900px) { .top-navigation { overflow-x:auto; overflow-y:visible; } }
