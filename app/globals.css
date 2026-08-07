@@ -845,3 +845,8 @@ body { background:var(--paper); color:var(--ink); }
 .section-heading > div > .kicker,
 .material-insight-head > div > .kicker,
 .material-brief-copy > .kicker { margin-left:2ch; }
+
+/* Keep the total English subtitle indent to one Latin character. */
+.section-heading > div > .kicker,
+.material-insight-head > div > .kicker,
+.material-brief-copy > .kicker { margin-left:1ch; }
