@@ -808,7 +808,7 @@ export default function Home() {
       if (hash === "price-trend-key") {
         setActiveView("history");
         setTrendMode("key");
-      } else if (hash === "price-trend") {
+      } else if (hash === "material-market-insight") {
         setActiveView("trend");
         setTrendMode("all");
       } else if (hash === "tracking-matrix") {
@@ -1774,8 +1774,8 @@ export default function Home() {
       <header className="topbar">
         <div className="brand"><Image className="brand-mark" src="/semiconductor-price-tracker-mark-white.png" alt="Semiconductor Price Tracker" width={78} height={62} priority /><span className="brand-wordmark"><strong>SEMICONDUCTOR</strong><b>PRICE TRACKER</b></span></div>
         <nav className="top-navigation" aria-label="网站核心模块导航">
-          <a href="#daily-price-insight" onClick={(event) => { event.preventDefault(); navigateTo("home", "#daily-price-insight"); }}><span>01</span>今日价格洞察</a>
-          <a href="#price-trend" onClick={(event) => { event.preventDefault(); navigateTo("trend", "#price-trend", "all"); }}><span>02</span>趋势分析</a>
+          <a href="#daily-price-insight" onClick={(event) => { event.preventDefault(); navigateTo("home", "#daily-price-insight"); }}><span>01</span>首页</a>
+          <a href="#material-market-insight" onClick={(event) => { event.preventDefault(); navigateTo("trend", "#material-market-insight"); }}><span>02</span>原材料趋势分析</a>
           <a href="#price-trend-key" onClick={(event) => { event.preventDefault(); navigateTo("history", "#price-trend-key", "key"); }}><span>03</span>历史价格趋势</a>
           <a href="#tracking-matrix" onClick={(event) => { event.preventDefault(); navigateTo("status", "#tracking-matrix"); }}><span>04</span>品类状态</a>
           <a href="#source-directory" onClick={(event) => { event.preventDefault(); navigateTo("sources", "#source-directory"); }}><span>05</span>数据来源</a>
@@ -1898,7 +1898,7 @@ export default function Home() {
                 </div>
               </div>
 
-              <section className="plastic-market-insight material-market-insight" aria-label="原材料市场趋势分析">
+              <section className="plastic-market-insight material-market-insight" id="material-market-insight" aria-label="原材料市场趋势分析">
                 <div className="plastic-insight-head material-insight-head">
                   <div><p className="kicker">MATERIAL MARKET INSIGHT</p><h3>原材料市场趋势分析</h3></div>
                   <span>{activeMarketSource}</span>

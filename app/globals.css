@@ -768,3 +768,21 @@ body { background:var(--paper); color:var(--ink); }
 .dashboard-root.view-sources #daily-price-insight,.dashboard-root.view-sources #price-trend,.dashboard-root.view-sources #tracking-matrix { display:none; }
 .dashboard-root:not(.view-home) .shell { padding-top:42px; }
 @media (max-width:760px) { .dashboard-root:not(.view-home) .shell { padding-top:24px; } }
+
+/* Corrected navigation order: home, material insight, history trend, status, sources. */
+.dashboard-root.view-home #price-trend { display:none; }
+.dashboard-root.view-home .material-market-insight { display:none; }
+.dashboard-root.view-trend #daily-price-insight { display:block !important; }
+.dashboard-root.view-trend #daily-price-insight > .section-heading,
+.dashboard-root.view-trend #daily-price-insight .insight-left-stack { display:none !important; }
+.dashboard-root.view-trend #daily-price-insight .daily-insight-panel { margin-top:0; }
+.dashboard-root.view-trend #price-trend { display:none !important; }
+.dashboard-root.view-history #daily-price-insight { display:none !important; }
+.dashboard-root.view-history #price-trend { display:block !important; }
+.top-navigation { gap:4px; }
+.top-navigation a { min-height:40px; padding:0 10px; font-size:13px; gap:5px; }
+.top-navigation a span { font-size:14px; }
+@media (max-width:600px) {
+  .top-navigation a { min-height:36px; padding:0 8px; font-size:11px; }
+  .top-navigation a span { font-size:12px; }
+}
