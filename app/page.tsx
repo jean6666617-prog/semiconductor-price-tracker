@@ -295,19 +295,35 @@ function sortSeries(series: [string, number][] = []) {
   return Array.from(byDate.entries()).sort((a, b) => a[0].localeCompare(b[0])) as [string, number][];
 }
 
+function sanitizeKeyHistory(series: [string, number][], referencePrice?: number) {
+  const cleaned = sortSeries(series).filter(([, price]) => price > 0);
+  if (!cleaned.length || !Number.isFinite(referencePrice) || (referencePrice ?? 0) <= 0) return cleaned;
+
+  // A source or currency switch can create an impossible multi-order-of-magnitude jump.
+  const compatible = cleaned.filter(([, price]) => {
+    const ratio = Math.max(price, referencePrice!) / Math.min(price, referencePrice!);
+    return ratio <= 20;
+  });
+  return compatible.length ? compatible : cleaned.slice(-1);
+}
+
 function mergeKeyComponentResult(current: KeyComponentResult | undefined, result: KeyComponentResult) {
   if (!result.success || result.price === null) return current ?? result;
 
-  const resultHistory = result.history?.length
+  const resultHistory = sanitizeKeyHistory(result.history?.length
     ? result.history.map((point) => [point.date, point.price] as [string, number])
-    : [[result.updateDate, result.price] as [string, number]];
+    : [[result.updateDate, result.price] as [string, number]], result.price);
 
-  const currentHistory = current?.source === "LCSC" && (current.currency !== result.currency || current.unit !== result.unit)
+  const sourceChanged = current && (current.source !== result.source
+    || current.currency !== result.currency
+    || current.unit !== result.unit);
+  const currentHistory = sourceChanged
     ? []
     : current?.history?.map((point) => [point.date, point.price] as [string, number]) ?? [];
   return {
     ...result,
-    history: sortSeries([...currentHistory, ...resultHistory]).map(([date, price]) => ({ date, price })),
+    history: sanitizeKeyHistory([...currentHistory, ...resultHistory], result.price)
+      .map(([date, price]) => ({ date, price })),
   };
 }
 
@@ -338,7 +354,7 @@ function normalizeKeyComponentResults(saved?: Record<string, KeyComponentResult>
     normalized[id] = {
       ...result,
       price,
-      history: sortSeries(resultHistory).map(([date, pointPrice]) => ({ date, price: pointPrice })),
+      history: sanitizeKeyHistory(resultHistory, price).map(([date, pointPrice]) => ({ date, price: pointPrice })),
     };
   }
 
@@ -1020,20 +1036,28 @@ export default function Home() {
     setTrendTooltip({ date: nearest.date, x: nearest.x, y: nearest.y, entries: [nearest.entry] });
   };
   const keyFilteredEntries = keyComponentEntries.filter((entry) => keyCategory === "全部" || entry.category === keyCategory);
-  const keyChartSeries = [
+  const rawKeyChartSeries = [
     ...keyFilteredEntries.flatMap((entry, index) => {
       const result = keyComponentResults[entry.id];
       const entryTokens = [entry.mpn, entry.name].map(normalize).filter(Boolean);
-      const legacyPoints = Object.entries(history)
-        .filter(([key]) => {
-          const historyName = normalize(key.split("::").slice(1).join("::"));
-          return entryTokens.some((token) => historyName === token || historyName.includes(token) || token.includes(historyName));
-        })
-        .flatMap(([, series]) => series);
+      const linkedItem = items.find((item) => item.group === entry.category
+        && entryTokens.includes(normalize(item.mpn || item.name)));
+      const compatibleLegacySource = !result || !linkedItem || linkedItem.source === (result.source || entry.source);
+      const legacyPoints = compatibleLegacySource
+        ? Object.entries(history)
+          .filter(([key]) => {
+            const historyName = normalize(key.split("::").slice(1).join("::"));
+            return entryTokens.some((token) => historyName === token || historyName.includes(token) || token.includes(historyName));
+          })
+          .flatMap(([, series]) => series)
+        : [];
       const currentPoints = result?.success && result.price !== null
         ? result.history?.length ? result.history.map((point) => [point.date, point.price] as [string, number]) : [[result.updateDate, result.price] as [string, number]]
         : [];
-      const points = filterTrendRange(sortSeries([...legacyPoints, ...currentPoints]), selectedKeyRange, result?.updateDate);
+      const points = sanitizeKeyHistory(
+        filterTrendRange(sortSeries([...legacyPoints, ...currentPoints]), selectedKeyRange, result?.updateDate),
+        result?.price ?? undefined,
+      );
       return points.length ? [{
         key: entry.id,
         name: entry.mpn,
@@ -1044,8 +1068,21 @@ export default function Home() {
       }] : [];
     }),
   ];
+  const commonStartDate = rawKeyChartSeries.length
+    ? rawKeyChartSeries.reduce((latest, series) => series.points[0][0] > latest ? series.points[0][0] : latest, rawKeyChartSeries[0].points[0][0])
+    : "";
+  const commonEndDate = rawKeyChartSeries.length
+    ? rawKeyChartSeries.reduce((earliest, series) => series.points.at(-1)![0] < earliest ? series.points.at(-1)![0] : earliest, rawKeyChartSeries[0].points.at(-1)![0])
+    : "";
+  const useCommonDateWindow = Boolean(commonStartDate && commonEndDate && commonStartDate <= commonEndDate);
+  const keyChartSeries = rawKeyChartSeries.map((series) => ({
+    ...series,
+    points: useCommonDateWindow
+      ? series.points.filter(([date]) => date >= commonStartDate && date <= commonEndDate)
+      : series.points,
+  })).filter((series) => series.points.length);
   const keyTrendDates = Array.from(new Set(keyChartSeries.flatMap((series) => series.points.map(([date]) => date)))).sort();
-  const keyTrendPrices = keyChartSeries.flatMap((series) => series.points.map((point) => point[1]));
+  const keyTrendPrices = keyChartSeries.flatMap((series) => series.points.map((point) => point[1])).filter((price) => price > 0);
   const keyYTicks = priceTicks(keyTrendPrices);
   const keyPriceMin = keyTrendPrices.length ? Math.min(...keyTrendPrices) : 0;
   const keyPriceMax = keyTrendPrices.length ? Math.max(...keyTrendPrices) : 1;
