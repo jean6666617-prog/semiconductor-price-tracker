@@ -1738,7 +1738,7 @@ export default function Home() {
         <nav className="top-navigation" aria-label="网站核心模块导航">
           <a href="#daily-price-insight"><span>01</span>今日价格洞察</a>
           <a href="#price-trend"><span>02</span>趋势分析</a>
-          <a href="#price-trend" onClick={() => setTrendMode("key")}><span>03</span>重点追踪对象</a>
+          <a href="#price-trend" onClick={() => setTrendMode("key")}><span>03</span>历史价格趋势</a>
           <a href="#tracking-matrix"><span>04</span>品类状态</a>
           <a href="#source-directory"><span>05</span>数据来源</a>
         </nav>

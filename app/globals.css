@@ -660,3 +660,12 @@ body { background:var(--paper); color:var(--ink); }
 .trend-tabs button:not(.active),
 .trend-toolbar button:not(.active) { color:#263b75; }
 .topbar .brand-logo { mix-blend-mode:normal; filter:none; }
+
+/* Enlarged white tracker mark and clearer primary navigation. */
+.topbar { min-height:82px; height:82px; }
+.brand-logo { width:360px; height:74px; }
+.top-navigation { gap:10px; }
+.top-navigation a { min-height:46px; padding:0 15px; font-size:16px; }
+.top-navigation a span { font-size:17px; }
+@media (max-width:900px) { .topbar { min-height:0; height:auto; } }
+@media (max-width:600px) { .brand-logo { width:270px; height:58px; } .top-navigation a { min-height:40px; padding:0 12px; font-size:13px; } .top-navigation a span { font-size:14px; } }
