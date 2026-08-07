@@ -689,3 +689,5 @@ body { background:var(--paper); color:var(--ink); }
 .brand { align-items:center; transform:none; }
 .brand-mark { align-self:center; transform:none; }
 .brand-wordmark { align-self:center; justify-content:center; transform:none; }
+.brand-wordmark { transform:translateY(5px); }
+@media (max-width:600px) { .brand-wordmark { transform:translateY(3px); } }
