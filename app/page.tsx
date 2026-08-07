@@ -171,8 +171,20 @@ function ddrMarketSummary(item: DDRInsightItem) {
   ].filter(Boolean).join(" ");
 }
 
+function decodeDdrEntities(value: string) {
+  return value
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&pound;/gi, "£")
+    .replace(/&yen;/gi, "¥")
+    .replace(/&#(\d+);/g, (_, code: string) => String.fromCodePoint(Number(code)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, code: string) => String.fromCodePoint(Number.parseInt(code, 16)));
+}
+
 function cleanDdrSummary(value: string) {
-  return value.replace(/\s+/g, " ").trim().slice(0, 180);
+  return decodeDdrEntities(value).replace(/\s+/g, " ").trim().slice(0, 180);
 }
 
 function ddrDriverDetails(item: DDRInsightItem, newsItems: DDRIndustryNewsRecord[]): DDRDriverDetail[] {
@@ -1789,7 +1801,8 @@ export default function Home() {
       <section className="landing-hero" aria-labelledby="landing-hero-title">
         <div className="landing-hero-content">
           <p className="landing-hero-kicker">SEMICONDUCTOR PRICE INTELLIGENCE</p>
-          <h1 id="landing-hero-title">{latestIndustryNews?.title || "今日半导体市场最新动态"}</h1>
+          <h1 id="landing-hero-title">今日半导体市场最新情报</h1>
+          {latestIndustryNews && <p className="landing-hero-news-title">{cleanDdrSummary(latestIndustryNews.title)}</p>}
           <p className="landing-hero-copy">{latestIndustryNews ? cleanDdrSummary(latestIndustryNews.summary) : "每日同步行业公开信息，聚焦价格、供需与供应链变化。"}</p>
           <a className="landing-hero-link" href={latestIndustryNews?.url || "#daily-price-insight"} target={latestIndustryNews ? "_blank" : undefined} rel={latestIndustryNews ? "noreferrer" : undefined}>{latestIndustryNews ? latestIndustryNews.source + " · " + latestIndustryNews.date : "进入今日价格洞察"} <span aria-hidden="true">→</span></a>
         </div>
