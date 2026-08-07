@@ -1734,7 +1734,7 @@ export default function Home() {
   return (
     <main>
       <header className="topbar">
-        <div className="brand"><Image className="brand-logo" src="/semiconductor-price-tracker-logo-white.png" alt="Semiconductor Price Tracker" width={238} height={52} priority /></div>
+        <div className="brand"><Image className="brand-mark" src="/semiconductor-price-tracker-mark-white.png" alt="Semiconductor Price Tracker" width={78} height={62} priority /><span className="brand-wordmark"><strong>SEMICONDUCTOR</strong><b>PRICE TRACKER</b></span></div>
         <nav className="top-navigation" aria-label="网站核心模块导航">
           <a href="#daily-price-insight"><span>01</span>今日价格洞察</a>
           <a href="#price-trend"><span>02</span>趋势分析</a>
