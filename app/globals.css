@@ -685,3 +685,7 @@ body { background:var(--paper); color:var(--ink); }
 .brand-wordmark strong { font-size:20px; letter-spacing:.018em; }
 .brand-wordmark b { font-size:10px; letter-spacing:.18em; }
 @media (max-width:600px) { .brand { gap:5px; } .brand-mark { width:50px; height:44px; } .brand-wordmark strong { font-size:16px; } .brand-wordmark b { font-size:8px; } }
+/* Align the mark and wordmark on one horizontal visual axis. */
+.brand { align-items:center; transform:none; }
+.brand-mark { align-self:center; transform:none; }
+.brand-wordmark { align-self:center; justify-content:center; transform:none; }
