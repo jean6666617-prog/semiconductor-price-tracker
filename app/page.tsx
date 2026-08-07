@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import Image from "next/image";
 import * as XLSX from "xlsx";
 import keyComponentsConfig from "../config/key-components.json";
 import trackingConfig from "../config/tracking.json";
@@ -1704,7 +1705,7 @@ export default function Home() {
   return (
     <main>
       <header className="topbar">
-        <div className="brand"><span className="brand-mark">Si</span><span>半导体价格趋势追踪中心</span></div>
+        <div className="brand"><Image className="brand-logo" src="/semiconductor-price-tracker-logo.png" alt="Semiconductor Price Tracker" width={238} height={52} priority /></div>
         <nav className="top-navigation" aria-label="网站核心模块导航">
           <a href="#daily-price-insight"><span>01</span>今日价格洞察</a>
           <a href="#price-trend"><span>02</span>趋势分析</a>
