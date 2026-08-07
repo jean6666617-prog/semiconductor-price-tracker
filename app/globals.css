@@ -506,3 +506,57 @@ td a,.text-button { color:var(--green); text-decoration:none; border:0; backgrou
 .plastic-insight-card li::before { color:#b24a3d; }
 @media (max-width:1180px) { .dashboard-priority-grid { grid-template-columns:1fr; } }
 @media (max-width:760px) { .material-market-brief { grid-template-columns:1fr; } .material-brief-visual { min-height:150px; } .material-brief-visual img { min-height:150px; } .material-brief-copy { padding:18px; } }
+
+/* Typography and palette: Chinese titles use Microsoft YaHei/Heiti; body copy uses Songti. */
+:root { --ink:#20282c; --muted:#60676b; --line:#d2d6d7; --paper:#f3f3f1; --white:#fff; --green:#243238; --lime:#e8bd63; --amber:#a56424; --red:#b63c32; --blue:#3e6379; }
+body { font-family:SimSun,"Songti SC","STSong",serif; font-size:16px; line-height:1.65; }
+h1,h2,h3,h4,h5,h6,button,input,select,nav,a,.kicker,.eyebrow,.offline-pill,.source-card span,.source-chip,.status-tag,.top-navigation,.top-navigation a,.insight-block-head,.plastic-card-top,.plastic-trend-pill,.ddr-card-section > small,.ddr-source-link,.ddr-source-attribution { font-family:"Microsoft YaHei","Heiti SC","PingFang SC",Arial,sans-serif; }
+h1,h2,h3,h4,h5,h6 { font-weight:700; letter-spacing:0; }
+.section-heading h2 { font-size:38px; }
+.material-market-insight { color:#20282c; }
+.plastic-insight-head h3 { font-family:"Microsoft YaHei","Heiti SC","PingFang SC",Arial,sans-serif; font-size:34px; font-weight:700; }
+.material-market-tabs button { font-size:14px; padding:9px 15px; }
+.material-brief-copy h4 { font-size:25px; font-weight:700; }
+.material-brief-copy > p:not(.kicker) { font-size:16px; line-height:1.9; }
+.material-article-link,.material-card-analysis-head a { font-size:14px; }
+.plastic-card-top strong { font-family:"Microsoft YaHei","Heiti SC","PingFang SC",Arial,sans-serif; font-size:32px; font-weight:700; }
+.plastic-card-top span { font-size:12px; }
+.plastic-price b { font-size:30px; font-weight:700; }
+.plastic-price small { font-size:13px; }
+.plastic-trend-pill { padding:10px 12px; }
+.plastic-trend-pill span { font-size:14px; }
+.plastic-trend-pill em { font-size:13px; }
+.material-card-analysis-head { font-size:13px; }
+.plastic-insight-card p { font-size:15px; line-height:1.85; }
+.plastic-insight-card li { font-size:14px; line-height:1.65; }
+.ddr-card-section { gap:10px; padding-top:16px; }
+.ddr-card-section > small { color:#a56424; font-size:13px; letter-spacing:.06em; line-height:1.5; }
+.ddr-card-section p { font-size:16px; line-height:1.9; }
+.ddr-driver-list,.ddr-news-list { gap:13px; }
+.ddr-driver-list strong,.ddr-news-list strong { font-size:17px; line-height:1.5; }
+.ddr-driver-list p,.ddr-news-list p { font-size:15px; line-height:1.8; }
+.ddr-news-list a { padding:12px 14px; border-color:#d8dcde; background:#fafafa; }
+.ddr-news-list span { font-size:12px; }
+.ddr-source-link { font-size:13px; }
+.ddr-source-attribution { font-size:13px; line-height:1.6; }
+.ddr-source-attribution b { color:#a56424; }
+.risk-primary-card .compact-head span { font-size:17px; }
+.risk-primary-card .compact-head small { font-size:13px; }
+.risk-primary-card .risk-level span { font-size:13px; }
+.risk-primary-card .risk-level strong { font-size:42px; }
+.risk-primary-card .risk-name { font-size:21px; }
+.risk-primary-card p { font-size:15px; line-height:1.8; }
+.risk-primary-card dt { font-size:12px; }
+.risk-primary-card dd { font-size:14px; }
+.compact-mover-list .compact-head span { font-size:16px; }
+.compact-mover-list .compact-head em,.compact-mover-list .compact-head small { font-size:12px; }
+.compact-mover-row .mover-name strong { font-size:15px; }
+.compact-mover-row .mover-name small,.compact-mover-row .mover-price { font-size:12px; }
+.compact-mover-row .mover-rate { font-size:20px; }
+@media (max-width:760px) {
+  body { font-size:15px; }
+  .section-heading h2 { font-size:32px; }
+  .plastic-insight-head h3 { font-size:29px; }
+  .material-brief-copy h4 { font-size:22px; }
+  .plastic-insight-card p,.ddr-card-section p { font-size:15px; }
+}
