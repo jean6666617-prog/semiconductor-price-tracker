@@ -827,3 +827,7 @@ body { background:var(--paper); color:var(--ink); }
 .material-brief-copy > .kicker { order:2; margin:8px 0 0; }
 .material-brief-copy > p:not(.kicker) { order:3; }
 .material-brief-copy > .material-article-link { order:4; }
+
+/* Center English subtitles on the Chinese title axis. */
+.section-heading > div,
+.material-insight-head > div { align-items:center; text-align:center; }
