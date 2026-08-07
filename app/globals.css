@@ -604,3 +604,46 @@ h1,h2,h3,h4,h5,h6 { font-weight:700; letter-spacing:0; }
 body,button,input,select { font-family:"Times New Roman","Microsoft YaHei",SimSun,"Songti SC",Arial,sans-serif; }
 h1,h2,h3,h4,h5,h6,nav,a,.kicker,.eyebrow,.offline-pill,.source-card span,.source-chip,.status-tag,.top-navigation,.top-navigation a,.insight-block-head,.plastic-card-top,.plastic-trend-pill,.ddr-card-section > small,.ddr-source-link,.ddr-source-attribution { font-family:"Times New Roman","Microsoft YaHei","Heiti SC","PingFang SC",SimSun,Arial,sans-serif; }
 .plastic-price b,.mover-rate,.mover-price,.compact-head small,.plastic-card-top span,.ddr-source-attribution,.ddr-source-link,.trend-status-card strong,.trend-tooltip strong,.trend-tooltip-row b,.axis-labels,.axis-tick { font-family:"Times New Roman",serif; }
+
+/* Reference theme: electric navy to magenta, with deep chart series colors. */
+:root { --ink:#17145f; --muted:#68688a; --line:#d8d5eb; --paper:#f7f7fb; --green:#244ca5; --lime:#f458c4; --amber:#b72893; --red:#b91f5d; --blue:#2d52b2; }
+body { background:var(--paper); color:var(--ink); }
+.topbar { background:linear-gradient(108deg,#1a438f 0%,#45218d 48%,#92077e 100%); border-bottom-color:rgba(255,255,255,.24); }
+.topbar .top-navigation a,.topbar .offline-pill { color:#fff; }
+.topbar .top-navigation a:hover { color:#fff; background:rgba(255,255,255,.12); border-color:rgba(255,255,255,.22); }
+.topbar .brand { background:#fff; border-radius:7px; padding-right:10px; }
+.topbar .brand-logo { background:#fff; }
+.import-button,.primary-button { background:linear-gradient(108deg,#1c4d9f,#641887,#a00b78); border-color:transparent; }
+.import-button:hover { background:linear-gradient(108deg,#153e85,#511473,#850865); }
+.landing-hero { background-image:linear-gradient(108deg,rgba(15,51,126,.94) 0%,rgba(67,24,126,.88) 48%,rgba(143,5,119,.85) 100%),url("https://www.okmetic.com/wp-content/uploads/2021/08/Okmetic_2019_Studiokuvaus_MikaelAhlfors-9097_small.jpg"); }
+.landing-hero-kicker,.landing-hero-link span { color:#ff68cd; }
+.landing-hero-news:hover h1 { color:#ff68cd; }
+.floating-actions-tab,.progress-panel,.system-navigation,.trend-insight { background:linear-gradient(135deg,#152f78 0%,#3b197b 52%,#8d087d 100%); }
+.daily-insight-panel,.trend-chart-card,.trend-insight,.table-wrap,.source-card,.stats { border-color:#d8d5eb; }
+.plastic-market-insight { border-color:#c6bde6; background:linear-gradient(145deg,#fbfaff 0%,#f2f0fb 54%,#fff6fc 100%); }
+.material-market-tabs button.active { background:linear-gradient(108deg,#1c4d9f,#641887,#a00b78); border-color:transparent; color:#fff; }
+.material-market-brief { border-color:#c9c2e4; background:#fff; }
+.material-brief-copy .kicker,.plastic-insight-head .kicker,.ddr-card-section > small { color:#7e218c; }
+.material-article-link,.material-card-analysis-head a,.ddr-card-section a,.ddr-source-link,.ddr-source-attribution a { color:#a20d79; }
+.plastic-insight-card { border-color:#cfc8e8; }
+.plastic-trend-pill.上涨 { color:#a20d79; background:#fff0fa; border-color:#e7b6dc; }
+.plastic-trend-pill.下跌 { color:#244ca5; background:#eef2ff; border-color:#c1ccef; }
+.risk-primary-card { background-image:linear-gradient(120deg,rgba(11,28,83,.96),rgba(56,13,81,.88),rgba(137,8,84,.7)),url("/risk-alert-industrial.png"); border-color:#8a1b78; }
+.compact-mover-list { background-image:linear-gradient(110deg,rgba(255,255,255,.95),rgba(247,244,253,.9)),url("/price-movement-industrial.png"); border-color:#c9c2e4; }
+.trend-chart-card { background:linear-gradient(145deg,#fff 0%,#fbf9ff 100%); }
+.grid-line { stroke:#dedaf0; }
+.axis-line { stroke:#c8c2df; }
+.tooltip-guide { stroke:#71459b; }
+.trend-line { stroke:var(--green); }
+.trend-point { fill:var(--green); stroke:var(--green); }
+.trend-legend { border-top-color:#ddd8ee; color:#69648a; }
+.trend-tabs button.active,.trend-toolbar button.active,.table-pagination button.active { background:linear-gradient(108deg,#1d4fa3,#68147d,#a20d79); border-color:transparent; }
+.trend-tabs span { background:#f4e8fb; color:#7e218c; }
+.trend-toolbar button { border-color:#d7d2e8; background:#fbfaff; }
+.source-chip,.source-card { border-color:#d1cae7; }
+.source-chip { background:#f8f5fc; color:#5d237c; }
+.dot.已更新 { background:#244ca5; }.dot.待更新 { background:#b72893; }.dot.待确认 { background:#68147d; }.dot.暂无来源 { background:#b91f5d; }
+.status-tag.已更新,.status-tag.已追踪 { color:#244ca5; background:#edf1ff; }
+.status-tag.待更新,.status-tag.待验证 { color:#a20d79; background:#fff0fa; }
+.status-tag.待确认 { color:#68147d; background:#f2edfb; }
+.status-tag.暂无来源 { color:#b91f5d; background:#fff0f2; }
