@@ -831,3 +831,7 @@ body { background:var(--paper); color:var(--ink); }
 /* Center English subtitles on the Chinese title axis. */
 .section-heading > div,
 .material-insight-head > div { align-items:center; text-align:center; }
+
+/* Keep the Chinese title and English subtitle left-aligned. */
+.section-heading > div,
+.material-insight-head > div { align-items:flex-start; text-align:left; }
