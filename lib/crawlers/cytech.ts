@@ -139,8 +139,12 @@ function isRetryableStatus(status: number) {
 function cytechResponseError(response: Response, html: string, message: string) {
   const contentType = response.headers.get("content-type") || "";
   const blockedByCloudflare = isCloudflareChallenge(html);
-  const reason = blockedByCloudflare ? "Cytech request blocked by Cloudflare challenge" : message;
-  return new Error(targetResponseError("Cytech", response, html, `${reason}; content-type ${contentType}`));
+  if (blockedByCloudflare) {
+    return new Error(
+      "Cytech 被 Cloudflare 验证拦截，页面未返回公开价格；HTTP status " + response.status + "；URL " + (response.url || "unknown"),
+    );
+  }
+  return new Error(targetResponseError("Cytech", response, html, message + "; content-type " + contentType));
 }
 
 function logCytechAttempt(event: string, details: Record<string, unknown>) {
