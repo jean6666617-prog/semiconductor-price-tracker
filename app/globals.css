@@ -691,3 +691,66 @@ body { background:var(--paper); color:var(--ink); }
 .brand-wordmark { align-self:center; justify-content:center; transform:none; }
 .brand-wordmark { transform:translateY(5px); }
 @media (max-width:600px) { .brand-wordmark { transform:translateY(3px); } }
+
+/* Refined daily insight cards: equal proportions, light risk warning, no overflow. */
+.dashboard-priority-grid { grid-template-columns:repeat(2,minmax(0,1fr)); align-items:stretch; }
+.risk-primary-card,.compact-mover-list { min-width:0; min-height:400px; height:400px; box-sizing:border-box; }
+.risk-primary-card { overflow:hidden; border:2px solid #d94b45; background:linear-gradient(145deg,#fff8f7 0%,#fff0ee 100%); box-shadow:0 14px 28px rgba(164,43,37,.12); color:#5a2522; }
+.risk-primary-card .compact-head { border-bottom-color:#efc3be; }
+.risk-primary-card .compact-head span,.risk-primary-card .compact-head small { color:#b6322c; }
+.risk-primary-card .risk-level { background:#fff; border-color:#e8a39d; }
+.risk-primary-card .risk-level span,.risk-primary-card .risk-level strong { color:#b6322c; }
+.risk-primary-card .risk-name { color:#7d2824; }
+.risk-primary-card p { color:#8f4d47; }
+.risk-primary-card dl div { background:#fff; border-color:#efc3be; }
+.risk-primary-card dt { color:#a65b54; }
+.risk-primary-card dd,.risk-primary-card .risk-streak dd { color:#b6322c; }
+.compact-mover-list { overflow:hidden; align-self:stretch; border-color:#cbd5df; background:#fff; box-shadow:0 12px 26px rgba(13,35,56,.08); }
+.compact-mover-list .price-mover-scroll { max-height:326px; overflow-y:auto; overflow-x:hidden; }
+.compact-mover-row { min-width:0; grid-template-columns:minmax(0,1fr) minmax(88px,108px) minmax(98px,124px); }
+.compact-mover-row > * { min-width:0; }
+.compact-mover-row .mover-name strong,.compact-mover-row .mover-name small,.compact-mover-row .mover-rate,.compact-mover-row .mover-price { min-width:0; overflow:hidden; text-overflow:ellipsis; }
+.compact-mover-row .mover-name strong { white-space:nowrap; }
+.compact-mover-row .mover-rate,.compact-mover-row .mover-price { white-space:nowrap; }
+@media (max-width:1180px) {
+  .dashboard-priority-grid { grid-template-columns:1fr; }
+  .risk-primary-card,.compact-mover-list { height:auto; min-height:320px; }
+  .compact-mover-list .price-mover-scroll { max-height:260px; }
+}
+@media (max-width:760px) {
+  .risk-primary-card,.compact-mover-list { min-height:0; height:auto; }
+}
+
+
+/* Theme image treatment for both daily insight cards. */
+.risk-primary-card {
+  border-color:#8a1b78;
+  background-image:linear-gradient(120deg,rgba(11,28,83,.84),rgba(56,13,81,.78),rgba(137,8,84,.66)),url("/risk-alert-industrial.png");
+  background-position:center;
+  background-size:cover;
+  color:#fff;
+}
+.risk-primary-card .compact-head { border-bottom-color:rgba(255,255,255,.2); }
+.risk-primary-card .compact-head span,.risk-primary-card .risk-name { color:#fff; }
+.risk-primary-card .compact-head small,.risk-primary-card .risk-level span { color:#f2c86e; }
+.risk-primary-card .risk-level { background:rgba(8,20,57,.54); border-color:rgba(255,255,255,.28); }
+.risk-primary-card .risk-level strong,.risk-primary-card dd,.risk-primary-card .risk-streak dd { color:#ff6b8f; }
+.risk-primary-card p { color:#f0e7ec; }
+.risk-primary-card dl div { background:rgba(8,20,57,.52); border-color:rgba(255,255,255,.2); }
+.risk-primary-card dt { color:#d6dce8; }
+.compact-mover-list {
+  border-color:#5c67b6;
+  background-image:linear-gradient(110deg,rgba(15,49,111,.84),rgba(69,24,113,.78),rgba(143,8,119,.68)),url("/price-movement-industrial.png");
+  background-position:center;
+  background-size:cover;
+  color:#fff;
+}
+.compact-mover-list .compact-head { border-bottom-color:rgba(255,255,255,.22); }
+.compact-mover-list .compact-head span,.compact-mover-list .compact-head em,.compact-mover-list .compact-head small { color:#fff; }
+.compact-mover-row { background:rgba(7,25,74,.28); border-top-color:rgba(255,255,255,.18); }
+.compact-mover-row .mover-name strong,.compact-mover-row .mover-name small,.compact-mover-row .mover-price { color:#fff; }
+.compact-mover-row .mover-rate { color:#ff6b8f; }
+.compact-mover-row.down .mover-rate { color:#7ee2d0; }
+.price-mover-scroll::-webkit-scrollbar-track { background:rgba(255,255,255,.16); }
+.price-mover-scroll::-webkit-scrollbar-thumb { background:#d6a7e5; }
+.price-mover-scroll::-webkit-scrollbar-thumb:hover { background:#f2c86e; }

@@ -934,26 +934,26 @@ export default function Home() {
       average: 0,
       risingStreak: 0,
     };
-    const riskCandidates = todaySeries
-      .map((entry) => {
-        const keyCategoryScore = /芯片|NXP|DDR|Memory|SOC|MCU/i.test(`${entry.group}${entry.name}`) ? 2 : 0;
-        const score = Math.max(entry.changeRate, 0) * 2 + Math.max(entry.averageGapRate, 0) + entry.risingStreak * 1.5 + keyCategoryScore;
-        return { entry, score };
-      })
-      .sort((a, b) => b.score - a.score);
-    const risk = riskCandidates[0]?.score > 0 ? riskCandidates[0].entry : emptyEntry;
-    const riskLevel = risk === emptyEntry ? "低" : risk.changeRate >= 3 || risk.risingStreak >= 3 || risk.averageGapRate >= 5 ? "高" : risk.changeRate > 0 || risk.averageGapRate > 2 ? "中" : "低";
+    const positiveMovers = todaySeries.filter((entry) => entry.changeRate > 0);
+    const maxChangeEntry = positiveMovers[0]?.changeRate > 0 ? positiveMovers[0] : emptyEntry;
+    const maxStreakEntry = [...positiveMovers]
+      .filter((entry) => entry.risingStreak > 0)
+      .sort((a, b) => b.risingStreak - a.risingStreak || b.changeRate - a.changeRate)[0] ?? emptyEntry;
+    const risk = maxChangeEntry;
+    const riskLevel = risk === emptyEntry ? "低" : risk.changeRate >= 3 || maxStreakEntry.risingStreak >= 3 || risk.averageGapRate >= 5 ? "高" : risk.changeRate > 0 || maxStreakEntry.risingStreak > 0 || risk.averageGapRate > 2 ? "中" : "低";
     const riskReason = risk === emptyEntry
       ? "暂无显著价格风险"
       : [
-        risk.risingStreak >= 2 ? `连续上涨${risk.risingStreak}天` : risk.changeRate > 0 ? `单日上涨${risk.changeRate.toFixed(2)}%` : "",
-        risk.averageGapRate > 0 ? `较历史均值上涨${risk.averageGapRate.toFixed(2)}%` : "",
-      ].filter(Boolean).join("，");
+        `最大涨幅：${risk.changeRate.toFixed(2)}%`,
+        maxStreakEntry !== emptyEntry ? `最长连续上涨：${maxStreakEntry.name}（${maxStreakEntry.risingStreak}天）` : "",
+      ].filter(Boolean).join("；");
     return {
       date: insightDate || "—",
       movers,
       risk: {
         entry: risk,
+        maxStreakEntry,
+        emptyEntry,
         level: riskLevel,
         reason: riskReason,
         averageTooltip: `计算方式：\n(当前价格 - 历史平均价格) / 历史平均价格 × 100%\n\n历史均价：${formatTrendPrice(risk.average)} ${risk.unit}\n当前价格：${formatTrendPrice(risk.price)} ${risk.unit}\n结果：${risk.averageGapRate >= 0 ? "+" : ""}${risk.averageGapRate.toFixed(2)}%`,
@@ -1829,12 +1829,12 @@ export default function Home() {
                 <aside className={`risk-alert-card compact-risk-card risk-primary-card level-${dailyInsights.risk.level}`}>
                   <div className="insight-block-head compact-head"><span>风险提示</span><small>Risk Alert</small></div>
                   <div className="risk-level"><span>风险等级</span><strong>{dailyInsights.risk.level}</strong></div>
-                  <strong className="risk-name">{dailyInsights.risk.entry.name}</strong>
+                  <strong className="risk-name">最大涨幅：{dailyInsights.risk.entry.name}</strong>
                   <p>{dailyInsights.risk.reason}</p>
                   <dl>
                     <div><dt>当前价格</dt><dd>{formatTrendPrice(dailyInsights.risk.entry.price)} {dailyInsights.risk.entry.unit}</dd></div>
-                    <div><dt>历史偏离</dt><dd title={dailyInsights.risk.averageTooltip}>{dailyInsights.risk.entry.averageGapRate >= 0 ? "+" : ""}{dailyInsights.risk.entry.averageGapRate.toFixed(2)}%</dd></div>
-                    <div className="risk-streak"><dt>连续上涨</dt><dd>{dailyInsights.risk.entry.risingStreak > 0 ? `${dailyInsights.risk.entry.risingStreak} 天` : "暂无"}</dd></div>
+                    <div><dt>最大涨幅</dt><dd>{dailyInsights.risk.entry.changeRate >= 0 ? "+" : ""}{dailyInsights.risk.entry.changeRate.toFixed(2)}%</dd></div>
+                    <div className="risk-streak"><dt>最长连续上涨</dt><dd>{dailyInsights.risk.maxStreakEntry !== dailyInsights.risk.emptyEntry ? <>{dailyInsights.risk.maxStreakEntry.name} · {dailyInsights.risk.maxStreakEntry.risingStreak} 天</> : "暂无"}</dd></div>
                   </dl>
                 </aside>
 
