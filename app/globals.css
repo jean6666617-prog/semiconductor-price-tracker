@@ -647,3 +647,15 @@ body { background:var(--paper); color:var(--ink); }
 .status-tag.待更新,.status-tag.待验证 { color:#a20d79; background:#fff0fa; }
 .status-tag.待确认 { color:#68147d; background:#f2edfb; }
 .status-tag.暂无来源 { color:#b91f5d; background:#fff0f2; }
+
+/* Transparent logo treatment on the gradient header. */
+.topbar .brand { background:transparent; padding-right:0; }
+.topbar .brand-logo { background:transparent; mix-blend-mode:multiply; }
+
+/* High-contrast chart palette: purple, red, navy, light blue, yellow, green. */
+.trend-tabs button.active,
+.trend-toolbar button.active,
+.table-pagination button.active,
+.material-market-tabs button.active { color:#fff; text-shadow:0 1px 1px rgba(0,0,0,.18); }
+.trend-tabs button:not(.active),
+.trend-toolbar button:not(.active) { color:#263b75; }

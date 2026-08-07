@@ -55,13 +55,13 @@ const keyComponentEntries = keyComponentsConfig as KeyComponentEntry[];
 const cytechUpdateIds = new Set(["key-nxp-mcimx515djm8c", "key-nxp-tja1042t-3", "key-nxp-tja1055t-3"]);
 const lcscUpdateIds = new Set(["key-nxp-mcimx9352cvvxmac", "key-nxp-pca9451ahny", "key-memory-femdrm032g-a3a55"]);
 const keyComponentResultsStorageKey = "semiconductor-key-component-results-v1";
-const trendPalette = ["#1d4fa3", "#40208d", "#68147d", "#94106f", "#bd1e63", "#8f214e"];
+const trendPalette = ["#5b21b6", "#dc2626", "#0b2d5c", "#38bdf8", "#eab308", "#16a34a"];
 const trendColorByName: Record<string, string> = {
-  ABS: "#1d4fa3",
-  PVC: "#40208d",
-  PC: "#68147d",
-  PET: "#94106f",
-  PP: "#bd1e63",
+  ABS: "#5b21b6",
+  PVC: "#dc2626",
+  PC: "#0b2d5c",
+  PET: "#38bdf8",
+  PP: "#eab308",
 };
 
 const updateMenuGroups: { title: string; options: { label: string; scope: UpdateScope }[] }[] = [
