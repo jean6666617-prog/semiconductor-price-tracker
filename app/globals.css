@@ -659,3 +659,4 @@ body { background:var(--paper); color:var(--ink); }
 .material-market-tabs button.active { color:#fff; text-shadow:0 1px 1px rgba(0,0,0,.18); }
 .trend-tabs button:not(.active),
 .trend-toolbar button:not(.active) { color:#263b75; }
+.topbar .brand-logo { mix-blend-mode:normal; filter:none; }
