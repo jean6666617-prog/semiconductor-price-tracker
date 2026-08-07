@@ -941,6 +941,13 @@ export default function Home() {
   const plasticAnalyses = useMemo(() => analyzePlasticTrends(sortedHistory), [sortedHistory]);
   const marketItemsByCategory = useMemo(() => buildMaterialMarketItems(plasticAnalyses, ddrMarketData), [plasticAnalyses, ddrMarketData]);
   const ddrInsightItems = useMemo(() => buildDdrInsightItems(items, sortedHistory, ddrMarketData), [items, sortedHistory, ddrMarketData]);
+  const latestIndustryNews = useMemo(() => [...(ddrMarketData?.industryNews ?? [])]
+    .filter((news) => news.title.trim())
+    .sort((a, b) => {
+      const aTime = Date.parse(a.date);
+      const bTime = Date.parse(b.date);
+      return (Number.isFinite(bTime) ? bTime : 0) - (Number.isFinite(aTime) ? aTime : 0);
+    })[0], [ddrMarketData]);
   const activeMarketItems = activeMarketCategory === "Memory" ? ddrInsightItems : marketItemsByCategory[activeMarketCategory];
   const activeMarketSource = activeMarketCategory === "Memory" ? "TrendForce · Tom's Hardware · DigiTimes" : getMarketSourceLabel(activeMarketCategory);
   const trendGroups = Array.from(new Set(Object.keys(sortedHistory).map((key) => key.split("::")[0])));
@@ -1782,9 +1789,9 @@ export default function Home() {
       <section className="landing-hero" aria-labelledby="landing-hero-title">
         <div className="landing-hero-content">
           <p className="landing-hero-kicker">SEMICONDUCTOR PRICE INTELLIGENCE</p>
-          <h1 id="landing-hero-title">看见价格变化，<em>判断下一步趋势。</em></h1>
-          <p className="landing-hero-copy">持续沉淀半导体、存储器与原材料价格，识别供应链变化，为采购和市场判断提供实时参考。</p>
-          <a className="landing-hero-link" href="#daily-price-insight">进入今日价格洞察 <span aria-hidden="true">→</span></a>
+          <h1 id="landing-hero-title">{latestIndustryNews?.title || "今日半导体市场最新动态"}</h1>
+          <p className="landing-hero-copy">{latestIndustryNews ? cleanDdrSummary(latestIndustryNews.summary) : "每日同步行业公开信息，聚焦价格、供需与供应链变化。"}</p>
+          <a className="landing-hero-link" href={latestIndustryNews?.url || "#daily-price-insight"} target={latestIndustryNews ? "_blank" : undefined} rel={latestIndustryNews ? "noreferrer" : undefined}>{latestIndustryNews ? latestIndustryNews.source + " · " + latestIndustryNews.date : "进入今日价格洞察"} <span aria-hidden="true">→</span></a>
         </div>
         <div className="landing-hero-meta" aria-hidden="true"><span>WAFER / MEMORY / COMPONENTS</span><span>LIVE MARKET VIEW</span></div>
       </section>

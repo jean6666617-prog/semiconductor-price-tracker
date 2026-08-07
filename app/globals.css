@@ -430,17 +430,17 @@ td a,.text-button { color:var(--green); text-decoration:none; border:0; backgrou
 
 
 /* Landing hero: a semiconductor wafer scene introduces the dashboard. */
-.landing-hero { position:relative; min-height:clamp(440px,calc(100vh - 68px),700px); display:flex; align-items:flex-end; padding:clamp(54px,8vw,108px) 8vw 64px; overflow:hidden; color:white; background-color:#10232d; background-image:url("https://www.okmetic.com/wp-content/uploads/2021/08/Okmetic_2019_Studiokuvaus_MikaelAhlfors-9097_small.jpg"); background-position:center; background-size:cover; }
+.landing-hero { position:relative; min-height:clamp(360px,66vh,520px); display:flex; align-items:flex-end; padding:clamp(54px,8vw,108px) 8vw 64px; overflow:hidden; color:white; background-color:#10232d; background-image:url("https://www.okmetic.com/wp-content/uploads/2021/08/Okmetic_2019_Studiokuvaus_MikaelAhlfors-9097_small.jpg"); background-position:center; background-size:cover; }
 .landing-hero::before { content:""; position:absolute; inset:0; background:rgba(7,22,30,.58); }
 .landing-hero-content,.landing-hero-meta { position:relative; z-index:1; }
 .landing-hero-content { max-width:650px; }
 .landing-hero-kicker { margin:0 0 20px; color:#cbe78d; font-size:12px; font-weight:800; letter-spacing:.2em; }
-.landing-hero h1 { max-width:620px; margin:0; color:white; font-family:Georgia,"Noto Serif SC",serif; font-size:clamp(44px,5.5vw,78px); font-weight:500; line-height:1.08; letter-spacing:-.04em; }
+.landing-hero h1 { max-width:620px; margin:0; color:white; font-family:Georgia,"Noto Serif SC",serif; font-size:clamp(34px,4.4vw,62px); font-weight:500; line-height:1.08; letter-spacing:-.04em; }
 .landing-hero h1 em { color:#cbe78d; font-style:normal; }
 .landing-hero-copy { max-width:590px; margin:26px 0 0; color:#e3eceb; font-size:17px; line-height:1.9; }
 .landing-hero-link { display:inline-flex; align-items:center; gap:12px; margin-top:30px; color:white; font-size:15px; font-weight:800; text-decoration:none; }
 .landing-hero-link span { color:#cbe78d; font-size:24px; line-height:1; transition:transform .18s ease; }
 .landing-hero-link:hover span { transform:translateX(5px); }
 .landing-hero-meta { position:absolute; right:8vw; bottom:62px; display:grid; gap:8px; color:#d6e5e2; font-family:"SFMono-Regular",Consolas,monospace; font-size:10px; letter-spacing:.12em; text-align:right; }
-@media (max-width:900px) { .landing-hero { min-height:540px; padding:72px 7vw 56px; }.landing-hero-meta { right:7vw; bottom:28px; } }
-@media (max-width:600px) { .landing-hero { min-height:520px; padding:54px 22px 54px; background-position:58% center; }.landing-hero-kicker { font-size:10px; line-height:1.5; }.landing-hero h1 { font-size:46px; }.landing-hero-copy { font-size:15px; line-height:1.75; }.landing-hero-meta { position:relative; right:auto; bottom:auto; margin:34px 0 0; font-size:9px; text-align:left; } }
+@media (max-width:900px) { .landing-hero { min-height:440px; padding:72px 7vw 56px; }.landing-hero-meta { right:7vw; bottom:28px; } }
+@media (max-width:600px) { .landing-hero { min-height:410px; padding:54px 22px 54px; background-position:58% center; }.landing-hero-kicker { font-size:10px; line-height:1.5; }.landing-hero h1 { font-size:36px; }.landing-hero-copy { font-size:15px; line-height:1.75; }.landing-hero-meta { position:relative; right:auto; bottom:auto; margin:34px 0 0; font-size:9px; text-align:left; } }
