@@ -785,3 +785,13 @@ body { background:var(--paper); color:var(--ink); }
   .top-navigation a { min-height:36px; padding:0 8px; font-size:11px; }
   .top-navigation a span { font-size:12px; }
 }
+
+/* Restore the original navigation scale and soften only the logo wordmark. */
+.top-navigation { gap:10px; }
+.top-navigation a { min-height:46px; padding:0 15px; font-size:16px; gap:7px; }
+.top-navigation a span { font-size:17px; }
+.brand-wordmark { font-family:"Arial Rounded MT Bold","Trebuchet MS",Arial,sans-serif; }
+@media (max-width:600px) {
+  .top-navigation a { min-height:40px; padding:0 12px; font-size:13px; }
+  .top-navigation a span { font-size:14px; }
+}
