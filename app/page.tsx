@@ -719,6 +719,7 @@ export default function Home() {
   const [updatingPrices, setUpdatingPrices] = useState(false);
   const [updateMenuOpen, setUpdateMenuOpen] = useState(false);
   const [expandedUpdateMenuGroup, setExpandedUpdateMenuGroup] = useState<string | null>(null);
+  const [trendMenuOpen, setTrendMenuOpen] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const updateMenuRef = useRef<HTMLDivElement>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -808,6 +809,8 @@ export default function Home() {
       if (hash === "price-trend-key") {
         setActiveView("history");
         setTrendMode("key");
+      } else if (hash === "price-trend") {
+        setActiveView("history");
       } else if (hash === "material-market-insight") {
         setActiveView("trend");
         setTrendMode("all");
@@ -825,6 +828,7 @@ export default function Home() {
   }, []);
 
   function navigateTo(view: DashboardView, hash: string, mode?: TrendMode) {
+    setTrendMenuOpen(false);
     setActiveView(view);
     if (mode) {
       setTrendMode(mode);
@@ -1776,7 +1780,22 @@ export default function Home() {
         <nav className="top-navigation" aria-label="网站核心模块导航">
           <a href="#daily-price-insight" onClick={(event) => { event.preventDefault(); navigateTo("home", "#daily-price-insight"); }}><span>01</span>首页</a>
           <a href="#material-market-insight" onClick={(event) => { event.preventDefault(); navigateTo("trend", "#material-market-insight"); }}><span>02</span>原材料趋势分析</a>
-          <a href="#price-trend-key" onClick={(event) => { event.preventDefault(); navigateTo("history", "#price-trend-key", "key"); }}><span>03</span>历史价格趋势</a>
+          <div className={`top-nav-dropdown ${trendMenuOpen ? "open" : ""}`}>
+            <button className="top-nav-dropdown-trigger" type="button" aria-haspopup="menu" aria-expanded={trendMenuOpen} onClick={() => setTrendMenuOpen((open) => !open)}>
+              <span>03</span>历史价格趋势 <i aria-hidden="true">⌄</i>
+            </button>
+            {trendMenuOpen && <div className="top-nav-dropdown-menu" role="menu" aria-label="历史价格趋势分类">
+              <button type="button" role="menuitem" onClick={() => navigateTo("history", "#price-trend", "all")}>全类别趋势</button>
+              <button type="button" role="menuitem" onClick={() => navigateTo("history", "#price-trend", "single")}>单类别趋势</button>
+              <button type="button" role="menuitem" onClick={() => navigateTo("history", "#price-trend-key", "key")}>重点追踪对象</button>
+              {trendGroups.map((trendCategory) => <button key={trendCategory} type="button" role="menuitem" onClick={() => {
+                const firstCommodity = Object.keys(sortedHistory).find((key) => key.startsWith(`${trendCategory}::`));
+                setTrendGroup(trendCategory);
+                if (firstCommodity) setTrendCommodity(firstCommodity);
+                navigateTo("history", "#price-trend", "single");
+              }}>{trendCategory}</button>)}
+            </div>}
+          </div>
           <a href="#tracking-matrix" onClick={(event) => { event.preventDefault(); navigateTo("status", "#tracking-matrix"); }}><span>04</span>品类状态</a>
           <a href="#source-directory" onClick={(event) => { event.preventDefault(); navigateTo("sources", "#source-directory"); }}><span>05</span>数据来源</a>
         </nav>
