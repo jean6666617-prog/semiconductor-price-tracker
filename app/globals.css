@@ -754,3 +754,17 @@ body { background:var(--paper); color:var(--ink); }
 .price-mover-scroll::-webkit-scrollbar-track { background:rgba(255,255,255,.16); }
 .price-mover-scroll::-webkit-scrollbar-thumb { background:#d6a7e5; }
 .price-mover-scroll::-webkit-scrollbar-thumb:hover { background:#f2c86e; }
+
+
+/* Navigation views: the home keeps 01/02; secondary views show only their own section. */
+.dashboard-root.view-home #tracking-matrix,.dashboard-root.view-home #source-directory { display:none; }
+.dashboard-root:not(.view-home) .landing-hero,
+.dashboard-root:not(.view-home) .floating-actions-dock,
+.dashboard-root:not(.view-home) .import-toast,
+.dashboard-root:not(.view-home) #daily-price-insight { display:none; }
+.dashboard-root.view-trend #tracking-matrix,.dashboard-root.view-trend #source-directory { display:none; }
+.dashboard-root.view-history #tracking-matrix,.dashboard-root.view-history #source-directory { display:none; }
+.dashboard-root.view-status #daily-price-insight,.dashboard-root.view-status #price-trend,.dashboard-root.view-status #source-directory { display:none; }
+.dashboard-root.view-sources #daily-price-insight,.dashboard-root.view-sources #price-trend,.dashboard-root.view-sources #tracking-matrix { display:none; }
+.dashboard-root:not(.view-home) .shell { padding-top:42px; }
+@media (max-width:760px) { .dashboard-root:not(.view-home) .shell { padding-top:24px; } }

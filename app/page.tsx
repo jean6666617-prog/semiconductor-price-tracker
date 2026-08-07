@@ -680,6 +680,8 @@ async function fetchLcscCrawler(ids: string[]) {
   return payload.results.filter((result) => lcscUpdateIds.has(result.id));
 }
 
+type DashboardView = "home" | "trend" | "history" | "status" | "sources";
+
 export default function Home() {
   const { items, history } = useSyncExternalStore(
     dashboardStore.subscribe,
@@ -700,6 +702,7 @@ export default function Home() {
   const [trendGroup, setTrendGroup] = useState("塑料件");
   const [trendCommodity, setTrendCommodity] = useState("塑料件::ABS");
   const [trendMode, setTrendMode] = useState<TrendMode>("all");
+  const [activeView, setActiveView] = useState<DashboardView>("home");
   const [selectedTrendRange, setSelectedTrendRange] = useState<TrendRange>("全部");
   const [activeMarketCategory, setActiveMarketCategory] = useState<MarketCategory>("Plastic");
   const [ddrMarketData, setDdrMarketData] = useState<DDRMarketData | undefined>();
@@ -798,6 +801,37 @@ export default function Home() {
       setUpdatingKeyComponents(false);
     }
   }, [setKeyComponentResults]);
+
+  useEffect(() => {
+    const syncViewFromHash = () => {
+      const hash = window.location.hash.slice(1);
+      if (hash === "price-trend-key") {
+        setActiveView("history");
+        setTrendMode("key");
+      } else if (hash === "price-trend") {
+        setActiveView("trend");
+        setTrendMode("all");
+      } else if (hash === "tracking-matrix") {
+        setActiveView("status");
+      } else if (hash === "source-directory") {
+        setActiveView("sources");
+      } else {
+        setActiveView("home");
+      }
+    };
+    syncViewFromHash();
+    window.addEventListener("hashchange", syncViewFromHash);
+    return () => window.removeEventListener("hashchange", syncViewFromHash);
+  }, []);
+
+  function navigateTo(view: DashboardView, hash: string, mode?: TrendMode) {
+    setActiveView(view);
+    if (mode) {
+      setTrendMode(mode);
+      if (mode === "key") void fetchKeyComponentPrices();
+    }
+    window.history.pushState({}, "", hash);
+  }
 
   useEffect(() => () => clearToastTimer(), []);
 
@@ -1736,15 +1770,15 @@ export default function Home() {
   }
 
   return (
-    <main>
+    <main className={`dashboard-root view-${activeView}`}>
       <header className="topbar">
         <div className="brand"><Image className="brand-mark" src="/semiconductor-price-tracker-mark-white.png" alt="Semiconductor Price Tracker" width={78} height={62} priority /><span className="brand-wordmark"><strong>SEMICONDUCTOR</strong><b>PRICE TRACKER</b></span></div>
         <nav className="top-navigation" aria-label="网站核心模块导航">
-          <a href="#daily-price-insight"><span>01</span>今日价格洞察</a>
-          <a href="#price-trend"><span>02</span>趋势分析</a>
-          <a href="#price-trend" onClick={() => setTrendMode("key")}><span>03</span>历史价格趋势</a>
-          <a href="#tracking-matrix"><span>04</span>品类状态</a>
-          <a href="#source-directory"><span>05</span>数据来源</a>
+          <a href="#daily-price-insight" onClick={(event) => { event.preventDefault(); navigateTo("home", "#daily-price-insight"); }}><span>01</span>今日价格洞察</a>
+          <a href="#price-trend" onClick={(event) => { event.preventDefault(); navigateTo("trend", "#price-trend", "all"); }}><span>02</span>趋势分析</a>
+          <a href="#price-trend-key" onClick={(event) => { event.preventDefault(); navigateTo("history", "#price-trend-key", "key"); }}><span>03</span>历史价格趋势</a>
+          <a href="#tracking-matrix" onClick={(event) => { event.preventDefault(); navigateTo("status", "#tracking-matrix"); }}><span>04</span>品类状态</a>
+          <a href="#source-directory" onClick={(event) => { event.preventDefault(); navigateTo("sources", "#source-directory"); }}><span>05</span>数据来源</a>
         </nav>
       </header>
 
