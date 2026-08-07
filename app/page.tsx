@@ -1043,26 +1043,6 @@ export default function Home() {
         points,
       }] : [];
     }),
-    ...Object.entries(history).flatMap(([key, rawSeries], index) => {
-      if (keyCategory === "Memory") return [];
-      const [group, ...nameParts] = key.split("::");
-      const name = nameParts.join("::");
-      if (!["SOC芯片", "MCU芯片"].includes(group)) return [];
-      const legacyItem = items.find((item) => item.group === group && item.name === name);
-      const isNxp = /NXP/i.test((legacyItem?.supplier || "") + " " + (legacyItem?.name || name) + " " + (legacyItem?.mpn || ""));
-      if (!isNxp) return [];
-      const isCurrentEntry = keyComponentEntries.some((entry) => [entry.name, entry.mpn].some((token) => normalize(token) && normalize(name).includes(normalize(token))));
-      if (isCurrentEntry) return [];
-      const points = filterTrendRange(sortSeries(rawSeries), selectedKeyRange, rawSeries.at(-1)?.[0]);
-      return points.length ? [{
-        key: "legacy-" + key,
-        name: legacyItem?.mpn || legacyItem?.name || name,
-        unit: legacyItem?.unit || "USD/pcs",
-        source: legacyItem?.source || "历史数据",
-        color: trendColor(legacyItem?.mpn || name, index + keyComponentEntries.length),
-        points,
-      }] : [];
-    }),
   ];
   const keyTrendDates = Array.from(new Set(keyChartSeries.flatMap((series) => series.points.map(([date]) => date)))).sort();
   const keyTrendPrices = keyChartSeries.flatMap((series) => series.points.map((point) => point[1]));
