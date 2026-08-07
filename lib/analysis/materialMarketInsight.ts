@@ -15,6 +15,7 @@ export type MarketItem = {
   description: string;
   factors: string[];
   updateDate?: string;
+  url?: string;
 };
 
 export const marketCategories: MarketCategory[] = ["Plastic", "Memory", "Display", "Battery", "SOC"];
@@ -60,6 +61,7 @@ export function plasticAnalysesToMarketItems(plasticAnalyses: PlasticTrendAnalys
     description: analysis.marketView,
     factors: [...analysis.positiveFactors, ...analysis.negativeFactors],
     updateDate: analysis.updateDate,
+    url: ({ ABS: "https://www.sunsirs.com/uk/prodetail-713.html", PC: "https://www.sunsirs.com/uk/prodetail-172.html", PP: "https://www.sunsirs.com/uk/prodetail-718.html", PVC: "https://www.sunsirs.com/uk/prodetail-107.html", PET: "https://www.sunsirs.com/uk/prodetail-173.html" } as Record<string, string>)[analysis.material],
   }));
 }
 
@@ -94,6 +96,7 @@ export function ddrMarketDataToMarketItems(ddrData?: DDRMarketData): MarketItem[
       description: analysis?.summary || news?.summary || "DDR市场公开分析数据接入中。",
       factors: factors.length ? factors : ["暂无公开数据", "DRAMeXchange / TrendForce / DigiTimes接口保留"],
       updateDate: spot?.date || contract?.date || analysis?.date || news?.date,
+      url: analysis?.url || spot?.url || contract?.url,
     };
   });
 }

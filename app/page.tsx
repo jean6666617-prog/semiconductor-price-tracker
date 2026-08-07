@@ -1868,6 +1868,23 @@ export default function Home() {
                 <div className="material-market-tabs" role="tablist" aria-label="原材料市场分类">
                   {marketCategories.map((category) => <button key={category} className={activeMarketCategory === category ? "active" : ""} onClick={() => setActiveMarketCategory(category)} type="button" role="tab" aria-selected={activeMarketCategory === category}>{category}</button>)}
                 </div>
+                <div className="material-market-brief">
+                  <figure className="material-brief-visual">
+                    <Image
+                      src={activeMarketCategory === "Memory" ? "/memory-market-insight.png" : "/plastic-material-insight.png"}
+                      alt={activeMarketCategory === "Memory" ? "DDR内存模块与晶圆" : "塑料原材料颗粒与工业件"}
+                      fill
+                      sizes="(max-width: 760px) 100vw, 45vw"
+                    />
+                    <figcaption>{activeMarketCategory === "Memory" ? "Memory market · DDR / DRAM" : "Plastic materials · ABS / PC / PP / PVC / PET"}</figcaption>
+                  </figure>
+                  <div className="material-brief-copy">
+                    <p className="kicker">MARKET SIGNAL / 市场信号</p>
+                    <h4>{activeMarketCategory === "Plastic" ? "塑料件价格与供需信号" : activeMarketCategory + " 市场数据接入"}</h4>
+                    <p>{activeMarketItems[0]?.description || "当前分类暂无可展示的公开分析。"}</p>
+                    {activeMarketItems[0]?.url && <a className="material-article-link" href={activeMarketItems[0].url} target="_blank" rel="noreferrer">查看 {activeMarketCategory === "Memory" ? "TrendForce / DDR 原文" : "SunSirs 原文"} / Read source ↗</a>}
+                  </div>
+                </div>
                 <div className={`plastic-insight-grid material-insight-grid category-${activeMarketCategory.toLowerCase()}`}>
                   {activeMarketItems.map((item) => {
                     const trendIcon = item.trend === "上涨" ? "↑" : item.trend === "下跌" ? "↓" : item.trend === "稳定" ? "→" : item.trend === "数据接入中" ? "·" : "↔";
@@ -1911,7 +1928,10 @@ export default function Home() {
                       <div className="plastic-card-top"><strong>{item.name}</strong><span>{item.updateDate || item.source}</span></div>
                       <div className="plastic-price"><b>{displayPrice}</b><small>{item.unit || item.source}</small></div>
                       <div className={`plastic-trend-pill ${item.trend}`}><span>{item.trend} {trendIcon}</span><em>{displayChange}</em></div>
-                      <p>{item.description}</p>
+                      <div className="material-card-analysis">
+                        <div className="material-card-analysis-head"><span>市场判断 / Market View</span>{item.url && <a href={item.url} target="_blank" rel="noreferrer">原文 ↗</a>}</div>
+                        <p>{item.description}</p>
+                      </div>
                       <ul>{(item.factors.length ? item.factors : ["暂无明确关键词信号"]).slice(0, 3).map((factor) => <li key={factor}>{factor}</li>)}</ul>
                     </article>;
                   })}

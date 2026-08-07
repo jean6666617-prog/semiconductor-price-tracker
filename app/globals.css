@@ -446,3 +446,63 @@ td a,.text-button { color:var(--green); text-decoration:none; border:0; backgrou
 .landing-hero-meta { position:absolute; right:8vw; bottom:62px; display:grid; gap:8px; color:#d6e5e2; font-family:"SFMono-Regular",Consolas,monospace; font-size:10px; letter-spacing:.12em; text-align:right; }
 @media (max-width:900px) { .landing-hero { min-height:380px; padding:72px 7vw 56px; }.landing-hero-meta { right:7vw; bottom:28px; } }
 @media (max-width:600px) { .landing-hero { min-height:360px; padding:54px 22px 54px; background-position:58% center; }.landing-hero-kicker { font-size:10px; line-height:1.5; }.landing-hero h1 { font-size:32px; }.landing-hero-news-title { font-size:14px; }.landing-hero-copy { font-size:15px; line-height:1.75; }.landing-hero-meta { position:relative; right:auto; bottom:auto; margin:34px 0 0; font-size:9px; text-align:left; } }
+
+/* Dashboard visual refresh: warning red, movers light, material insight editorial. */
+.dashboard-priority-grid { grid-template-columns:minmax(260px,.42fr) minmax(0,.58fr); gap:16px; }
+.insight-left-stack { display:contents; }
+.material-market-insight { grid-column:1 / -1; }
+.risk-primary-card { border-color:#df554b; background:linear-gradient(180deg,#fff4f2 0%,#fffafa 100%); box-shadow:0 16px 36px rgba(174,43,34,.14); }
+.risk-primary-card .compact-head { border-bottom-color:#f0c8c3; }
+.risk-primary-card .compact-head span,.risk-primary-card .compact-head small { color:#a9322b; }
+.risk-primary-card .risk-level { border-color:#efb9b2; background:#fff; }
+.risk-primary-card .risk-level span,.risk-primary-card .risk-level strong,.risk-primary-card .risk-name { color:#b9342c; }
+.risk-primary-card p { color:#87534f; }
+.risk-primary-card dl div { border-color:#f0c8c3; background:#fff; }
+.risk-primary-card dt { color:#a85c54; }
+.risk-primary-card dd,.risk-primary-card .risk-streak dd { color:#b9342c; }
+.compact-mover-list { border-color:#dfe3e6; background:#fafbfc; }
+.compact-mover-list .compact-head { border-bottom:1px solid #e7eaed; padding-bottom:8px; }
+.compact-mover-list .compact-head span { color:#263238; }
+.compact-mover-list .compact-head em,.compact-mover-list .compact-head small { color:#7b858b; }
+.compact-mover-row { border-top-color:#e8ecef; }
+.price-mover-scroll::-webkit-scrollbar-track { background:#eef1f3; }
+.price-mover-scroll::-webkit-scrollbar-thumb { background:#b7c0c6; }
+.price-mover-row.up .mover-rate { color:#c24135; }
+.price-mover-row.down .mover-rate { color:#2f7180; }
+.plastic-market-insight { border-color:#cfd4d7; border-radius:14px; background:#f8f8f6; box-shadow:none; padding:20px; }
+.plastic-insight-head { border-bottom-color:#d8dcde; margin-bottom:14px; padding-bottom:12px; }
+.plastic-insight-head .kicker { color:#9b661e; }
+.plastic-insight-head h3 { color:#1d2528; }
+.plastic-insight-head > span { color:#6f777b; }
+.material-market-tabs button { border-color:#d8dcde; background:#fff; color:#59646a; }
+.material-market-tabs button:hover { border-color:#b84b3e; color:#a83a31; }
+.material-market-tabs button.active { background:#202a2e; border-color:#202a2e; color:#f1c36a; }
+.material-market-brief { display:grid; grid-template-columns:minmax(260px,.9fr) minmax(0,1.1fr); min-height:176px; margin-bottom:14px; overflow:hidden; border:1px solid #d7dcde; border-radius:12px; background:#fff; }
+.material-brief-visual { position:relative; min-height:176px; margin:0; overflow:hidden; background:#e9e9e5; }
+.material-brief-visual img { display:block; width:100%; height:100%; min-height:176px; object-fit:cover; object-position:center; filter:saturate(.78) contrast(1.02); }
+.material-brief-visual::after { content:""; position:absolute; inset:0; background:linear-gradient(90deg,transparent 55%,rgba(255,255,255,.34)); pointer-events:none; }
+.material-brief-visual figcaption { position:absolute; left:14px; bottom:12px; z-index:1; color:#fff; font-size:10px; font-weight:800; letter-spacing:.06em; text-shadow:0 1px 3px #0008; }
+.material-brief-copy { display:flex; flex-direction:column; justify-content:center; padding:24px 28px; }
+.material-brief-copy .kicker { margin-bottom:8px; color:#a83f32; }
+.material-brief-copy h4 { margin:0; color:#202a2e; font-size:20px; line-height:1.35; }
+.material-brief-copy > p:not(.kicker) { margin:10px 0 0; color:#596267; font-size:12px; line-height:1.75; }
+.material-article-link,.material-card-analysis-head a { color:#aa3d31; font-size:11px; font-weight:900; text-decoration:none; }
+.material-article-link { display:inline-flex; margin-top:16px; align-self:flex-start; padding-bottom:3px; border-bottom:1px solid #d88b82; }
+.material-article-link:hover,.material-card-analysis-head a:hover { color:#76251f; border-color:currentColor; }
+.plastic-insight-grid { gap:14px; }
+.plastic-insight-card { border-color:#d7dcde; border-radius:12px; background:#fff; box-shadow:0 8px 20px rgba(43,52,56,.05); }
+.plastic-card-top strong { color:#202a2e; }
+.plastic-card-top span { color:#778187; }
+.plastic-price small { color:#737d82; }
+.plastic-trend-pill { border-color:#d8dcde; background:#f3f4f3; color:#6d5c32; }
+.plastic-trend-pill.上涨 { color:#a33b31; background:#fff0ed; border-color:#efc2ba; }
+.plastic-trend-pill.下跌 { color:#2f7180; background:#edf5f6; border-color:#c5dde1; }
+.material-card-analysis { display:grid; gap:7px; padding-top:2px; }
+.material-card-analysis-head { display:flex; align-items:center; justify-content:space-between; gap:10px; padding-top:9px; border-top:1px solid #e8ebec; color:#a16b22; font-size:10px; font-weight:900; }
+.material-card-analysis-head a { font-size:10px; }
+.plastic-insight-card p { color:#4f5a5f; }
+.plastic-insight-card ul { border-top-color:#e8ebec; }
+.plastic-insight-card li { color:#69747a; }
+.plastic-insight-card li::before { color:#b24a3d; }
+@media (max-width:1180px) { .dashboard-priority-grid { grid-template-columns:1fr; } }
+@media (max-width:760px) { .material-market-brief { grid-template-columns:1fr; } .material-brief-visual { min-height:150px; } .material-brief-visual img { min-height:150px; } .material-brief-copy { padding:18px; } }
