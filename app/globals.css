@@ -914,3 +914,10 @@ body { background:var(--paper); color:var(--ink); }
 .plastic-card-top strong { font-family:"Times New Roman",serif; font-weight:600; letter-spacing:.015em; }
 @media (max-width:1180px) { .risk-primary-card,.compact-mover-list { height:auto; min-height:340px; } .compact-mover-list .price-mover-scroll { max-height:280px; } }
 @media (max-width:760px) { .risk-primary-card,.compact-mover-list { min-height:0; height:auto; } }
+
+
+/* Compact standalone material view: remove stacked homepage top spacing. */
+.dashboard-root.view-trend .shell { padding-top:0; }
+.dashboard-root.view-trend #daily-price-insight { margin-top:20px; }
+.dashboard-root.view-trend .material-market-insight { margin-top:0; }
+@media (max-width:760px) { .dashboard-root.view-trend #daily-price-insight { margin-top:16px; } }
