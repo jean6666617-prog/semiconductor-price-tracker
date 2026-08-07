@@ -940,7 +940,11 @@ export default function Home() {
       .filter((entry) => entry.risingStreak > 0)
       .sort((a, b) => b.risingStreak - a.risingStreak || b.changeRate - a.changeRate)[0] ?? emptyEntry;
     const risk = maxChangeEntry;
-    const riskLevel = risk === emptyEntry ? "低" : risk.changeRate >= 3 || maxStreakEntry.risingStreak >= 3 || risk.averageGapRate >= 5 ? "高" : risk.changeRate > 0 || maxStreakEntry.risingStreak > 0 || risk.averageGapRate > 2 ? "中" : "低";
+    const riskLevel = risk === emptyEntry
+      ? "低"
+      : maxStreakEntry !== emptyEntry
+        ? maxStreakEntry.risingStreak >= 3 ? "高" : "中"
+        : risk.changeRate >= 3 || risk.averageGapRate >= 5 ? "高" : risk.changeRate > 0 || risk.averageGapRate > 2 ? "中" : "低";
     const riskReason = risk === emptyEntry
       ? "暂无显著价格风险"
       : [
