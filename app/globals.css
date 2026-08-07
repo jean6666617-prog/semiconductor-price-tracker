@@ -899,3 +899,10 @@ body { background:var(--paper); color:var(--ink); }
 .top-nav-nested-panel button { width:100%; padding:9px 11px; border:0; border-radius:7px; background:transparent; color:#fff; text-align:left; font-family:inherit; font-size:13px; cursor:pointer; }
 .top-nav-nested-panel button:hover { background:rgba(255,255,255,.12); color:#f2c86e; }
 @media (max-width:600px) { .top-nav-nested-panel { left:auto; right:calc(100% + 8px); min-width:130px; } .top-nav-nested-panel button { padding:8px 9px; font-size:11px; } }
+
+
+/* Compact standalone status view: remove unused top whitespace and status legend. */
+.dashboard-root.view-status .shell { padding-top:0; }
+.dashboard-root.view-status .tracker-section { margin-top:24px; }
+.dashboard-root.view-status .tracker-heading .legend { display:none; }
+@media (max-width:760px) { .dashboard-root.view-status .tracker-section { margin-top:18px; } }
