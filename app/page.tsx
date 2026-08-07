@@ -1888,7 +1888,7 @@ export default function Home() {
                   >
                     <strong>{keyTooltip.date}</strong>
                     {keyTooltip.entries.map((entry) => <div className="trend-tooltip-row" key={`${entry.name}-${entry.price}-${entry.unit}`}>
-                      <span><i style={{ background: entry.color }} />{entry.name}</span>
+                      <span><i style={{ background: entry.color }} /><em>{entry.name}</em></span>
                       <b>{formatTrendPrice(entry.price)} {entry.unit}</b>
                       {entry.source && entry.source !== "—" && <small>{entry.source}</small>}
                     </div>)}
@@ -1971,7 +1971,7 @@ export default function Home() {
                 >
                   <strong>{trendTooltip.date}</strong>
                   {trendTooltip.entries.map((entry) => <div className="trend-tooltip-row" key={`${entry.name}-${entry.price}-${entry.unit}`}>
-                    <span><i style={{ background: entry.color }} />{entry.name}</span>
+                    <span><i style={{ background: entry.color }} /><em>{entry.name}</em></span>
                     <b>{formatTrendPrice(entry.price)} {entry.unit}</b>
                     {entry.source && entry.source !== "—" && <small>{entry.source}</small>}
                   </div>)}
