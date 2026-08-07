@@ -1779,6 +1779,16 @@ export default function Home() {
         </div> : updateMessage || importMessage}
       </div>}
 
+      <section className="landing-hero" aria-labelledby="landing-hero-title">
+        <div className="landing-hero-content">
+          <p className="landing-hero-kicker">SEMICONDUCTOR PRICE INTELLIGENCE</p>
+          <h1 id="landing-hero-title">看见价格变化，<em>判断下一步趋势。</em></h1>
+          <p className="landing-hero-copy">持续沉淀半导体、存储器与原材料价格，识别供应链变化，为采购和市场判断提供实时参考。</p>
+          <a className="landing-hero-link" href="#daily-price-insight">进入今日价格洞察 <span aria-hidden="true">→</span></a>
+        </div>
+        <div className="landing-hero-meta" aria-hidden="true"><span>WAFER / MEMORY / COMPONENTS</span><span>LIVE MARKET VIEW</span></div>
+      </section>
+
       <div className="shell">
         <section className="workflow-section" id="daily-price-insight">
           <div className="section-heading"><div><p className="kicker">DAILY PRICE INSIGHT</p><h2>今日价格洞察</h2></div><p>风险提示作为左侧重点提醒，价格涨跌榜完整滚动展示每日变动，原材料市场趋势分析保留为主要判断区。</p></div>
