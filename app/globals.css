@@ -771,7 +771,6 @@ body { background:var(--paper); color:var(--ink); }
 
 /* Corrected navigation order: home, material insight, history trend, status, sources. */
 .dashboard-root.view-home #price-trend { display:none; }
-.dashboard-root.view-home .material-market-insight { display:none; }
 .dashboard-root.view-trend #daily-price-insight { display:block !important; }
 .dashboard-root.view-trend #daily-price-insight > .section-heading,
 .dashboard-root.view-trend #daily-price-insight .insight-left-stack { display:none !important; }
