@@ -679,3 +679,9 @@ body { background:var(--paper); color:var(--ink); }
 @media (max-width:600px) { .brand-mark { width:58px; height:48px; } .brand-wordmark strong { font-size:18px; } .brand-wordmark b { font-size:9px; letter-spacing:.16em; } }
 .brand { align-items:center; transform:translateY(-3px); }
 .brand-mark { transform:translateY(-1px); }
+.brand { gap:6px; }
+.brand-mark { width:60px; height:52px; }
+.brand-wordmark { gap:2px; }
+.brand-wordmark strong { font-size:20px; letter-spacing:.018em; }
+.brand-wordmark b { font-size:10px; letter-spacing:.18em; }
+@media (max-width:600px) { .brand { gap:5px; } .brand-mark { width:50px; height:44px; } .brand-wordmark strong { font-size:16px; } .brand-wordmark b { font-size:8px; } }
