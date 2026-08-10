@@ -1780,7 +1780,7 @@ export default function Home() {
               </a>)}
             </div>
             <div className="landing-hero-news-dots" aria-label="新闻分页">
-              {latestIndustryNewsList.map((news, index) => <button type="button" key={`dot-${news.url}`} className={index === activeLandingNewsIndex ? "is-active" : ""} aria-label={`查看第 ${index + 1} 条新闻`} onClick={() => { setActiveLandingNewsIndex(index); landingNewsCarouselRef.current?.children[index]?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "start" }); }} />)}
+              {latestIndustryNewsList.map((news, index) => <button type="button" key={`dot-${news.url}`} className={index === activeLandingNewsIndex ? "is-active" : ""} aria-label={`查看第 ${index + 1} 条新闻`} onMouseEnter={() => { setActiveLandingNewsIndex(index); landingNewsCarouselRef.current?.children[index]?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "start" }); }} onClick={() => { setActiveLandingNewsIndex(index); landingNewsCarouselRef.current?.children[index]?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "start" }); }} />)}
             </div>
           </> : <h1 id="landing-hero-title">半导体供应链最新市场动态</h1>}
         </div>
