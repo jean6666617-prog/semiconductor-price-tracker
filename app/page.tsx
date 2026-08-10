@@ -968,7 +968,7 @@ export default function Home() {
       const currentIndex = Math.round(carousel.scrollLeft / Math.max(carousel.clientWidth, 1));
       const nextIndex = currentIndex >= latestIndustryNewsList.length - 1 ? latestIndustryNewsList.length : currentIndex + 1;
       setActiveLandingNewsIndex(nextIndex % latestIndustryNewsList.length);
-      carousel.children[nextIndex]?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "start" });
+      carousel.scrollTo({ left: nextIndex * carousel.clientWidth, behavior: "smooth" });
       if (nextIndex === latestIndustryNewsList.length) {
         window.setTimeout(() => carousel.scrollTo({ left: 0, behavior: "auto" }), 700);
       }
@@ -1780,7 +1780,7 @@ export default function Home() {
               </a>)}
             </div>
             <div className="landing-hero-news-dots" aria-label="新闻分页">
-              {latestIndustryNewsList.map((news, index) => <button type="button" key={`dot-${news.url}`} className={index === activeLandingNewsIndex ? "is-active" : ""} aria-label={`查看第 ${index + 1} 条新闻`} onMouseEnter={() => { setActiveLandingNewsIndex(index); landingNewsCarouselRef.current?.children[index]?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "start" }); }} onClick={() => { setActiveLandingNewsIndex(index); landingNewsCarouselRef.current?.children[index]?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "start" }); }} />)}
+              {latestIndustryNewsList.map((news, index) => <button type="button" key={`dot-${news.url}`} className={index === activeLandingNewsIndex ? "is-active" : ""} aria-label={`查看第 ${index + 1} 条新闻`} onMouseEnter={() => { setActiveLandingNewsIndex(index); landingNewsCarouselRef.current?.scrollTo({ left: index * landingNewsCarouselRef.current.clientWidth, behavior: "smooth" }); }} onClick={() => { setActiveLandingNewsIndex(index); landingNewsCarouselRef.current?.scrollTo({ left: index * landingNewsCarouselRef.current.clientWidth, behavior: "smooth" }); }} />)}
             </div>
           </> : <h1 id="landing-hero-title">半导体供应链最新市场动态</h1>}
         </div>
