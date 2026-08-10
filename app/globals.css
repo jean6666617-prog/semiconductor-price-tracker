@@ -447,7 +447,7 @@ td a,.text-button { color:var(--green); text-decoration:none; border:0; backgrou
 .landing-hero-news-slide:hover h1,.landing-hero-news-slide:hover h2 { color:#ff68cd; }
 .landing-hero-news-dots { display:flex; align-items:center; gap:9px; margin-top:20px; }
 .landing-hero-news-dots button { width:9px; height:9px; padding:0; border:0; border-radius:50%; background:rgba(255,255,255,.42); cursor:pointer; }
-.landing-hero-news-dots button:first-child { background:#ff68cd; box-shadow:0 0 0 3px rgba(255,104,205,.2); }
+.landing-hero-news-dots button.is-active { background:#ff68cd; box-shadow:0 0 0 3px rgba(255,104,205,.2); }
 .landing-hero-news-dots button:hover { background:#fff; }
 .landing-hero-copy { max-width:680px; margin:18px 0 0; color:#e3eceb; font-size:14px; line-height:1.9; }
 .landing-hero-link { display:inline-flex; align-items:center; gap:12px; margin-top:30px; color:white; font-size:15px; font-weight:800; text-decoration:none; }

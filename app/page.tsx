@@ -956,12 +956,14 @@ export default function Home() {
       return (Number.isFinite(bTime) ? bTime : 0) - (Number.isFinite(aTime) ? aTime : 0);
     }).slice(0, 8), [ddrMarketData]);
   const landingNewsCarouselRef = useRef<HTMLDivElement>(null);
+  const [activeLandingNewsIndex, setActiveLandingNewsIndex] = useState(0);
   useEffect(() => {
     const carousel = landingNewsCarouselRef.current;
     if (!carousel || latestIndustryNewsList.length < 2) return;
     const timer = window.setInterval(() => {
       const currentIndex = Math.round(carousel.scrollLeft / Math.max(carousel.clientWidth, 1));
       const nextIndex = (currentIndex + 1) % latestIndustryNewsList.length;
+      setActiveLandingNewsIndex(nextIndex);
       carousel.children[nextIndex]?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "start" });
     }, 4000);
     return () => window.clearInterval(timer);
@@ -1759,7 +1761,10 @@ export default function Home() {
       <section className="landing-hero" aria-labelledby="landing-hero-title">
         <div className="landing-hero-content">
           {latestIndustryNewsList.length ? <>
-            <div className="landing-hero-news-carousel" aria-label="最新半导体新闻" ref={landingNewsCarouselRef}>
+            <div className="landing-hero-news-carousel" aria-label="最新半导体新闻" ref={landingNewsCarouselRef} onScroll={() => {
+              const carousel = landingNewsCarouselRef.current;
+              if (carousel) setActiveLandingNewsIndex(Math.round(carousel.scrollLeft / Math.max(carousel.clientWidth, 1)));
+            }}>
               {latestIndustryNewsList.map((news, index) => <a className="landing-hero-news-slide" href={news.url} target="_blank" rel="noreferrer" key={`${news.url}-${news.date}`}>
                 {index === 0 ? <h1 id="landing-hero-title">{heroNewsChineseTitle(news)}</h1> : <h2>{heroNewsChineseTitle(news)}</h2>}
                 <p className="landing-hero-news-title">{cleanDdrSummary(news.title)}</p>
@@ -1768,7 +1773,7 @@ export default function Home() {
               </a>)}
             </div>
             <div className="landing-hero-news-dots" aria-label="新闻分页">
-              {latestIndustryNewsList.map((news, index) => <button type="button" key={`dot-${news.url}`} aria-label={`查看第 ${index + 1} 条新闻`} onClick={() => landingNewsCarouselRef.current?.children[index]?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "start" })} />)}
+              {latestIndustryNewsList.map((news, index) => <button type="button" key={`dot-${news.url}`} className={index === activeLandingNewsIndex ? "is-active" : ""} aria-label={`查看第 ${index + 1} 条新闻`} onClick={() => { setActiveLandingNewsIndex(index); landingNewsCarouselRef.current?.children[index]?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "start" }); }} />)}
             </div>
           </> : <h1 id="landing-hero-title">半导体供应链最新市场动态</h1>}
         </div>
