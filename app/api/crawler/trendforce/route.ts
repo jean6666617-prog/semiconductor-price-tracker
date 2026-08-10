@@ -44,8 +44,9 @@ function isRequestBody(value: unknown): value is { ids: string[]; includeDisable
 }
 
 function refreshAuthorized(request: Request) {
-  const secret = process.env.CRON_SECRET;
-  return Boolean(secret && request.headers.get("x-cron-secret") === secret);
+  const secret = process.env.CRON_SECRET?.trim();
+  const provided = request.headers.get("x-cron-secret")?.trim();
+  return Boolean(secret && provided && provided === secret);
 }
 
 async function fetchEntries(entries: TrendForceEntry[]) {
