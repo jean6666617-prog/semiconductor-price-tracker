@@ -10,6 +10,8 @@ export type KeyComponentEntry = {
   manufacturer?: string;
   source: string;
   sourceUrl: string;
+  officialUrl?: string;
+  lcscUrl?: string;
   searchKeyword?: string;
   crawler: string;
   enabled: boolean;

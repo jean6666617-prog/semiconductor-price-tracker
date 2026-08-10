@@ -41,6 +41,7 @@ export type PriceResult = {
   mpn?: string;
   quantity?: number;
   analysis?: PlasticTrendAnalysis;
+  status?: "configuration_required" | "source_unavailable" | "success";
 };
 
 export type PriceHistoryPoint = {

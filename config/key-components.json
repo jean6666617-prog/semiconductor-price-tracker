@@ -9,7 +9,8 @@
     "sourceUrl": "https://www.cytechsystems.com/product/mcimx515djm8c",
     "crawler": "cytech",
     "enabled": true,
-    "status": "已追踪"
+    "status": "已追踪",
+    "officialUrl": "https://www.nxp.com/products/i-mx-5-processors:IMX51"
   },
   {
     "id": "key-nxp-tja1042t-3",
@@ -21,7 +22,8 @@
     "sourceUrl": "https://www.cytechsystems.com/product/tja1042t-3-118",
     "crawler": "cytech",
     "enabled": true,
-    "status": "已追踪"
+    "status": "已追踪",
+    "officialUrl": "https://www.nxp.com/part/TJA1042T"
   },
   {
     "id": "key-nxp-tja1055t-3",
@@ -33,7 +35,8 @@
     "sourceUrl": "https://www.cytechsystems.com/product/tja1055t-c-518",
     "crawler": "cytech",
     "enabled": true,
-    "status": "已追踪"
+    "status": "已追踪",
+    "officialUrl": "https://www.nxp.com/part/TJA1055T"
   },
   {
     "id": "key-nxp-mcimx9352cvvxmac",
@@ -45,7 +48,8 @@
     "sourceUrl": "https://www.lcsc.com/product-detail/C48980520.html",
     "crawler": "lcsc",
     "enabled": true,
-    "status": "已追踪"
+    "status": "已追踪",
+    "officialUrl": "https://www.nxp.com/part/MIMX9352CVVXMAC"
   },
   {
     "id": "key-nxp-pca9451ahny",
@@ -57,7 +61,8 @@
     "sourceUrl": "https://www.lcsc.com/product-detail/Power-Management-Specialized_NXP-Semicon-PCA9451AHNY_C5365710.html",
     "crawler": "lcsc",
     "enabled": true,
-    "status": "已追踪"
+    "status": "已追踪",
+    "officialUrl": "https://www.nxp.com/part/PCA9451AHNY"
   },
   {
     "id": "key-memory-jsl4bag167zamf-05a",

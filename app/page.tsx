@@ -52,8 +52,6 @@ type UpdateScope = {
 const tablePageSize = 10;
 const trackingEntries = trackingConfig as TrackingEntry[];
 const keyComponentEntries = keyComponentsConfig as KeyComponentEntry[];
-const cytechUpdateIds = new Set(["key-nxp-mcimx515djm8c", "key-nxp-tja1042t-3", "key-nxp-tja1055t-3"]);
-const lcscUpdateIds = new Set(["key-nxp-mcimx9352cvvxmac", "key-nxp-pca9451ahny", "key-memory-femdrm032g-a3a55"]);
 const keyComponentResultsStorageKey = "semiconductor-key-component-results-v1";
 const trendPalette = ["#5b21b6", "#d9369a", "#0b2d5c", "#38bdf8", "#eab308", "#16a34a"];
 const trendColorByName: Record<string, string> = {
@@ -610,17 +608,10 @@ function isSuccessfulUpdate(result: UpdateResult) {
 }
 
 function updateResultText(result: UpdateResult) {
-  if (!isSuccessfulUpdate(result)) {
-    return `${result.material || result.category} 更新失败（${result.source}）`;
-  }
+  if (result.status === "configuration_required") return `配置提示：${result.error || "价格来源凭证未配置，已跳过该来源"}`;
+  if (!isSuccessfulUpdate(result)) return `${result.mpn || result.material || result.category} 更新失败（${result.source}）`;
   if (result.mode === "mock") return `${result.material} 更新完成（模拟数据）`;
-  if (result.source === "LCSC") {
-    return `${result.material} 更新完成（LCSC · ${result.price} ${displayUnit(result)} · ${result.updateDate}）`;
-  }
-  if (result.quantity === 1 && result.mpn) {
-    return `${result.material} 更新完成（${result.mpn} · 单件价格 · ${result.price} ${displayUnit(result)} · ${result.updateDate}）`;
-  }
-  return `${result.material} 更新完成（${result.source}真实抓取）`;
+  return `${result.mpn || result.material} · Price: ${result.price} · Currency: ${result.currency} · Source: ${result.source} · Update time: ${result.updateDate}`;
 }
 
 async function readApiJson<T>(response: Response, label: string): Promise<T> {
@@ -628,56 +619,12 @@ async function readApiJson<T>(response: Response, label: string): Promise<T> {
   return parseJsonTargetResponse<T>(label, response, text);
 }
 
-async function fetchCytechCrawler(ids: string[]) {
+async function fetchDistributorCrawler(ids: string[]) {
   if (!ids.length) return [];
-  let response: Response;
-  try {
-    response = await fetch("/api/crawler/cytech", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ids }),
-    });
-  } catch (error) {
-    if (process.env.NODE_ENV === "development") {
-      console.error(`[Cytech API Request Failed] ${JSON.stringify({
-        ids,
-        errorName: error instanceof Error ? error.name : "",
-        errorMessage: error instanceof Error ? error.message : String(error),
-      })}`);
-    }
-    throw error;
-  }
-
-  const payload = await readApiJson<{ success?: boolean; error?: string; results?: KeyComponentResult[] }>(response, "Cytech API");
-
-  if (process.env.NODE_ENV === "development") {
-    console.log(`[Cytech API Response] ${JSON.stringify({
-      ids,
-      status: response.status,
-      statusText: response.statusText,
-      ok: response.ok,
-      payload,
-    })}`);
-  }
-
-  if (!response.ok || !payload.success || !Array.isArray(payload.results)) {
-    throw new Error(payload.error || `Cytech API request failed: ${response.status}`);
-  }
-  return payload.results.filter((result) => cytechUpdateIds.has(result.id));
-}
-
-async function fetchLcscCrawler(ids: string[]) {
-  if (!ids.length) return [];
-  const response = await fetch("/api/crawler/lcsc", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ids }),
-  });
-  const payload = await readApiJson<{ success?: boolean; error?: string; results?: KeyComponentResult[] }>(response, "LCSC API");
-  if (!response.ok || !payload.success || !Array.isArray(payload.results)) {
-    throw new Error(payload.error || `LCSC API request failed: ${response.status}`);
-  }
-  return payload.results.filter((result) => lcscUpdateIds.has(result.id));
+  const response = await fetch("/api/crawler/distributor", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids }) });
+  const payload = await readApiJson<{ success?: boolean; error?: string; results?: KeyComponentResult[] }>(response, "Distributor API");
+  if (!response.ok || !payload.success || !Array.isArray(payload.results)) throw new Error(payload.error || `Distributor API request failed: ${response.status}`);
+  return payload.results;
 }
 
 type DashboardView = "home" | "trend" | "history" | "status" | "sources";
@@ -779,21 +726,11 @@ export default function Home() {
   };
 
   const fetchKeyComponentPrices = useCallback(async (ids?: string[]) => {
-    const cytechTargetIds = ids ?? keyComponentEntries
-      .filter((entry) => entry.enabled && entry.crawler === "cytech" && cytechUpdateIds.has(entry.id))
-      .map((entry) => entry.id);
-    const lcscTargetIds = ids ?? keyComponentEntries
-      .filter((entry) => entry.enabled && entry.crawler === "lcsc" && lcscUpdateIds.has(entry.id))
-      .map((entry) => entry.id);
-    const allowedCytechIds = cytechTargetIds.filter((id) => cytechUpdateIds.has(id));
-    const allowedLcscIds = lcscTargetIds.filter((id) => lcscUpdateIds.has(id));
-    if (!allowedCytechIds.length && !allowedLcscIds.length) return;
+    const targetIds = ids ?? keyComponentEntries.filter((entry) => entry.enabled).map((entry) => entry.id);
+    if (!targetIds.length) return;
     setUpdatingKeyComponents(true);
     try {
-      const results = [
-        ...(await fetchCytechCrawler(allowedCytechIds)),
-        ...(await fetchLcscCrawler(allowedLcscIds)),
-      ];
+      const results = await fetchDistributorCrawler(targetIds);
       setKeyComponentResults((current) => {
         const next = { ...current };
         for (const result of results) next[result.id] = mergeKeyComponentResult(next[result.id], result);
@@ -1201,13 +1138,14 @@ export default function Home() {
   const dailyChange = (trendPrices.at(-1)! - trendPrices[0]) / Math.max(trendPrices.length - 1, 1);
   const forecast = trendPrices.at(-1)! + dailyChange;
   const changeRate = ((trendPrices.at(-1)! / trendPrices[0]) - 1) * 100;
-  const failedUpdateResults = updateResults.filter((result) => !isSuccessfulUpdate(result));
+  const configurationResults = updateResults.filter((result) => result.status === "configuration_required");
+  const failedUpdateResults = updateResults.filter((result) => !isSuccessfulUpdate(result) && result.status !== "configuration_required");
   const successfulUpdateResults = updateResults.filter(isSuccessfulUpdate);
   const updateSourceSummary = Array.from(updateResults.reduce((counts, result) => {
     counts.set(result.source, (counts.get(result.source) || 0) + 1);
     return counts;
   }, new Map<string, number>()).entries()).map(([source, count]) => `${source} ${count}`).join(" · ");
-  const hasOnlyFailedUpdates = updateResults.length > 0 && failedUpdateResults.length === updateResults.length;
+  const hasOnlyFailedUpdates = updateResults.length > 0 && successfulUpdateResults.length === 0 && failedUpdateResults.length > 0;
 
   function markUpdated(id: number) {
     const today = new Intl.DateTimeFormat("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit" })
@@ -1248,12 +1186,11 @@ export default function Home() {
     const realTrendForceEntries = enabledEntries.filter((entry) => entry.crawler === "trendforce" && entry.mode === "real");
     const realDigiKeyEntries = enabledEntries.filter((entry) => entry.crawler === "digikey" && entry.mode === "real");
     const enabledKeyEntries = keyComponentEntries.filter((entry) => entry.enabled && (!scope?.keyFilter || scope.keyFilter(entry)));
-    const cytechKeyEntries = enabledKeyEntries.filter((entry) => entry.crawler === "cytech" && cytechUpdateIds.has(entry.id));
-    const lcscKeyEntries = enabledKeyEntries.filter((entry) => entry.crawler === "lcsc" && lcscUpdateIds.has(entry.id));
+    const distributorKeyEntries = enabledKeyEntries;
 
     let shouldStartToastTimer = false;
     try {
-      if (!enabledEntries.length && !cytechKeyEntries.length && !lcscKeyEntries.length) {
+      if (!enabledEntries.length && !distributorKeyEntries.length) {
         setUpdateMessage(scope ? `${scope.label} 暂无可更新条目` : "暂无可更新条目");
         return;
       }
@@ -1263,8 +1200,7 @@ export default function Home() {
       const digiKeyResults = realDigiKeyEntries.length
         ? await fetchDigiKeyCrawler(realDigiKeyEntries)
         : new Map<string, PriceResult>();
-      const cytechResults = await fetchCytechKeyResults(cytechKeyEntries);
-      const lcscResults = await fetchLcscKeyResults(lcscKeyEntries);
+      const distributorResults = distributorKeyEntries.length ? new Map((await fetchDistributorCrawler(distributorKeyEntries.map((entry) => entry.id))).map((result) => [result.id, result])) : new Map<string, KeyComponentResult>();
       for (const entry of enabledEntries) {
         setUpdateMessage(`正在更新 ${entry.name}`);
         const result: PriceResult = entry.crawler === "trendforce" && entry.mode === "real"
@@ -1331,56 +1267,15 @@ export default function Home() {
         nextHistory = { ...nextHistory, [key]: sortSeries([...(nextHistory[key] ?? []), ...crawlerHistory]) };
         successCount += 1;
       }
-      for (const entry of cytechKeyEntries) {
+      for (const entry of distributorKeyEntries) {
         setUpdateMessage(`正在更新 ${entry.mpn}`);
-        const result = cytechResults.get(entry.id) || failedKeyComponentResult(entry, "Missing Cytech API result");
+        const result = distributorResults.get(entry.id) || failedKeyComponentResult(entry, "Missing distributor API result");
         const trackedResult: UpdateResult = { ...result, mode: "real" };
         results.push(trackedResult);
         setUpdateResults([...results]);
-        if (!isSuccessfulUpdate(trackedResult)) setToastDetailsExpanded(true);
-        if (process.env.NODE_ENV === "development") {
-          console.log("[Crawler Result]", {
-            material: trackedResult.material,
-            source: trackedResult.source,
-            success: trackedResult.success,
-            price: trackedResult.price,
-            unit: trackedResult.unit,
-            updateDate: trackedResult.updateDate,
-            error: trackedResult.error,
-            mode: trackedResult.mode,
-          });
-        }
+        if (!isSuccessfulUpdate(trackedResult) && trackedResult.status !== "configuration_required") setToastDetailsExpanded(true);
         if (!result.success || result.price === null) continue;
-        nextKeyComponentResults = {
-          ...nextKeyComponentResults,
-          [entry.id]: mergeKeyComponentResult(nextKeyComponentResults[entry.id], result),
-        };
-        successCount += 1;
-      }
-      for (const entry of lcscKeyEntries) {
-        setUpdateMessage(`正在更新 ${entry.mpn}`);
-        const result = lcscResults.get(entry.id) || failedKeyComponentResult(entry, "Missing LCSC API result");
-        const trackedResult: UpdateResult = { ...result, mode: "real" };
-        results.push(trackedResult);
-        setUpdateResults([...results]);
-        if (!isSuccessfulUpdate(trackedResult)) setToastDetailsExpanded(true);
-        if (process.env.NODE_ENV === "development") {
-          console.log("[Crawler Result]", {
-            material: trackedResult.material,
-            source: trackedResult.source,
-            success: trackedResult.success,
-            price: trackedResult.price,
-            unit: trackedResult.unit,
-            updateDate: trackedResult.updateDate,
-            error: trackedResult.error,
-            mode: trackedResult.mode,
-          });
-        }
-        if (!result.success || result.price === null) continue;
-        nextKeyComponentResults = {
-          ...nextKeyComponentResults,
-          [entry.id]: mergeKeyComponentResult(nextKeyComponentResults[entry.id], result),
-        };
+        nextKeyComponentResults = { ...nextKeyComponentResults, [entry.id]: mergeKeyComponentResult(nextKeyComponentResults[entry.id], result) };
         successCount += 1;
       }
       setItems(nextItems);
@@ -1525,35 +1420,7 @@ export default function Home() {
     }
   }
 
-  async function fetchCytechKeyResults(entries: KeyComponentEntry[]) {
-    const fallback = new Map(entries.map((entry) => [entry.id, failedKeyComponentResult(entry, "Missing Cytech tracking id")]));
-    const ids = entries.map((entry) => entry.id).filter((id) => cytechUpdateIds.has(id));
-    if (!ids.length) return fallback;
-    try {
-      const results = await fetchCytechCrawler(ids);
-      results.forEach((result) => fallback.set(result.id, result));
-      return fallback;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Cytech API request failed";
-      entries.forEach((entry) => fallback.set(entry.id, failedKeyComponentResult(entry, message)));
-      return fallback;
-    }
-  }
 
-  async function fetchLcscKeyResults(entries: KeyComponentEntry[]) {
-    const fallback = new Map(entries.map((entry) => [entry.id, failedKeyComponentResult(entry, "Missing LCSC tracking id")]));
-    const ids = entries.map((entry) => entry.id).filter((id) => lcscUpdateIds.has(id));
-    if (!ids.length) return fallback;
-    try {
-      const results = await fetchLcscCrawler(ids);
-      results.forEach((result) => fallback.set(result.id, result));
-      return fallback;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "LCSC API request failed";
-      entries.forEach((entry) => fallback.set(entry.id, failedKeyComponentResult(entry, message)));
-      return fallback;
-    }
-  }
 
   async function handleExportAll() {
     try {
@@ -1849,6 +1716,7 @@ export default function Home() {
           <div className={`toast-details-wrapper${toastExpanded ? " expanded" : ""}`} aria-hidden={!toastExpanded}>
             <div className="toast-details-inner">
               <div className="toast-details">
+                {configurationResults.length > 0 && <section className="toast-group toast-group-config"><h4>配置提示（{configurationResults.length}）</h4><div className="toast-result-list">{configurationResults.map((result, index) => <div className="toast-result config" key={`config-${result.category}-${result.material}-${index}`}><strong>ⓘ {updateResultText(result)}</strong></div>)}</div></section>}
                 {failedUpdateResults.length > 0 && <section className="toast-group toast-group-failed">
                   <h4>失败（{failedUpdateResults.length}）</h4>
                   <div className="toast-result-list">
@@ -2085,11 +1953,11 @@ export default function Home() {
                           <td><span className="mpn">{entry.mpn}</span></td>
                           <td>{entry.description}</td>
                           <td>{entry.category}</td>
-                          <td>{entry.source}</td>
+                          <td>{result?.source || entry.source}</td>
                           <td><span className={`key-status ${entry.status}`}>{entry.status}</span></td>
                           <td>{hasPrice ? <span className="price">{formatTrendPrice(result.price!)}<small className="unit">{displayUnit(result)}</small></span> : "--"}</td>
-                          <td><a href={entry.sourceUrl} target="_blank" rel="noreferrer">查看</a></td>
-                          <td>{entry.enabled && entry.crawler === "cytech"
+                          <td><div className="source-links">{result?.success && result.sourceUrl && <a href={result.sourceUrl} target="_blank" rel="noreferrer">价格</a>}<a href={entry.officialUrl || entry.sourceUrl} target="_blank" rel="noreferrer">产品验证</a></div></td>
+                          <td>{entry.enabled
                             ? <button className="text-button" type="button" onClick={() => fetchKeyComponentPrices([entry.id])} disabled={updatingKeyComponents}>刷新</button>
                             : <span className="key-action-muted">--</span>}</td>
                         </tr>;

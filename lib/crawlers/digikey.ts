@@ -5,7 +5,11 @@ const isDevelopment = process.env.NODE_ENV === "development";
 const requestTimeoutMs = 15_000;
 const apiBaseUrl = "https://api.digikey.com";
 const tokenEndpoint = `${apiBaseUrl}/v1/oauth2/token`;
-const missingCredentialsMessage = "未配置 DigiKey API 凭证，请在 .env.local 中设置 DIGIKEY_CLIENT_ID 和 DIGIKEY_CLIENT_SECRET，并重启开发服务器";
+export const missingCredentialsMessage = "未配置 DigiKey API 凭证，请在 .env.local 中设置 DIGIKEY_CLIENT_ID 和 DIGIKEY_CLIENT_SECRET，并重启开发服务器";
+
+export function hasDigiKeyCredentials() {
+  return Boolean(process.env.DIGIKEY_CLIENT_ID?.trim() && process.env.DIGIKEY_CLIENT_SECRET?.trim());
+}
 
 type TokenCache = {
   accessToken: string;

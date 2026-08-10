@@ -1,0 +1,7 @@
+import { NextResponse } from "next/server";
+import keyComponents from "../../../../config/key-components.json";
+import { fetchDistributorPrice } from "../../../../lib/crawlers/distributor";
+import type { KeyComponentEntry } from "../../../../lib/crawlers/cytech";
+const entries = keyComponents as KeyComponentEntry[]; export const runtime = "edge";
+function valid(value: unknown): value is { ids: string[] } { if (!value || typeof value !== "object") return false; const body = value as { ids?: unknown }; return Array.isArray(body.ids) && body.ids.every(id => typeof id === "string"); }
+export async function POST(request: Request) { let body: unknown; try { body = await request.json(); } catch { return NextResponse.json({ success: false, error: "Invalid JSON request body" }, { status: 400 }); } if (!valid(body) || body.ids.length === 0) return NextResponse.json({ success: false, error: "Request body must contain a non-empty ids array" }, { status: 400 }); const results = await Promise.all(Array.from(new Set(body.ids)).map(async id => { const entry = entries.find(candidate => candidate.id === id); if (!entry) return { id, success: false, category: "", material: id, materialName: id, mpn: id, price: null, currency: "", unit: "", source: "Distributor aggregation", sourceUrl: "", updateDate: new Date().toISOString().slice(0, 10), error: "Unknown key component id", status: "source_unavailable" as const }; return fetchDistributorPrice(entry); })); return NextResponse.json({ success: true, results }); }
