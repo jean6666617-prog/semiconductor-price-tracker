@@ -9,9 +9,47 @@ function digiKeyEntry(entry: KeyComponentEntry): TrackingEntry { return { id: en
 function failure(entry: KeyComponentEntry, error: string, source = "Distributor aggregation"): DistributorResult { return { id: entry.id, success: false, category: entry.category, material: entry.mpn, materialName: entry.name, mpn: entry.mpn, price: null, currency: "USD", unit: "USD/pcs", source, sourceUrl: entry.officialUrl || entry.sourceUrl, updateDate: todayKey(), crawlTime: new Date().toISOString(), mode: "real", error, status: "source_unavailable" }; }
 function isCloudflareError(error?: string) { return /cloudflare|cf-chl|just a moment|challenge|enable javascript/i.test(error || ""); }
 export async function fetchDistributorPrice(entry: KeyComponentEntry): Promise<DistributorResult> {
-  if (!entry.enabled) return failure(entry, "Key component crawler is disabled"); const notices: string[] = []; const digiKeyMissing = !hasDigiKeyCredentials();
-  if (!digiKeyMissing) { const result = await fetchDigiKeyPrice(digiKeyEntry(entry)); if (result.success && result.price !== null) return { ...result, id: entry.id, source: "DigiKey", status: "success" }; if (result.error && !isCloudflareError(result.error)) notices.push("DigiKey：" + result.error); } else notices.push(missingCredentialsMessage);
-  if (hasMouserCredentials()) { const result = await fetchMouserPrice(entry); if (result.success && result.price !== null) return result; if (result.error) notices.push("Mouser：" + result.error); } else notices.push(missingMouserCredentialsMessage);
-  if (entry.lcscUrl || entry.sourceUrl.includes("lcsc.com/product-detail")) { const lcscEntry = entry.lcscUrl ? { ...entry, sourceUrl: entry.lcscUrl, crawler: "lcsc" } : entry; const result = await fetchLcscPrice(lcscEntry); if (result.success && result.price !== null) return { ...result, id: entry.id, status: "success" }; if (result.error) notices.push("LCSC：" + result.error); } else notices.push("LCSC：未配置可验证的产品详情页");
-  const cytechResult = await fetchCytechPrice(entry); if (cytechResult.success && cytechResult.price !== null) return { ...cytechResult, id: entry.id, status: "success" }; const fallbackError = isCloudflareError(cytechResult.error) ? "备用来源暂不可用：供应商页面验证限制" : "未获取到公开的单件价格"; const result = failure(entry, fallbackError + (notices.length ? "；" + notices.join("；") : "")); if (digiKeyMissing) result.status = "configuration_required"; return result;
+  if (!entry.enabled) return failure(entry, "Key component crawler is disabled");
+
+  const notices: string[] = [];
+  const isNxp = entry.category === "NXP";
+
+  // NXP current prices use public distributor sources only. DigiKey remains a separate
+  // crawler for future production access and is intentionally skipped here.
+  if (hasMouserCredentials()) {
+    const mouserResult = await fetchMouserPrice(entry);
+    if (mouserResult.success && mouserResult.price !== null) return mouserResult;
+    if (mouserResult.error) notices.push("Mouser：" + mouserResult.error);
+  } else {
+    notices.push(missingMouserCredentialsMessage);
+  }
+
+  if (entry.lcscUrl || entry.sourceUrl.includes("lcsc.com/product-detail")) {
+    const lcscEntry = entry.lcscUrl ? { ...entry, sourceUrl: entry.lcscUrl, crawler: "lcsc" } : entry;
+    const lcscResult = await fetchLcscPrice(lcscEntry);
+    if (lcscResult.success && lcscResult.price !== null) return { ...lcscResult, id: entry.id, status: "success" };
+    if (lcscResult.error) notices.push("LCSC：" + lcscResult.error);
+  } else {
+    notices.push("LCSC：未配置可验证的产品详情页");
+  }
+
+  if (isNxp) {
+    return failure(entry, "未从 Mouser API 或 LCSC 公开产品页获取到真实价格" + (notices.length ? "；" + notices.join("；") : ""), "Mouser / LCSC");
+  }
+
+  const digiKeyMissing = !hasDigiKeyCredentials();
+  if (!digiKeyMissing) {
+    const digiKeyResult = await fetchDigiKeyPrice(digiKeyEntry(entry));
+    if (digiKeyResult.success && digiKeyResult.price !== null) return { ...digiKeyResult, id: entry.id, source: "DigiKey", status: "success" };
+    if (digiKeyResult.error && !isCloudflareError(digiKeyResult.error)) notices.push("DigiKey：" + digiKeyResult.error);
+  } else {
+    notices.push(missingCredentialsMessage);
+  }
+
+  const cytechResult = await fetchCytechPrice(entry);
+  if (cytechResult.success && cytechResult.price !== null) return { ...cytechResult, id: entry.id, status: "success" };
+  const fallbackError = isCloudflareError(cytechResult.error) ? "备用来源暂不可用：供应商页面验证限制" : "未获取到公开的单件价格";
+  const result = failure(entry, fallbackError + (notices.length ? "；" + notices.join("；") : ""));
+  if (digiKeyMissing) result.status = "configuration_required";
+  return result;
 }

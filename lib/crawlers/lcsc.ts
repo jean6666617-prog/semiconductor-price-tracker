@@ -126,7 +126,9 @@ function parseLcscPrice(html: string, expectedMpn: string): LcscParsedPrice {
     throw new Error(`LCSC MPN mismatch: expected ${expectedMpn}, got ${webData.productModel || "unknown"}`);
   }
 
-  const quantityOne = webData.productPriceList?.find((item) => item.ladder === 1);
+  const quantityOne = webData.productPriceList
+    ?.filter((item) => Number.isFinite(Number(item.ladder)) && Number(item.ladder) > 0)
+    .sort((left, right) => Number(left.ladder) - Number(right.ladder))[0];
   const cnyQuantityOne = quantityOne?.cnyProductPriceList?.find((item) => item.ladder === 1);
   const isCnyPrice = webData.currencyType === "CNY"
     || webData.currencySymbol === "￥"

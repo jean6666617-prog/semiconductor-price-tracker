@@ -10,7 +10,8 @@
     "crawler": "cytech",
     "enabled": true,
     "status": "已追踪",
-    "officialUrl": "https://www.nxp.com/products/i-mx-5-processors:IMX51"
+    "officialUrl": "https://www.nxp.com/products/i-mx-5-processors:IMX51",
+    "lcscUrl": "https://www.lcsc.com/product-detail/NXP-MCU_NXP-Semicon-MCIMX515DJM8C_C462557.html"
   },
   {
     "id": "key-nxp-tja1042t-3",
@@ -23,7 +24,8 @@
     "crawler": "cytech",
     "enabled": true,
     "status": "已追踪",
-    "officialUrl": "https://www.nxp.com/part/TJA1042T"
+    "officialUrl": "https://www.nxp.com/part/TJA1042T",
+    "lcscUrl": "https://www.lcsc.com/product-detail/C2874888.html"
   },
   {
     "id": "key-nxp-tja1055t-3",
@@ -36,7 +38,8 @@
     "crawler": "cytech",
     "enabled": true,
     "status": "已追踪",
-    "officialUrl": "https://www.nxp.com/part/TJA1055T"
+    "officialUrl": "https://www.nxp.com/part/TJA1055T",
+    "lcscUrl": "https://www.lcsc.com/product-detail/CAN-ICs_NXP-Semicon-TJA1055T-C-518_C63049.html"
   },
   {
     "id": "key-nxp-mcimx9352cvvxmac",
