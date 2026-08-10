@@ -956,6 +956,16 @@ export default function Home() {
       return (Number.isFinite(bTime) ? bTime : 0) - (Number.isFinite(aTime) ? aTime : 0);
     }).slice(0, 8), [ddrMarketData]);
   const landingNewsCarouselRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const carousel = landingNewsCarouselRef.current;
+    if (!carousel || latestIndustryNewsList.length < 2) return;
+    const timer = window.setInterval(() => {
+      const currentIndex = Math.round(carousel.scrollLeft / Math.max(carousel.clientWidth, 1));
+      const nextIndex = (currentIndex + 1) % latestIndustryNewsList.length;
+      carousel.children[nextIndex]?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "start" });
+    }, 4000);
+    return () => window.clearInterval(timer);
+  }, [latestIndustryNewsList.length]);
   const activeMarketItems = activeMarketCategory === "Memory" ? ddrInsightItems : marketItemsByCategory[activeMarketCategory];
   const activeMarketSource = activeMarketCategory === "Memory" ? "TrendForce · Tom's Hardware · DigiTimes" : getMarketSourceLabel(activeMarketCategory);
   const trendGroups = Array.from(new Set(Object.keys(sortedHistory).map((key) => key.split("::")[0])));
