@@ -186,20 +186,22 @@ function cleanDdrSummary(value: string) {
 }
 
 function heroNewsChineseTitle(news: DDRIndustryNewsRecord) {
-  const title = cleanDdrSummary(`${news.title} ${news.summary}`);
-  if (/Apacer|DRAM allocations|allocation.*DRAM/i.test(title)) return "宇瞻警示 DRAM 资源分配收紧，内存供应压力加剧";
-  if (/patent.*HBM|HBM.*patent|3D NAND/i.test(title)) return "SK 海力士面临 HBM 与 3D NAND 专利争议，供应链关注升温";
-  if (/Xbox.*supply|Xbox.*memory|memory.*Xbox/i.test(title)) return "Xbox 内存供应可能收缩，游戏设备价格压力上升";
-  if (/Microsoft.*Xbox.*£?200|Xbox.*200.*pound/i.test(title)) return "微软上调欧洲 Xbox 售价，最高涨价 200 英镑";
-  if (/CXMT|memory chips/i.test(title)) return "苹果测试长鑫存储内存芯片，短缺与价格压力持续";
-  if (/HBM4.*yield|yield.*HBM4/i.test(title)) return "三星 HBM4 良率接近 80%，与 SK 海力士的生产竞赛升温";
-  if (/Yongin|Cheongju|39 billion/i.test(title)) return "SK 海力士投资 390 亿美元扩建晶圆厂，AI 内存需求持续增长";
-  if (/Moore Threads|AI GPU/i.test(title)) return "摩尔线程营收大增，推进 AI GPU 业务扩展";
-  if (/RAM shortage|memory shortage|DRAM shortage/i.test(title)) return "内存短缺持续，供应压力推高相关零部件价格";
-  if (/DDR4.*DDR5|DDR5.*DDR4/i.test(title)) return "DDR4 与 DDR5 供需变化影响内存价格";
-  if (/AI.*server|server.*AI|DRAM demand/i.test(title)) return "AI 服务器需求继续影响 DRAM 市场";
-  if (/Samsung|SK hynix|Micron/i.test(title)) return "主要内存厂商供应变化影响市场价格";
-  if (/price|prices|rise|increase|shortage|supply|allocation|demand/i.test(title)) return "半导体供需变化影响市场价格，供应链压力持续受到关注";
+  const headline = cleanDdrSummary(news.title);
+  const context = cleanDdrSummary(news.title + " " + news.summary);
+  if (/Microsoft.*Xbox.*(£|pound|200)|Xbox.*(£|pound|200).*Microsoft/i.test(headline)) return "微软上调欧洲 Xbox 售价，最高涨价 200 英镑";
+  if (/Xbox.*supply|Xbox.*memory|memory.*Xbox/i.test(headline)) return "Xbox 内存供应可能收缩，游戏设备价格压力上升";
+  if (/patent.*HBM|HBM.*patent|3D NAND/i.test(headline)) return "SK 海力士面临 HBM 与 3D NAND 专利争议，供应链关注升温";
+  if (/CXMT|memory chips/i.test(headline)) return "苹果测试长鑫存储内存芯片，短缺与价格压力持续";
+  if (/HBM4.*yield|yield.*HBM4/i.test(headline)) return "三星 HBM4 良率接近 80%，与 SK 海力士的生产竞赛升温";
+  if (/Yongin|Cheongju|39 billion/i.test(headline)) return "SK 海力士投资 390 亿美元扩建晶圆厂，AI 内存需求持续增长";
+  if (/Moore Threads|AI GPU/i.test(headline)) return "摩尔线程营收大增，推进 AI GPU 业务扩展";
+  if (/Apacer|DRAM allocations|allocation.*DRAM/i.test(headline)) return "宇瞻警示 DRAM 资源分配收紧，内存供应压力加剧";
+  if (/RAM shortage|memory shortage|DRAM shortage/i.test(headline)) return "内存短缺持续，供应压力推高相关零部件价格";
+  if (/DDR4.*DDR5|DDR5.*DDR4/i.test(headline)) return "DDR4 与 DDR5 供需变化影响内存价格";
+  if (/AI.*server|server.*AI|DRAM demand/i.test(headline)) return "AI 服务器需求继续影响 DRAM 市场";
+  if (/Samsung|SK hynix|Micron/i.test(headline)) return "主要内存厂商供应变化影响市场价格";
+  if (/Apacer|DRAM allocations|allocation.*DRAM/i.test(context)) return "宇瞻警示 DRAM 资源分配收紧，内存供应压力加剧";
+  if (/price|prices|rise|increase|shortage|supply|allocation|demand/i.test(context)) return "半导体供需变化影响市场价格，供应链压力持续受到关注";
   return "半导体供应链最新市场动态";
 }
 
