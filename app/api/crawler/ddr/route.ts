@@ -5,8 +5,9 @@ import { fetchDDRMarketData, type DDRFallbackInput } from "../../../../lib/crawl
 export const runtime = "edge";
 
 function refreshAuthorized(request: Request) {
-  const secret = process.env.CRON_SECRET;
-  return Boolean(secret && request.headers.get("x-cron-secret") === secret);
+  const secret = process.env.CRON_SECRET?.trim();
+  const provided = request.headers.get("x-cron-secret")?.trim();
+  return Boolean(secret && provided && provided === secret);
 }
 
 export async function GET(request: Request) {

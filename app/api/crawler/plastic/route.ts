@@ -16,8 +16,12 @@ export async function GET(request: Request) {
   if (!forceRefresh) {
     const cached = await readCrawlerCache<unknown[]>("plastic-market");
     if (cached) return NextResponse.json(cached, { headers: { "X-Crawler-Cache": "HIT" } });
-  } else if (!process.env.CRON_SECRET || request.headers.get("x-cron-secret") !== process.env.CRON_SECRET) {
-    return NextResponse.json({ success: false, error: "Scheduled refresh is not authorized" }, { status: 401 });
+  } else {
+    const secret = process.env.CRON_SECRET?.trim();
+    const provided = request.headers.get("x-cron-secret")?.trim();
+    if (!secret || !provided || provided !== secret) {
+      return NextResponse.json({ success: false, error: "Scheduled refresh is not authorized" }, { status: 401 });
+    }
   }
   const results = await Promise.all(supportedPlasticMaterials.map((material) => fetchPlasticPrice({
     category: "塑料件",
