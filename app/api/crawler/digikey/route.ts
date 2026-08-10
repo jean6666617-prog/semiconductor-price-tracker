@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import trackingConfig from "../../../../config/tracking.json";
 import { fetchDigiKeyPrice } from "../../../../lib/crawlers/digikey";
+import { readCrawlerCache, writeCrawlerCache } from "../../../../lib/cache/edgeCrawlerCache";
 import type { PriceResult, TrackingEntry } from "../../../../lib/crawlers";
 
 type DigiKeyEntry = TrackingEntry & { id: string };
@@ -42,6 +43,33 @@ function isRequestBody(value: unknown): value is { ids: string[] } {
   return Boolean(value) && typeof value === "object"
     && Array.isArray((value as { ids?: unknown }).ids)
     && (value as { ids: unknown[] }).ids.every((id) => typeof id === "string");
+}
+
+function refreshAuthorized(request: Request) {
+  const secret = process.env.CRON_SECRET;
+  return Boolean(secret && request.headers.get("x-cron-secret") === secret);
+}
+
+async function fetchEntries(entries: DigiKeyEntry[]) {
+  return Promise.all(entries.map(async (entry): Promise<ApiResult> => {
+    const result = await fetchDigiKeyPrice(entry, todayKey());
+    return { ...result, id: entry.id };
+  }));
+}
+
+export async function GET(request: Request) {
+  const forceRefresh = new URL(request.url).searchParams.has("refresh");
+  if (!forceRefresh) {
+    const cached = await readCrawlerCache<{ success: boolean; results: ApiResult[] }>("digikey-market");
+    if (cached) return NextResponse.json(cached, { headers: { "X-Crawler-Cache": "HIT" } });
+  } else if (!refreshAuthorized(request)) {
+    return NextResponse.json({ success: false, error: "Scheduled refresh is not authorized" }, { status: 401 });
+  }
+  const entries = trustedEntries.filter((entry) => entry.enabled && entry.mode === "real" && entry.crawler === "digikey");
+  const results = await fetchEntries(entries);
+  const payload = { success: true, results };
+  if (results.some((result) => result.success)) await writeCrawlerCache("digikey-market", payload);
+  return NextResponse.json(payload, { headers: { "X-Crawler-Cache": "MISS" } });
 }
 
 export async function POST(request: Request) {

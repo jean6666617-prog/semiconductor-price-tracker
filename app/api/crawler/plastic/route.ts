@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { readCrawlerCache, writeCrawlerCache } from "../../../../lib/cache/edgeCrawlerCache";
 import { fetchPlasticPrice, plasticFallbackUrls } from "../../../../lib/crawlers/plastic";
 import type { TrackingEntry, PriceResult } from "../../../../lib/crawlers";
 import { supportedPlasticMaterials } from "../../../../lib/analysis/plasticTrendAnalysis";
@@ -10,7 +11,14 @@ function todayKey() {
     .format(new Date()).replaceAll("/", "-");
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  const forceRefresh = new URL(request.url).searchParams.has("refresh");
+  if (!forceRefresh) {
+    const cached = await readCrawlerCache<unknown[]>("plastic-market");
+    if (cached) return NextResponse.json(cached, { headers: { "X-Crawler-Cache": "HIT" } });
+  } else if (!process.env.CRON_SECRET || request.headers.get("x-cron-secret") !== process.env.CRON_SECRET) {
+    return NextResponse.json({ success: false, error: "Scheduled refresh is not authorized" }, { status: 401 });
+  }
   const results = await Promise.all(supportedPlasticMaterials.map((material) => fetchPlasticPrice({
     category: "塑料件",
     name: material,
@@ -22,7 +30,7 @@ export async function GET() {
     enabled: true,
   }, todayKey())));
 
-  return NextResponse.json(results.map((result) => ({
+  const payload = results.map((result) => ({
     material: result.material,
     price: result.price,
     currency: result.currency,
@@ -33,7 +41,9 @@ export async function GET() {
     analysis: result.analysis,
     success: result.success,
     error: result.error,
-  })));
+  }));
+  if (payload.some((result) => result.success)) await writeCrawlerCache("plastic-market", payload);
+  return NextResponse.json(payload, { headers: { "X-Crawler-Cache": "MISS" } });
 }
 
 export async function POST(request: Request) {

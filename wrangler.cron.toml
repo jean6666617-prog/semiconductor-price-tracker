@@ -1,0 +1,11 @@
+name = "semiconductor-price-tracker-price-cron"
+main = "workers/price-cache-cron.ts"
+compatibility_date = "2026-07-23"
+compatibility_flags = ["nodejs_compat"]
+
+[triggers]
+# Cloudflare Cron uses UTC: 02:00/07:00 UTC = 10:00/15:00 Asia/Shanghai.
+crons = ["0 2 * * *", "0 7 * * *"]
+
+[vars]
+APP_BASE_URL = "https://semiconductor-price-tracker.pages.dev"

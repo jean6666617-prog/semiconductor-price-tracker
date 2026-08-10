@@ -789,7 +789,7 @@ export default function Home() {
   useEffect(() => {
     let active = true;
     const loadDdrMarketData = () => {
-      fetch("/api/crawler/ddr?refresh=" + Date.now(), { cache: "no-store" })
+      fetch("/api/crawler/ddr", { cache: "no-store" })
         .then((response) => response.ok ? response.json() as Promise<DDRMarketData> : undefined)
         .then((data) => { if (active && data) setDdrMarketData(data); })
         .catch(() => { if (active) setDdrMarketData(undefined); });
