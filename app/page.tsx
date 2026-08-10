@@ -1703,7 +1703,8 @@ export default function Home() {
             <div>
               {hasOnlyFailedUpdates ? <strong className="toast-summary-title toast-summary-failed">更新失败（<span className="toast-summary-counts"><span className="toast-success-count">0 成功</span><span className="toast-summary-separator">·</span><span className="toast-failure-count">{failedUpdateResults.length} 失败</span></span>）</strong>
                 : failedUpdateResults.length > 0 ? <strong className="toast-summary-title">更新完成：<span className="toast-summary-counts"><span className="toast-success-count">{successfulUpdateResults.length} 成功</span><span className="toast-summary-separator">·</span><span className="toast-failure-count">{failedUpdateResults.length} 失败</span></span></strong>
-                  : <strong>成功更新 {successfulUpdateResults.length} 条</strong>}
+                  : configurationResults.length > 0 && successfulUpdateResults.length === 0 ? <strong className="toast-summary-title">需要配置价格来源（{configurationResults.length}）</strong>
+                    : <strong>成功更新 {successfulUpdateResults.length} 条</strong>}
               {updateSourceSummary && <span className="toast-source-summary">{updateSourceSummary}</span>}
             </div>
             <div className="toast-actions">

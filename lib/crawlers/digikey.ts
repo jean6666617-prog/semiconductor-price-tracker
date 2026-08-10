@@ -234,6 +234,8 @@ export async function fetchDigiKeyPrice(entry: TrackingEntry, fallbackDate = tod
   } catch (error) {
     const message = error instanceof Error ? error.message : "DigiKey API request failed";
     if (isDevelopment) console.log("[DigiKey] failed", { mpn: entry.mpn, error: message });
-    return failure(entry, fallbackDate, message);
+    const result = failure(entry, fallbackDate, message);
+    if (message === missingCredentialsMessage) result.status = "configuration_required";
+    return result;
   }
 }
