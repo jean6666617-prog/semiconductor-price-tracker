@@ -955,7 +955,7 @@ export default function Home() {
       const bTime = Date.parse(b.date);
       return (Number.isFinite(bTime) ? bTime : 0) - (Number.isFinite(aTime) ? aTime : 0);
     }).slice(0, 8), [ddrMarketData]);
-  const latestIndustryNews = latestIndustryNewsList[0];
+  const landingNewsCarouselRef = useRef<HTMLDivElement>(null);
   const activeMarketItems = activeMarketCategory === "Memory" ? ddrInsightItems : marketItemsByCategory[activeMarketCategory];
   const activeMarketSource = activeMarketCategory === "Memory" ? "TrendForce · Tom's Hardware · DigiTimes" : getMarketSourceLabel(activeMarketCategory);
   const trendGroups = Array.from(new Set(Object.keys(sortedHistory).map((key) => key.split("::")[0])));
@@ -1748,17 +1748,19 @@ export default function Home() {
 
       <section className="landing-hero" aria-labelledby="landing-hero-title">
         <div className="landing-hero-content">
-          {latestIndustryNews ? <a className="landing-hero-news" href={latestIndustryNews.url} target="_blank" rel="noreferrer">
-            <h1 id="landing-hero-title">{heroNewsChineseTitle(latestIndustryNews)}</h1>
-            <p className="landing-hero-news-title">{cleanDdrSummary(latestIndustryNews.title)}</p>
-          </a> : <h1 id="landing-hero-title">半导体供应链最新市场动态</h1>}
-          {latestIndustryNewsList.length > 1 && <div className="landing-hero-news-rail" aria-label="最新半导体新闻">
-            {latestIndustryNewsList.slice(1).map((news) => <a className="landing-hero-news-item" href={news.url} target="_blank" rel="noreferrer" key={`${news.url}-${news.date}`}>
-              <div><strong>{heroNewsChineseTitle(news)}</strong><span>{cleanDdrSummary(news.title)}</span></div><small>{news.source} · {news.date}</small>
-            </a>)}
-          </div>}
-          <p className="landing-hero-copy">{latestIndustryNews ? cleanDdrSummary(latestIndustryNews.summary) : "每日同步行业公开信息，聚焦价格、供需与供应链变化。"}</p>
-          {latestIndustryNews && <a className="landing-hero-link" href={latestIndustryNews.url} target="_blank" rel="noreferrer">{latestIndustryNews.source} · {latestIndustryNews.date} <span aria-hidden="true">→</span></a>}
+          {latestIndustryNewsList.length ? <>
+            <div className="landing-hero-news-carousel" aria-label="最新半导体新闻" ref={landingNewsCarouselRef}>
+              {latestIndustryNewsList.map((news, index) => <a className="landing-hero-news-slide" href={news.url} target="_blank" rel="noreferrer" key={`${news.url}-${news.date}`}>
+                {index === 0 ? <h1 id="landing-hero-title">{heroNewsChineseTitle(news)}</h1> : <h2>{heroNewsChineseTitle(news)}</h2>}
+                <p className="landing-hero-news-title">{cleanDdrSummary(news.title)}</p>
+                <p className="landing-hero-copy">{cleanDdrSummary(news.summary)}</p>
+                <span className="landing-hero-link">{news.source} · {news.date} <b aria-hidden="true">→</b></span>
+              </a>)}
+            </div>
+            <div className="landing-hero-news-dots" aria-label="新闻分页">
+              {latestIndustryNewsList.map((news, index) => <button type="button" key={`dot-${news.url}`} aria-label={`查看第 ${index + 1} 条新闻`} onClick={() => landingNewsCarouselRef.current?.children[index]?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "start" })} />)}
+            </div>
+          </> : <h1 id="landing-hero-title">半导体供应链最新市场动态</h1>}
         </div>
         <div className="landing-hero-meta" aria-hidden="true"><span>WAFER / MEMORY / COMPONENTS</span><span>LIVE MARKET VIEW</span></div>
       </section>
