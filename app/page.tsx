@@ -966,9 +966,12 @@ export default function Home() {
     if (!carousel || latestIndustryNewsList.length < 2) return;
     const timer = window.setInterval(() => {
       const currentIndex = Math.round(carousel.scrollLeft / Math.max(carousel.clientWidth, 1));
-      const nextIndex = (currentIndex + 1) % latestIndustryNewsList.length;
-      setActiveLandingNewsIndex(nextIndex);
+      const nextIndex = currentIndex >= latestIndustryNewsList.length - 1 ? latestIndustryNewsList.length : currentIndex + 1;
+      setActiveLandingNewsIndex(nextIndex % latestIndustryNewsList.length);
       carousel.children[nextIndex]?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "start" });
+      if (nextIndex === latestIndustryNewsList.length) {
+        window.setTimeout(() => carousel.scrollTo({ left: 0, behavior: "auto" }), 700);
+      }
     }, 4000);
     return () => window.clearInterval(timer);
   }, [latestIndustryNewsList.length]);
@@ -1767,9 +1770,9 @@ export default function Home() {
           {latestIndustryNewsList.length ? <>
             <div className="landing-hero-news-carousel" aria-label="最新半导体新闻" ref={landingNewsCarouselRef} onScroll={() => {
               const carousel = landingNewsCarouselRef.current;
-              if (carousel) setActiveLandingNewsIndex(Math.round(carousel.scrollLeft / Math.max(carousel.clientWidth, 1)));
+              if (carousel) setActiveLandingNewsIndex(Math.round(carousel.scrollLeft / Math.max(carousel.clientWidth, 1)) % latestIndustryNewsList.length);
             }}>
-              {latestIndustryNewsList.map((news, index) => <a className="landing-hero-news-slide" href={news.url} target="_blank" rel="noreferrer" key={`${news.url}-${news.date}`}>
+              {[...latestIndustryNewsList, latestIndustryNewsList[0]].map((news, index) => <a className="landing-hero-news-slide" href={news.url} target="_blank" rel="noreferrer" key={`${news.url}-${news.date}-${index}`} aria-hidden={index === latestIndustryNewsList.length ? "true" : undefined} tabIndex={index === latestIndustryNewsList.length ? -1 : undefined}>
                 {index === 0 ? <h1 id="landing-hero-title">{heroNewsChineseTitle(news)}</h1> : <h2>{heroNewsChineseTitle(news)}</h2>}
                 <p className="landing-hero-news-title">{cleanDdrSummary(news.title)}</p>
                 <p className="landing-hero-copy">{cleanDdrSummary(news.summary)}</p>
