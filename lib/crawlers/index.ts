@@ -16,6 +16,8 @@ export type TrackingEntry = {
   tableId?: string;
   description?: string;
   manufacturer?: string;
+  productName?: string;
+  availability?: string;
   mpn?: string;
   currency?: string;
   quantity?: number;
@@ -38,6 +40,8 @@ export type PriceResult = {
   sourceUrl?: string;
   mode?: "real" | "mock";
   manufacturer?: string;
+  productName?: string;
+  availability?: string;
   mpn?: string;
   quantity?: number;
   analysis?: PlasticTrendAnalysis;

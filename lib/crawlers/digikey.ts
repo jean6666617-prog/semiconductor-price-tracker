@@ -3,7 +3,9 @@ import { parseJsonTargetResponse, targetResponseError } from "./response";
 
 const isDevelopment = process.env.NODE_ENV === "development";
 const requestTimeoutMs = 15_000;
-const apiBaseUrl = "https://api.digikey.com";
+const apiBaseUrl = process.env.DIGIKEY_API_ENV === "production"
+  ? "https://api.digikey.com"
+  : "https://sandbox-api.digikey.com";
 const tokenEndpoint = `${apiBaseUrl}/v1/oauth2/token`;
 export const missingCredentialsMessage = "未配置 DigiKey API 凭证，请在 .env.local 中设置 DIGIKEY_CLIENT_ID 和 DIGIKEY_CLIENT_SECRET，并重启开发服务器";
 
@@ -63,6 +65,22 @@ function responseMpns(value: unknown) {
     }
   });
   return matches;
+}
+
+function responseField(value: unknown, fieldNames: string[]) {
+  let result = "";
+  const expected = new Set(fieldNames.map((field) => field.replace(/[^a-z]/gi, "").toLowerCase()));
+  walk(value, (record) => {
+    if (result) return;
+    for (const [key, candidate] of Object.entries(record)) {
+      const normalizedKey = key.replace(/[^a-z]/gi, "").toLowerCase();
+      if (expected.has(normalizedKey) && (typeof candidate === "string" || typeof candidate === "number")) {
+        result = String(candidate).trim();
+        return;
+      }
+    }
+  });
+  return result;
 }
 
 function responseCurrency(value: unknown) {
@@ -201,13 +219,17 @@ export async function fetchDigiKeyPrice(entry: TrackingEntry, fallbackDate = tod
     });
     const { text, blockedByCloudflare } = await readResponse(response);
     if (isDevelopment) console.log("[DigiKey] productStatus=" + response.status);
-    const payload = parseJsonTargetResponse<unknown>("DigiKey product", response, text);
-    if (blockedByCloudflare) return failure(entry, fallbackDate, "DigiKey API request blocked by Cloudflare challenge");
+    if (blockedByCloudflare) return failure(entry, fallbackDate, "DigiKey API returned an HTML challenge page; no price was used");
+    if (response.status === 401 || response.status === 403) return failure(entry, fallbackDate, `DigiKey API authorization failed: HTTP ${response.status}`);
     if (!response.ok) return failure(entry, fallbackDate, targetResponseError("DigiKey product", response, text, "DigiKey API request failed"));
+    const payload = parseJsonTargetResponse<unknown>("DigiKey product", response, text);
     const mpns = responseMpns(payload);
     if (!mpns.has(normalizeMpn(entry.mpn))) return failure(entry, fallbackDate, "Configured MPN does not match DigiKey API response");
 
     const quantityOne = quantityOnePrice(payload);
+    const productName = responseField(payload, ["ProductName", "ProductDescription", "Description"]);
+    const manufacturer = responseField(payload, ["Manufacturer", "ManufacturerName"]) || entry.manufacturer || "";
+    const availability = responseField(payload, ["QuantityAvailable", "QuantityAvailableForPackage", "Availability", "Stock"]);
     if (isDevelopment) console.log("[DigiKey] productPriceCheck", { mpn: entry.mpn, currency: quantityOne?.currency || "", quantityOneFound: Boolean(quantityOne) });
     if (!quantityOne) return failure(entry, fallbackDate, "Quantity 1 USD price was not found");
     if (quantityOne.currency !== "USD") return failure(entry, fallbackDate, `Unexpected DigiKey currency: ${quantityOne.currency}`);
@@ -217,7 +239,9 @@ export async function fetchDigiKeyPrice(entry: TrackingEntry, fallbackDate = tod
       category: entry.category,
       material: entry.name,
       materialName: entry.name,
-      manufacturer: entry.manufacturer,
+      productName: productName || entry.name,
+      manufacturer: manufacturer || undefined,
+      availability: availability || undefined,
       mpn: entry.mpn,
       quantity: 1,
       price: quantityOne.price,
