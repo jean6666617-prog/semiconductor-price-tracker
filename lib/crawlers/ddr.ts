@@ -59,7 +59,7 @@ export const ddrSourceUrls = {
   contractPriceDramExchange: "https://www.dramexchange.com/",
   contractPriceTrendForce: "https://www.trendforce.cn/",
   marketAnalysis: "https://www.trendforce.cn/",
-  industryNews: "https://www.digitimes.com/",
+  industryNews: "https://www.digitimes.com/tech/",
   tomsHardwareAnalysis: "https://www.tomshardware.com/tag/ram-shortage",
 } as const;
 
@@ -68,7 +68,6 @@ const trendForceTrendUrls = [
   "https://www.trendforce.cn/presscenter/news/20260602-13073.html",
   "https://www.trendforce.cn/presscenter/news/20260331-12993.html",
 ];
-const digiTimesNewsUrl = "https://www.digitimes.com/news/a20260603VL216/dram-ddr4-ddr5-demand-price.html";
 const tomsHardwareAnalysisUrl = ddrSourceUrls.tomsHardwareAnalysis;
 
 function hasFallbackData(fallback?: DDRFallbackInput) {
@@ -89,6 +88,10 @@ function stripHtml(html: string) {
     .replace(/&nbsp;/g, " ")
     .replace(/&amp;/g, "&")
     .replace(/&#39;/g, "'")
+    .replace(/&apos;/g, "'")
+    .replace(/&#x27;/gi, "'")
+    .replace(/&#(\d+);/g, (_, code: string) => String.fromCodePoint(Number(code)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, code: string) => String.fromCodePoint(Number.parseInt(code, 16)))
     .replace(/&quot;/g, '"')
     .replace(/\s+/g, " ")
     .trim();
@@ -239,24 +242,63 @@ export async function fetchDDRMarketAnalyses(): Promise<DDRMarketAnalysisRecord[
   }
   return [];
 }
+function parseDigiTimesDate(value: string, year: number) {
+  const normalized = stripHtml(value).replace(/\s+/g, " ").trim();
+  const match = normalized.match(/([A-Z][a-z]{2,8}\s+\d{1,2})(?:,\s*(\d{4}))?(?:,?\s*(\d{1,2}:\d{2}))?/);
+  if (!match) return normalized;
+  const dateYear = Number(match[2] || year);
+  const timestamp = Date.parse(`${match[1]}, ${dateYear} ${match[3] || "00:00"}`);
+  return Number.isFinite(timestamp) ? new Date(timestamp).toISOString() : normalized;
+}
+
+function parseDigiTimesTechNews(html: string): DDRIndustryNewsRecord[] {
+  const pageDate = html.match(/<meta[^>]+name=["']Date["'][^>]+content=["'][^"']*?(20\d{2})/i)?.[1];
+  const year = Number(pageDate || new Date().getUTCFullYear());
+  const records: DDRIndustryNewsRecord[] = [];
+  const seen = new Set<string>();
+  const anchorPattern = /<a\b([^>]*href=["']([^"']*\/news\/[^"']+)["'][^>]*)>([\s\S]*?)<\/a>/gi;
+
+  for (const match of html.matchAll(anchorPattern)) {
+    const openingTag = match[1];
+    const href = match[2];
+    const inner = match[3];
+    if (!/class=["'][^"']*(?:title|display-3-frame)[^"']*["']/i.test(openingTag)) continue;
+    let url: string;
+    try {
+      url = new URL(href, ddrSourceUrls.industryNews).toString();
+    } catch {
+      continue;
+    }
+    if (seen.has(url)) continue;
+    const titleHtml = inner.match(/<(?:div|h[1-6]|span)[^>]*class=["'][^"']*\btitle\b[^"']*["'][^>]*>([\s\S]*?)<\/(?:div|h[1-6]|span)>/i)?.[1] || inner;
+    const title = stripHtml(titleHtml).replace(/\s+/g, " ").trim();
+    if (title.length < 12 || !/DRAM|DDR|memory|HBM|semiconductor|chip|shortage|AI|Samsung|SK Hynix|Micron|CXMT/i.test(title)) continue;
+    const index = match.index ?? 0;
+    const context = html.slice(Math.max(0, index - 900), Math.min(html.length, index + match[0].length + 1400));
+    const dateText = context.match(/class=["'][^"']*date[^"']*["'][^>]*>([\s\S]*?)<\//i)?.[1]
+      || context.match(/(?:Aug|September|October|November|December|January|February|March|April|May|June|July)\s+\d{1,2}(?:,\s*\d{4})?(?:,?\s*\d{1,2}:\d{2})?/i)?.[0]
+      || "";
+    const summary = stripHtml(context.match(/class=["'][^"']*abstract[^"']*["'][^>]*>([\s\S]*?)<\//i)?.[1] || "")
+      .replace(/\s+/g, " ").trim().slice(0, 320);
+    const combined = `${title} ${summary}`;
+    records.push({
+      type: "industry_news",
+      source: "DigiTimes",
+      title,
+      date: parseDigiTimesDate(dateText, year),
+      summary: summary || "DigiTimes公开页面提供了该半导体行业新闻摘要。",
+      impact: /shortage|price|rise|increase|demand|supply|investment|capacity|HBM/i.test(combined) ? "上涨原因" : "行业观察",
+      url,
+    });
+    seen.add(url);
+  }
+  return records.sort((a, b) => (Date.parse(b.date) || 0) - (Date.parse(a.date) || 0)).slice(0, 8);
+}
+
 export async function fetchDDRIndustryNews(): Promise<DDRIndustryNewsRecord[]> {
-  const html = await fetchText(digiTimesNewsUrl);
-  const text = stripHtml(html);
-  const title = titleFromHtml(html);
-  const date = text.match(/([A-Z][a-z]{2}\s+\d{1,2},\s+\d{4},\s+\d{1,2}:\d{2})/)?.[1] || "";
-  const summary = text.match(/DRAM prices are climbing[^.]+\./i)?.[0]
-    || text.match(/DRAM[^.]{40,240}\./i)?.[0]
-    || "DigiTimes公开页面可见DDR/DRAM相关新闻摘要，但正文需要订阅。";
-  const impact = /climbing|rise|tightening|prioritize/i.test(summary) ? "上涨" : "暂无明确方向";
-  return [{
-    type: "industry_news",
-    source: "DigiTimes",
-    title,
-    date,
-    summary,
-    impact,
-    url: digiTimesNewsUrl,
-  }];
+  const news = parseDigiTimesTechNews(await fetchText(ddrSourceUrls.industryNews));
+  if (!news.length) throw new Error("DigiTimes最新半导体新闻列表解析失败");
+  return news;
 }
 
 function cleanTomsHardwareText(value: string) {

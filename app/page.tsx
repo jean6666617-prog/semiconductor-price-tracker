@@ -188,6 +188,10 @@ function cleanDdrSummary(value: string) {
 function heroNewsChineseTitle(news: DDRIndustryNewsRecord) {
   const title = cleanDdrSummary(news.title);
   if (/Microsoft.*Xbox.*£?200|Xbox.*200.*pound/i.test(title)) return "微软上调欧洲 Xbox 售价，最高涨价 200 英镑";
+  if (/CXMT|memory chips/i.test(title)) return "苹果测试长鑫存储内存芯片，短缺与价格压力持续";
+  if (/HBM4.*yield|yield.*HBM4/i.test(title)) return "三星 HBM4 良率接近 80%，与 SK 海力士的生产竞赛升温";
+  if (/Yongin|Cheongju|39 billion/i.test(title)) return "SK 海力士投资 390 亿美元扩建晶圆厂，AI 内存需求持续增长";
+  if (/Moore Threads|AI GPU/i.test(title)) return "摩尔线程营收大增，推进 AI GPU 业务扩展";
   if (/RAM shortage|memory shortage|DRAM shortage/i.test(title)) return "内存短缺持续，供应压力推高相关零部件价格";
   if (/DDR4.*DDR5|DDR5.*DDR4/i.test(title)) return "DDR4 与 DDR5 供需变化影响内存价格";
   if (/AI.*server|server.*AI|DRAM demand/i.test(title)) return "AI 服务器需求继续影响 DRAM 市场";
@@ -944,13 +948,14 @@ export default function Home() {
   const plasticAnalyses = useMemo(() => analyzePlasticTrends(sortedHistory), [sortedHistory]);
   const marketItemsByCategory = useMemo(() => buildMaterialMarketItems(plasticAnalyses, ddrMarketData), [plasticAnalyses, ddrMarketData]);
   const ddrInsightItems = useMemo(() => buildDdrInsightItems(items, sortedHistory, ddrMarketData), [items, sortedHistory, ddrMarketData]);
-  const latestIndustryNews = useMemo(() => [...(ddrMarketData?.industryNews ?? [])]
+  const latestIndustryNewsList = useMemo(() => [...(ddrMarketData?.industryNews ?? [])]
     .filter((news) => news.title.trim())
     .sort((a, b) => {
       const aTime = Date.parse(a.date);
       const bTime = Date.parse(b.date);
       return (Number.isFinite(bTime) ? bTime : 0) - (Number.isFinite(aTime) ? aTime : 0);
-    })[0], [ddrMarketData]);
+    }).slice(0, 8), [ddrMarketData]);
+  const latestIndustryNews = latestIndustryNewsList[0];
   const activeMarketItems = activeMarketCategory === "Memory" ? ddrInsightItems : marketItemsByCategory[activeMarketCategory];
   const activeMarketSource = activeMarketCategory === "Memory" ? "TrendForce · Tom's Hardware · DigiTimes" : getMarketSourceLabel(activeMarketCategory);
   const trendGroups = Array.from(new Set(Object.keys(sortedHistory).map((key) => key.split("::")[0])));
@@ -1747,6 +1752,11 @@ export default function Home() {
             <h1 id="landing-hero-title">{heroNewsChineseTitle(latestIndustryNews)}</h1>
             <p className="landing-hero-news-title">{cleanDdrSummary(latestIndustryNews.title)}</p>
           </a> : <h1 id="landing-hero-title">半导体供应链最新市场动态</h1>}
+          {latestIndustryNewsList.length > 1 && <div className="landing-hero-news-rail" aria-label="最新半导体新闻">
+            {latestIndustryNewsList.slice(1).map((news) => <a className="landing-hero-news-item" href={news.url} target="_blank" rel="noreferrer" key={`${news.url}-${news.date}`}>
+              <div><strong>{heroNewsChineseTitle(news)}</strong><span>{cleanDdrSummary(news.title)}</span></div><small>{news.source} · {news.date}</small>
+            </a>)}
+          </div>}
           <p className="landing-hero-copy">{latestIndustryNews ? cleanDdrSummary(latestIndustryNews.summary) : "每日同步行业公开信息，聚焦价格、供需与供应链变化。"}</p>
           {latestIndustryNews && <a className="landing-hero-link" href={latestIndustryNews.url} target="_blank" rel="noreferrer">{latestIndustryNews.source} · {latestIndustryNews.date} <span aria-hidden="true">→</span></a>}
         </div>
