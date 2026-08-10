@@ -5,6 +5,10 @@ import { fetchDDRMarketData, type DDRFallbackInput } from "../../../../lib/crawl
 export const runtime = "edge";
 
 function refreshAuthorized(request: Request) {
+  console.log("api cron secret lengths:", {
+    received: request.headers.get("x-cron-secret")?.trim()?.length,
+    configured: process.env.CRON_SECRET?.trim()?.length,
+  });
   const secret = process.env.CRON_SECRET?.trim();
   const provided = request.headers.get("x-cron-secret")?.trim();
   return Boolean(secret && provided && provided === secret);

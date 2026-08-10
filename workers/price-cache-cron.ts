@@ -9,6 +9,7 @@ const refreshPaths = ["/api/crawler/ddr", "/api/crawler/plastic", "/api/crawler/
 const priceCacheCronWorker = {
   async scheduled(_controller: ScheduledController, env: CronEnv, context: ExecutionContext) {
     context.waitUntil(Promise.all(refreshPaths.map(async (path) => {
+      console.log("worker cron secret length:", env.CRON_SECRET?.trim()?.length);
       const response = await fetch(env.APP_BASE_URL + path + "?refresh=" + Date.now(), {
         headers: { accept: "application/json", "x-cron-secret": env.CRON_SECRET?.trim() || "" },
       });
