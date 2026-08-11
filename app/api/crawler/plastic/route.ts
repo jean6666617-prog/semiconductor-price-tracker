@@ -17,10 +17,6 @@ export async function GET(request: Request) {
     const cached = await readCrawlerCache<unknown[]>("plastic-market");
     if (cached) return NextResponse.json(cached, { headers: { "X-Crawler-Cache": "HIT" } });
   } else {
-    console.log("api cron secret lengths:", {
-      received: request.headers.get("x-cron-secret")?.trim()?.length,
-      configured: process.env.CRON_SECRET?.trim()?.length,
-    });
     const secret = process.env.CRON_SECRET?.trim();
     const provided = request.headers.get("x-cron-secret")?.trim();
     if (!secret || !provided || provided !== secret) {

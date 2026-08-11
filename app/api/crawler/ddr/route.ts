@@ -5,20 +5,25 @@ import { fetchDDRMarketData, type DDRFallbackInput } from "../../../../lib/crawl
 export const runtime = "edge";
 
 function refreshAuthorized(request: Request) {
-  console.log("api cron secret lengths:", {
-    received: request.headers.get("x-cron-secret")?.trim()?.length,
-    configured: process.env.CRON_SECRET?.trim()?.length,
-  });
   const secret = process.env.CRON_SECRET?.trim();
   const provided = request.headers.get("x-cron-secret")?.trim();
   return Boolean(secret && provided && provided === secret);
+}
+
+function hasFreshNews(data: Awaited<ReturnType<typeof fetchDDRMarketData>>) {
+  const timestamps = [...data.industryNews, ...data.marketAnalyses, ...data.spotPrices]
+    .map((item) => Date.parse(item.date))
+    .filter((timestamp) => Number.isFinite(timestamp));
+  if (!timestamps.length) return false;
+  const latest = Math.max(...timestamps);
+  return Date.now() - latest < 36 * 60 * 60 * 1000;
 }
 
 export async function GET(request: Request) {
   const forceRefresh = new URL(request.url).searchParams.has("refresh");
   if (!forceRefresh) {
     const cached = await readCrawlerCache<Awaited<ReturnType<typeof fetchDDRMarketData>>>("ddr-market");
-    if (cached) return NextResponse.json(cached, { headers: { "X-Crawler-Cache": "HIT" } });
+    if (cached && hasFreshNews(cached)) return NextResponse.json(cached, { headers: { "X-Crawler-Cache": "HIT" } });
   } else if (!refreshAuthorized(request)) {
     return NextResponse.json({ success: false, error: "Scheduled refresh is not authorized" }, { status: 401 });
   }

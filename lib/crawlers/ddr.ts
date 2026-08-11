@@ -259,10 +259,8 @@ function parseDigiTimesTechNews(html: string): DDRIndustryNewsRecord[] {
   const anchorPattern = /<a\b([^>]*href=["']([^"']*\/news\/[^"']+)["'][^>]*)>([\s\S]*?)<\/a>/gi;
 
   for (const match of html.matchAll(anchorPattern)) {
-    const openingTag = match[1];
     const href = match[2];
     const inner = match[3];
-    if (!/class=["'][^"']*(?:title|display-3-frame)[^"']*["']/i.test(openingTag)) continue;
     let url: string;
     try {
       url = new URL(href, ddrSourceUrls.industryNews).toString();
@@ -305,13 +303,20 @@ function cleanTomsHardwareText(value: string) {
   return value.replace(/\s+/g, " ").trim();
 }
 
+function parseTomsHardwareDate(value: string) {
+  const normalized = cleanTomsHardwareText(value);
+  const dateText = normalized.match(/(?:\d{1,2}\s+[A-Z][a-z]+\s+\d{2,4}|[A-Z][a-z]+\s+\d{1,2},\s+\d{4})/i)?.[0];
+  if (!dateText) return normalized;
+  const timestamp = Date.parse(dateText);
+  return Number.isFinite(timestamp) ? new Date(timestamp).toISOString() : normalized;
+}
 function parseTomsHardwareItems(text: string): DDRIndustryNewsRecord[] {
   const section = text.split("Latest about RAM shortage")[1]?.split("Stay On the Cutting Edge")[0] || text;
-  const itemPattern = /(.{12,220}?)\s+By\s+[A-Z][A-Za-z .'-]+(?:,\s*[A-Z][A-Za-z .'-]+)?\s+published\s+(\d{1,2}\s+[A-Z][a-z]+\s+\d{2})\s+(.{24,320}?)(?=\s+.{12,220}?\s+By\s+[A-Z][A-Za-z .'-]+(?:,\s*[A-Z][A-Za-z .'-]+)?\s+published\s+\d{1,2}\s+[A-Z][a-z]+\s+\d{2}|\s+1\s+2\s+3\s+Archives|$)/gi;
+  const itemPattern = /(.{12,220}?)\s+By\s+[A-Z][A-Za-z .'-]+(?:,\s*[A-Z][A-Za-z .'-]+)?\s+(?:published|last updated)\s+((?:\d{1,2}\s+[A-Z][a-z]+\s+\d{2,4})|(?:[A-Z][a-z]+\s+\d{1,2},\s+\d{4}))\s+(.{24,320}?)(?=\s+.{12,220}?\s+By\s+[A-Z][A-Za-z .'-]+(?:,\s*[A-Z][A-Za-z .'-]+)?\s+(?:published|last updated)\s+(?:\d{1,2}\s+[A-Z][a-z]+\s+\d{2,4}|[A-Z][a-z]+\s+\d{1,2},\s+\d{4})|\s+1\s+2\s+3\s+Archives|$)/gi;
   const records: DDRIndustryNewsRecord[] = [];
   for (const match of section.matchAll(itemPattern)) {
     const title = cleanTomsHardwareText(match[1]);
-    const date = cleanTomsHardwareText(match[2]);
+    const date = parseTomsHardwareDate(match[2]);
     const summary = cleanTomsHardwareText(match[3]).replace(/\s+(RAM|DRAM|DDR5|PC Building|Laptops|Operating Systems)$/i, "");
     const combined = `${title} ${summary}`;
     if (!/RAM|DRAM|DDR5|Micron|memory|shortage|AI|supply|price/i.test(combined)) continue;

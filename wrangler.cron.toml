@@ -4,8 +4,8 @@ compatibility_date = "2026-07-23"
 compatibility_flags = ["nodejs_compat"]
 
 [triggers]
-# Cloudflare Cron uses UTC: 02:00/07:00 UTC = 10:00/15:00 Asia/Shanghai.
-crons = ["0 2 * * *", "0 7 * * *"]
+# Cloudflare Cron uses UTC: 02:00/07:00/10:00/11:00 UTC = 10:00/15:00/18:00/19:00 Asia/Shanghai.
+crons = ["0 2 * * *", "0 7 * * *", "0 10 * * *", "0 11 * * *"]
 
 [vars]
 APP_BASE_URL = "https://semiconductor-price-tracker.pages.dev"

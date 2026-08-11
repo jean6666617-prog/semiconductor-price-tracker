@@ -189,6 +189,7 @@ function heroNewsChineseTitle(news: DDRIndustryNewsRecord) {
   const headline = cleanDdrSummary(news.title);
   const context = cleanDdrSummary(news.title + " " + news.summary);
   if (/Microsoft.*Xbox.*(£|pound|200)|Xbox.*(£|pound|200).*Microsoft/i.test(headline)) return "微软上调欧洲 Xbox 售价，最高涨价 200 英镑";
+  if (/below 30%|2026 levels|AI-induced RAM apocalypse/i.test(context)) return "AI 需求挤压内存供应，RAM 供给或降至 2026 年水平三成以下";
   if (/Xbox.*supply|Xbox.*memory|memory.*Xbox/i.test(headline)) return "Xbox 内存供应可能收缩，游戏设备价格压力上升";
   if (/patent.*HBM|HBM.*patent|3D NAND/i.test(headline)) return "SK 海力士面临 HBM 与 3D NAND 专利争议，供应链关注升温";
   if (/CXMT|memory chips/i.test(headline)) return "苹果测试长鑫存储内存芯片，短缺与价格压力持续";
@@ -200,9 +201,14 @@ function heroNewsChineseTitle(news: DDRIndustryNewsRecord) {
   if (/DDR4.*DDR5|DDR5.*DDR4/i.test(headline)) return "DDR4 与 DDR5 供需变化影响内存价格";
   if (/AI.*server|server.*AI|DRAM demand/i.test(headline)) return "AI 服务器需求继续影响 DRAM 市场";
   if (/Samsung|SK hynix|Micron/i.test(headline)) return "主要内存厂商供应变化影响市场价格";
+  if (/TSMC.*Japan|Japan.*TSMC/i.test(context)) return "台积电扩大日本布局，先进制程供应链持续延伸";
+  if (/South Korea|polysilicon|Trump/i.test(context)) return "韩国半导体产业面临贸易政策与供应链新变化";
+  if (/ACCM|Celeritas|advanced packaging/i.test(context)) return "先进封装核心方案落地，半导体制造竞争加速";
   if (/Apacer|DRAM allocations|allocation.*DRAM/i.test(context)) return "宇瞻警示 DRAM 资源分配收紧，内存供应压力加剧";
-  if (/price|prices|rise|increase|shortage|supply|allocation|demand/i.test(context)) return "半导体供需变化影响市场价格，供应链压力持续受到关注";
-  return "半导体供应链最新市场动态";
+  if (/price|prices|rise|increase|shortage/i.test(context)) return "内存价格波动加剧，短缺与涨价压力仍在传导";
+  if (/supply|allocation|capacity/i.test(context)) return "半导体供应配置出现变化，市场关注产能与库存调整";
+  if (/demand|server|AI/i.test(context)) return "服务器与 AI 需求变化，继续牵动存储器市场";
+  return `${news.source}半导体行业最新动态`;
 }
 
 function ddrDriverDetails(item: DDRInsightItem, newsItems: DDRIndustryNewsRecord[]): DDRDriverDetail[] {
@@ -239,6 +245,27 @@ function ddrImpactLabel(impact: string) {
 
 function ddrNewsImpact(news: DDRIndustryNewsRecord) {
   return ddrImpactLabel(`${news.impact} ${news.title} ${news.summary}`);
+}
+
+function interleaveNewsSources(newsItems: DDRIndustryNewsRecord[], limit = 8) {
+  const grouped = new Map<string, DDRIndustryNewsRecord[]>();
+  for (const news of newsItems) {
+    const sourceItems = grouped.get(news.source) ?? [];
+    sourceItems.push(news);
+    grouped.set(news.source, sourceItems);
+  }
+  const sources = [...grouped.keys()];
+  const result: DDRIndustryNewsRecord[] = [];
+  let offset = 0;
+  while (result.length < limit && sources.some((source) => (grouped.get(source)?.length ?? 0) > offset)) {
+    for (const source of sources) {
+      const item = grouped.get(source)?.[offset];
+      if (item) result.push(item);
+      if (result.length >= limit) break;
+    }
+    offset += 1;
+  }
+  return result;
 }
 
 function buildDdrInsightItems(items: Item[], history: Record<string, [string, number][]>, ddrData?: DDRMarketData): DDRInsightItem[] {
@@ -800,6 +827,68 @@ export default function Home() {
     const refreshTimer = window.setInterval(loadDdrMarketData, 15 * 60 * 1000);
     return () => { active = false; window.clearInterval(refreshTimer); };
   }, []);
+  useEffect(() => {
+    let active = true;
+    type CachedCrawlerResult = PriceResult & { id?: string };
+
+    const applyCachedResults = (results: CachedCrawlerResult[]) => {
+      if (!active) return;
+      const snapshot = dashboardStore.getSnapshot();
+      let nextItems = snapshot.items;
+      let nextHistory = snapshot.history;
+      let changed = false;
+
+      for (const result of results) {
+        if (!result.success || result.price === null) continue;
+        const target = nextItems.find((item) => item.group === result.category
+          && (normalize(item.name) === normalize(result.material) || normalize(item.mpn) === normalize(result.material)));
+        if (!target) continue;
+
+        const key = `${target.group}::${target.name}`;
+        const crawlerHistory = result.history?.length
+          ? result.history.map((point) => [point.date, point.price] as [string, number])
+          : [[result.updateDate, result.price] as [string, number]];
+        nextItems = nextItems.map((item) => item.id === target.id ? {
+          ...item,
+          price: String(result.price),
+          unit: result.unit,
+          source: result.source,
+          url: result.sourceUrl || item.url,
+          status: "已更新" as Status,
+          updated: result.updateDate,
+        } : item);
+        nextHistory = { ...nextHistory, [key]: sortSeries([...(nextHistory[key] ?? []), ...crawlerHistory]) };
+        changed = true;
+      }
+
+      if (changed) {
+        setItems(nextItems);
+        setHistory(nextHistory);
+      }
+    };
+
+    const loadCachedCrawlerData = async () => {
+      const paths = ["/api/crawler/plastic", "/api/crawler/trendforce", "/api/crawler/digikey"];
+      const requests = paths.map(async (path): Promise<CachedCrawlerResult[]> => {
+        const response = await fetch(path, { cache: "no-store" });
+        if (!response.ok) throw new Error(`${path} cache request failed: ${response.status}`);
+        const payload = await response.json() as unknown;
+        if (path === "/api/crawler/plastic") return Array.isArray(payload) ? payload as CachedCrawlerResult[] : [];
+        if (!payload || typeof payload !== "object") return [];
+        const results = (payload as { results?: unknown }).results;
+        return Array.isArray(results) ? results as CachedCrawlerResult[] : [];
+      });
+      const responses = await Promise.allSettled(requests);
+      responses.forEach((response) => {
+        if (response.status === "fulfilled") applyCachedResults(response.value);
+      });
+
+    };
+    void loadCachedCrawlerData();
+    const refreshTimer = window.setInterval(() => { void loadCachedCrawlerData(); }, 15 * 60 * 1000);
+    return () => { active = false; window.clearInterval(refreshTimer); };
+  }, [setHistory, setItems]);
+
 
   useEffect(() => {
     if (!updateMenuOpen) return;
@@ -954,13 +1043,16 @@ export default function Home() {
   const plasticAnalyses = useMemo(() => analyzePlasticTrends(sortedHistory), [sortedHistory]);
   const marketItemsByCategory = useMemo(() => buildMaterialMarketItems(plasticAnalyses, ddrMarketData), [plasticAnalyses, ddrMarketData]);
   const ddrInsightItems = useMemo(() => buildDdrInsightItems(items, sortedHistory, ddrMarketData), [items, sortedHistory, ddrMarketData]);
-  const latestIndustryNewsList = useMemo(() => [...(ddrMarketData?.industryNews ?? [])]
-    .filter((news) => news.title.trim())
-    .sort((a, b) => {
-      const aTime = Date.parse(a.date);
-      const bTime = Date.parse(b.date);
-      return (Number.isFinite(bTime) ? bTime : 0) - (Number.isFinite(aTime) ? aTime : 0);
-    }).slice(0, 8), [ddrMarketData]);
+  const latestIndustryNewsList = useMemo(() => {
+    const sorted = [...(ddrMarketData?.industryNews ?? [])]
+      .filter((news) => news.title.trim())
+      .sort((a, b) => {
+        const aTime = Date.parse(a.date);
+        const bTime = Date.parse(b.date);
+        return (Number.isFinite(bTime) ? bTime : 0) - (Number.isFinite(aTime) ? aTime : 0);
+      });
+    return interleaveNewsSources(sorted);
+  }, [ddrMarketData]);
   const landingNewsCarouselRef = useRef<HTMLDivElement>(null);
   const [activeLandingNewsIndex, setActiveLandingNewsIndex] = useState(0);
   useEffect(() => {

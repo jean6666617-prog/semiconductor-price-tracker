@@ -759,7 +759,8 @@ body { background:var(--paper); color:var(--ink); }
 .compact-mover-list .compact-head span,.compact-mover-list .compact-head em,.compact-mover-list .compact-head small { color:#fff; }
 .compact-mover-row { background:rgba(7,25,74,.28); border-top-color:rgba(255,255,255,.18); }
 .compact-mover-row .mover-name strong,.compact-mover-row .mover-name small,.compact-mover-row .mover-price { color:#fff; }
-.compact-mover-row .mover-rate { color:#ff6b8f; }
+.compact-mover-row .mover-rate { color:#ff4fa3; }
+.risk-primary-card .risk-level strong { color:#ff4fa3; }
 .compact-mover-row.down .mover-rate { color:#7ee2d0; }
 .price-mover-scroll::-webkit-scrollbar-track { background:rgba(255,255,255,.16); }
 .price-mover-scroll::-webkit-scrollbar-thumb { background:#d6a7e5; }
@@ -925,6 +926,10 @@ body { background:var(--paper); color:var(--ink); }
 @media (max-width:1180px) { .risk-primary-card,.compact-mover-list { height:auto; min-height:340px; } .compact-mover-list .price-mover-scroll { max-height:280px; } }
 @media (max-width:760px) { .risk-primary-card,.compact-mover-list { min-height:0; height:auto; } }
 
+
+/* High-contrast rose emphasis for risk and positive price movement. */
+.price-mover-row.up .mover-rate { color:#ff4fa3 !important; }
+.risk-alert-card.level-高 .risk-level strong { color:#ff4fa3 !important; }
 
 /* Compact standalone material view: remove stacked homepage top spacing. */
 .dashboard-root.view-trend .shell { padding-top:0; }
