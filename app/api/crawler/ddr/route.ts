@@ -10,13 +10,18 @@ function refreshAuthorized(request: Request) {
   return Boolean(secret && provided && provided === secret);
 }
 
-function hasFreshNews(data: Awaited<ReturnType<typeof fetchDDRMarketData>>) {
-  const timestamps = [...data.industryNews, ...data.marketAnalyses, ...data.spotPrices]
+function hasFreshItems(items: Array<{ date: string }>) {
+  const timestamps = items
     .map((item) => Date.parse(item.date))
     .filter((timestamp) => Number.isFinite(timestamp));
   if (!timestamps.length) return false;
   const latest = Math.max(...timestamps);
   return Date.now() - latest < 36 * 60 * 60 * 1000;
+}
+
+function hasFreshNews(data: Awaited<ReturnType<typeof fetchDDRMarketData>>) {
+  const groups = [data.industryNews, data.marketAnalyses, data.spotPrices].filter((items) => items.length > 0);
+  return groups.length > 0 && groups.every(hasFreshItems);
 }
 
 export async function GET(request: Request) {
