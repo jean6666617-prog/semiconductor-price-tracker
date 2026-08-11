@@ -185,7 +185,9 @@ function cleanDdrSummary(value: string) {
   return decodeDdrEntities(value).replace(/\s+/g, " ").trim().slice(0, 180);
 }
 
-function heroNewsChineseTitle(news: DDRIndustryNewsRecord) {
+type HeroNewsRecord = Pick<DDRIndustryNewsRecord, "title" | "date" | "summary" | "url"> & { source: string };
+
+function heroNewsChineseTitle(news: HeroNewsRecord) {
   const headline = cleanDdrSummary(news.title);
   const context = cleanDdrSummary(news.title + " " + news.summary);
   if (/Microsoft.*Xbox.*(£|pound|200)|Xbox.*(£|pound|200).*Microsoft/i.test(headline)) return "微软上调欧洲 Xbox 售价，最高涨价 200 英镑";
@@ -247,15 +249,15 @@ function ddrNewsImpact(news: DDRIndustryNewsRecord) {
   return ddrImpactLabel(`${news.impact} ${news.title} ${news.summary}`);
 }
 
-function interleaveNewsSources(newsItems: DDRIndustryNewsRecord[], limit = 8) {
-  const grouped = new Map<string, DDRIndustryNewsRecord[]>();
+function interleaveNewsSources(newsItems: HeroNewsRecord[], limit = 8) {
+  const grouped = new Map<string, HeroNewsRecord[]>();
   for (const news of newsItems) {
     const sourceItems = grouped.get(news.source) ?? [];
     sourceItems.push(news);
     grouped.set(news.source, sourceItems);
   }
   const sources = [...grouped.keys()];
-  const result: DDRIndustryNewsRecord[] = [];
+  const result: HeroNewsRecord[] = [];
   let offset = 0;
   while (result.length < limit && sources.some((source) => (grouped.get(source)?.length ?? 0) > offset)) {
     for (const source of sources) {
@@ -1044,8 +1046,22 @@ export default function Home() {
   const marketItemsByCategory = useMemo(() => buildMaterialMarketItems(plasticAnalyses, ddrMarketData), [plasticAnalyses, ddrMarketData]);
   const ddrInsightItems = useMemo(() => buildDdrInsightItems(items, sortedHistory, ddrMarketData), [items, sortedHistory, ddrMarketData]);
   const latestIndustryNewsList = useMemo(() => {
-    const sorted = [...(ddrMarketData?.industryNews ?? [])]
-      .filter((news) => news.title.trim())
+    const industryNews: HeroNewsRecord[] = (ddrMarketData?.industryNews ?? []).map((news) => ({
+      source: news.source,
+      title: news.title,
+      date: news.date,
+      summary: news.summary,
+      url: news.url,
+    }));
+    const marketAnalyses: HeroNewsRecord[] = (ddrMarketData?.marketAnalyses ?? []).map((analysis) => ({
+      source: analysis.source,
+      title: analysis.title,
+      date: analysis.date,
+      summary: analysis.summary,
+      url: analysis.url,
+    }));
+    const sorted = [...industryNews, ...marketAnalyses]
+      .filter((news) => news.title.trim() || news.summary.trim())
       .sort((a, b) => {
         const aTime = Date.parse(a.date);
         const bTime = Date.parse(b.date);
