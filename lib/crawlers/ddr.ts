@@ -290,11 +290,29 @@ function parseDigiTimesTechNews(html: string): DDRIndustryNewsRecord[] {
     });
     seen.add(url);
   }
-  return records.sort((a, b) => (Date.parse(b.date) || 0) - (Date.parse(a.date) || 0)).slice(0, 8);
+  const articleCount = (html.match(/<article\b[\s\S]*?>/gi) || []).length;
+  console.log("DigiTimes article match count", articleCount);
+  const sortedRecords = records.sort((a, b) => (Date.parse(b.date) || 0) - (Date.parse(a.date) || 0)).slice(0, 8);
+  console.log("DigiTimes extracted titles", sortedRecords.map((record) => record.title));
+  return sortedRecords;
 }
 
 export async function fetchDDRIndustryNews(): Promise<DDRIndustryNewsRecord[]> {
-  const news = parseDigiTimesTechNews(await fetchText(ddrSourceUrls.industryNews));
+  const url = ddrSourceUrls.industryNews;
+  console.log("DigiTimes request URL", url);
+  const response = await fetch(url, {
+    cache: "no-store",
+    headers: {
+      "user-agent": "Mozilla/5.0 (compatible; SemiconductorPriceTracker/1.0)",
+      accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    },
+  });
+  const contentType = response.headers.get("content-type") || "";
+  const html = await response.text();
+  console.log("DigiTimes response", { status: response.status, contentType });
+  console.log("DigiTimes HTML preview", html.slice(0, 1000));
+  if (!response.ok) throw new Error(`${url} responded ${response.status}`);
+  const news = parseDigiTimesTechNews(html);
   if (!news.length) throw new Error("DigiTimes最新半导体新闻列表解析失败");
   return news;
 }
