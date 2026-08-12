@@ -328,11 +328,21 @@ function formatLastUpdatedAt(value: string | null) {
   if (!value) return "暂无真实更新记录";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "暂无真实更新记录";
-  const month = date.getMonth() + 1;
-  const day = date.getDate();
-  const hour = String(date.getHours()).padStart(2, "0");
-  const minute = String(date.getMinutes()).padStart(2, "0");
-  return month + "月" + day + "日 " + hour + ":" + minute + " 数据更新";
+  const parts = new Intl.DateTimeFormat("zh-CN", { timeZone: "Asia/Shanghai", year: "numeric", month: "numeric", day: "numeric", hour: "numeric", minute: "numeric", hourCycle: "h23" }).formatToParts(date);
+  const getPart = (type: string) => parts.find((part) => part.type === type)?.value || "";
+  const year = Number(getPart("year"));
+  const month = Number(getPart("month"));
+  const day = Number(getPart("day"));
+  const hour = Number(getPart("hour"));
+  const automaticHours = [10, 15, 18, 19];
+  const matchingHours = automaticHours.filter((slot) => slot <= hour);
+  const slotHour = matchingHours.at(-1);
+  if (!year || !month || !day) return "暂无真实更新记录";
+  if (slotHour === undefined) {
+    const previousDay = new Date(Date.UTC(year, month - 1, day - 1));
+    return previousDay.getUTCFullYear() + "年" + (previousDay.getUTCMonth() + 1) + "月" + previousDay.getUTCDate() + "日 " + String(automaticHours.at(-1)).padStart(2, "0") + ":00 数据更新";
+  }
+  return year + "年" + month + "月" + day + "日 " + String(slotHour).padStart(2, "0") + ":00 数据更新";
 }
 
 function dateKey(value: unknown) {
