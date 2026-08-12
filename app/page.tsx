@@ -902,7 +902,7 @@ export default function Home() {
 
       const snapshot = JSON.stringify(cachedResults
         .filter((result) => result.success && result.price !== null)
-        
+
         .map((result) => ({
           id: result.id,
           material: result.material,
