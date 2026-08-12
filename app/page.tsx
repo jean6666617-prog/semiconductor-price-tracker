@@ -324,14 +324,14 @@ function formatUtcDate(date: Date) {
   return `${year}-${month}-${day}`;
 }
 function formatLastUpdatedAt(value: string | null) {
-  if (!value) return "等待更新";
+  if (!value) return "暂无真实更新记录";
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "等待更新";
+  if (Number.isNaN(date.getTime())) return "暂无真实更新记录";
   const month = date.getMonth() + 1;
   const day = date.getDate();
   const hour = String(date.getHours()).padStart(2, "0");
   const minute = String(date.getMinutes()).padStart(2, "0");
-  return `${month}月${day}日 ${hour}:${minute} 更新`;
+  return month + "月" + day + "日 " + hour + ":" + minute + " 数据更新";
 }
 
 function dateKey(value: unknown) {
@@ -833,7 +833,7 @@ export default function Home() {
     const loadDdrMarketData = () => {
       fetch("/api/crawler/ddr", { cache: "no-store" })
         .then((response) => response.ok ? response.json() as Promise<DDRMarketData> : undefined)
-        .then((data) => { if (active && data) { setDdrMarketData(data); setLastUpdatedAt(new Date().toISOString()); } })
+        .then((data) => { if (active && data) setDdrMarketData(data); })
         .catch(() => { if (active) setDdrMarketData(undefined); });
     };
     loadDdrMarketData();
@@ -892,9 +892,16 @@ export default function Home() {
         return Array.isArray(results) ? results as CachedCrawlerResult[] : [];
       });
       const responses = await Promise.allSettled(requests);
+      let latestCachedUpdate: string | null = null;
       responses.forEach((response) => {
-        if (response.status === "fulfilled") applyCachedResults(response.value);
+        if (response.status !== "fulfilled") return;
+        applyCachedResults(response.value);
+        response.value.forEach((result) => {
+          if (!result.crawlTime || !result.success || result.price === null) return;
+          if (!latestCachedUpdate || result.crawlTime > latestCachedUpdate) latestCachedUpdate = result.crawlTime;
+        });
       });
+      if (latestCachedUpdate) setLastUpdatedAt(latestCachedUpdate);
 
     };
     void loadCachedCrawlerData();
@@ -1327,6 +1334,7 @@ export default function Home() {
     let successCount = 0;
     const results: UpdateResult[] = [];
     const changedRows: PriceExportRow[] = [];
+    let dataChanged = false;
     const enabledEntries = trackingEntries.filter((entry) => entry.enabled && (!scope?.trackingFilter || scope.trackingFilter(entry)));
     const realTrendForceEntries = enabledEntries.filter((entry) => entry.crawler === "trendforce" && entry.mode === "real");
     const realDigiKeyEntries = enabledEntries.filter((entry) => entry.crawler === "digikey" && entry.mode === "real");
@@ -1391,6 +1399,8 @@ export default function Home() {
         const crawlerHistory = result.history?.length
           ? result.history.map((point) => [point.date, point.price] as [string, number])
           : [[result.updateDate, result.price] as [string, number]];
+        const resultChanged = crawlerHistory.some(([date, price]) => previousByDate.get(date) !== price);
+        if (resultChanged) dataChanged = true;
         crawlerHistory.forEach(([date, price]) => {
           if (previousByDate.get(date) === price) return;
           changedRows.push({
@@ -1420,6 +1430,7 @@ export default function Home() {
         setUpdateResults([...results]);
         if (!isSuccessfulUpdate(trackedResult) && trackedResult.status !== "configuration_required") setToastDetailsExpanded(true);
         if (!result.success || result.price === null) continue;
+        if (nextKeyComponentResults[entry.id]?.price !== result.price) dataChanged = true;
         nextKeyComponentResults = { ...nextKeyComponentResults, [entry.id]: mergeKeyComponentResult(nextKeyComponentResults[entry.id], result) };
         successCount += 1;
       }
@@ -1428,7 +1439,10 @@ export default function Home() {
       setKeyComponentResults(nextKeyComponentResults);
       setLatestUpdateRows(changedRows);
       setUpdateMessage(`成功更新${successCount}条`);
-      if (successCount > 0) setLastUpdatedAt(new Date().toISOString());
+      const latestRealUpdate = dataChanged
+        ? results.filter((result) => result.success && result.price !== null && result.crawlTime).map((result) => result.crawlTime as string).sort().at(-1) || null
+        : null;
+      if (latestRealUpdate) setLastUpdatedAt(latestRealUpdate);
       shouldStartToastTimer = results.length > 0;
     } finally {
       setUpdatingPrices(false);

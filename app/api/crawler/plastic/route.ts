@@ -41,6 +41,7 @@ export async function GET(request: Request) {
     unit: result.unit,
     source: result.source,
     updateDate: result.updateDate,
+    crawlTime: result.crawlTime,
     history: result.history ?? [],
     analysis: result.analysis,
     success: result.success,

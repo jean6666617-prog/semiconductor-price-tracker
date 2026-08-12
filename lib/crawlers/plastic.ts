@@ -160,6 +160,7 @@ export async function fetchSunSirsPlastic(entry: TrackingEntry, fallbackDate: st
       updateDate: latest.date,
       history: parsed.history,
       analysis: analysisForResult(material, parsed.history, entry.unit || "RMB/ton"),
+      crawlTime: new Date().toISOString(),
     };
     if (isDevelopment) console.log("[SunSirs Plastic]", { material, price: result.price, updateDate: result.updateDate, success: result.success });
     return result;
