@@ -46,6 +46,10 @@ function todayKey() {
     .format(new Date()).replaceAll("/", "-");
 }
 
+function normalizeMpn(value: unknown) {
+  return String(value ?? "").trim().replace(/[\s\/\-,_]/g, "").toUpperCase();
+}
+
 function failedResult(entry: KeyComponentEntry, error: string): PriceResult & { id: string } {
   return {
     id: entry.id,
@@ -122,7 +126,7 @@ function parseLcscPrice(html: string, expectedMpn: string): LcscParsedPrice {
   }>("LCSC NEXT_DATA", nextData[1]);
   const webData = data.props?.pageProps?.webData;
   if (!webData) throw new Error("LCSC webData not found");
-  if (webData.productModel !== expectedMpn) {
+  if (normalizeMpn(webData.productModel) !== normalizeMpn(expectedMpn)) {
     throw new Error(`LCSC MPN mismatch: expected ${expectedMpn}, got ${webData.productModel || "unknown"}`);
   }
 

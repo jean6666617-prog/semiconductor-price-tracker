@@ -7,7 +7,7 @@ function todayKey() { return new Intl.DateTimeFormat("zh-CN", { year: "numeric",
 function record(value: unknown): Record<string, unknown> | null { return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null; }
 function text(value: unknown) { return typeof value === "string" ? value.trim() : String(value ?? "").trim(); }
 function number(value: unknown) { const parsed = Number(text(value).replace(/[^0-9.\-]/g, "")); return Number.isFinite(parsed) ? parsed : null; }
-function normalize(value: unknown) { return text(value).replace(/\s+/g, "").toUpperCase(); }
+function normalize(value: unknown) { return text(value).replace(/[\s\/\-,_]/g, "").toUpperCase(); }
 function failure(entry: KeyComponentEntry, error: string): PriceResult & { id: string } { return { id: entry.id, success: false, category: entry.category, material: entry.mpn, materialName: entry.name, mpn: entry.mpn, price: null, currency: "USD", unit: "USD/pcs", source: "Mouser", sourceUrl: "https://www.mouser.com/c/?q=" + encodeURIComponent(entry.mpn), updateDate: todayKey(), crawlTime: new Date().toISOString(), mode: "real", error, status: "source_unavailable" }; }
 export async function fetchMouserPrice(entry: KeyComponentEntry): Promise<PriceResult & { id: string }> {
   if (!hasMouserCredentials()) return failure(entry, missingMouserCredentialsMessage);
