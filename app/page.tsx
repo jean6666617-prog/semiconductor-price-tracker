@@ -323,6 +323,16 @@ function formatUtcDate(date: Date) {
   const day = String(date.getUTCDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 }
+function formatLastUpdatedAt(value: string | null) {
+  if (!value) return "等待更新";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "等待更新";
+  const month = date.getMonth() + 1;
+  const day = date.getDate();
+  const hour = String(date.getHours()).padStart(2, "0");
+  const minute = String(date.getMinutes()).padStart(2, "0");
+  return `${month}月${day}日 ${hour}:${minute} 更新`;
+}
 
 function dateKey(value: unknown) {
   if (value instanceof Date) return Number.isNaN(value.getTime()) ? "" : formatUtcDate(value);
@@ -691,6 +701,7 @@ export default function Home() {
   const [activeView, setActiveView] = useState<DashboardView>("home");
   const [selectedTrendRange, setSelectedTrendRange] = useState<TrendRange>("全部");
   const [activeMarketCategory, setActiveMarketCategory] = useState<MarketCategory>("Plastic");
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
   const [ddrMarketData, setDdrMarketData] = useState<DDRMarketData | undefined>();
   const [trendTooltip, setTrendTooltip] = useState<TrendTooltip>(null);
   const [keyCategory, setKeyCategory] = useState("全部");
@@ -822,7 +833,7 @@ export default function Home() {
     const loadDdrMarketData = () => {
       fetch("/api/crawler/ddr", { cache: "no-store" })
         .then((response) => response.ok ? response.json() as Promise<DDRMarketData> : undefined)
-        .then((data) => { if (active && data) setDdrMarketData(data); })
+        .then((data) => { if (active && data) { setDdrMarketData(data); setLastUpdatedAt(new Date().toISOString()); } })
         .catch(() => { if (active) setDdrMarketData(undefined); });
     };
     loadDdrMarketData();
@@ -1417,6 +1428,7 @@ export default function Home() {
       setKeyComponentResults(nextKeyComponentResults);
       setLatestUpdateRows(changedRows);
       setUpdateMessage(`成功更新${successCount}条`);
+      if (successCount > 0) setLastUpdatedAt(new Date().toISOString());
       shouldStartToastTimer = results.length > 0;
     } finally {
       setUpdatingPrices(false);
@@ -1899,9 +1911,9 @@ export default function Home() {
 
       <div className="shell">
         <section className="workflow-section" id="daily-price-insight">
-          <div className="section-heading"><div><p className="kicker">DAILY PRICE INSIGHT</p><h2>今日价格洞察</h2></div><p>风险提示作为左侧重点提醒，价格涨跌榜完整滚动展示每日变动，原材料市场趋势分析保留为主要判断区。</p></div>
-          <div className="daily-insight-panel dashboard-priority-panel">
-            <div className="price-mover-board dashboard-priority-grid">
+          <div className="section-heading"><div className="daily-insight-title"><div className="daily-insight-title-row"><h2>今日价格洞察</h2><span className="latest-update-time">{formatLastUpdatedAt(lastUpdatedAt)}</span></div><p className="kicker">DAILY PRICE INSIGHT</p></div><p>风险提示作为左侧重点提醒，价格涨跌榜完整滚动展示每日变动，原材料市场趋势分析保留为主要判断区。</p></div>
+            <div className="daily-insight-panel dashboard-priority-panel">
+              <div className="price-mover-board dashboard-priority-grid">
               <div className="insight-left-stack">
                 <aside className={`risk-alert-card compact-risk-card risk-primary-card level-${dailyInsights.risk.level}`}>
                   <div className="insight-block-head compact-head"><span>风险提示</span><small>Risk Alert</small></div>

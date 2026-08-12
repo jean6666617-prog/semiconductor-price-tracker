@@ -262,11 +262,12 @@ function parseDigiTimesTechNews(html: string, baseUrl: string = ddrSourceUrls.in
   const year = Number(pageDate || new Date().getUTCFullYear());
   const records: DDRIndustryNewsRecord[] = [];
   const seen = new Set<string>();
-  const anchorPattern = /<a\b([^>]*href=["']([^"']*\/news\/[^"']+)["'][^>]*)>([\s\S]*?)<\/a>/gi;
+  const anchorPattern = /<a\b([^>]*)>([\s\S]*?)<\/a>/gi;
 
   for (const match of html.matchAll(anchorPattern)) {
-    const href = match[2];
-    const inner = match[3];
+    const href = match[1].match(/\bhref=["']([^"']*\/news\/[^"']+)["']/i)?.[1];
+    const inner = match[2];
+    if (!href) continue;
     let url: string;
     try {
       url = new URL(href, baseUrl).toString();
