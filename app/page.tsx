@@ -1001,7 +1001,7 @@ export default function Home() {
   const unitByTrendKey = useMemo(() => new Map(items.map((item) => [`${item.group}::${item.name}`, item.unit])), [items]);
   const sourceByTrendKey = useMemo(() => new Map(items.map((item) => [`${item.group}::${item.name}`, item.source])), [items]);
   const dailyInsights = useMemo(() => {
-    const series = Object.entries(sortedHistory).map(([key, points]) => {
+    const trackedSeries = Object.entries(sortedHistory).map(([key, points]) => {
       const sorted = sortSeries(points);
       const latest = sorted.at(-1);
       if (!latest) return null;
@@ -1010,19 +1010,29 @@ export default function Home() {
       const name = nameParts.join("::");
       return { key, group, name, source: sourceByTrendKey.get(key) || "—", unit: unitByTrendKey.get(key) || "—", points: sorted, latest, average };
     }).filter((entry): entry is NonNullable<typeof entry> => Boolean(entry));
-    const seriesByMaterial = new Map(series.map((entry) => [normalize(`${entry.group}${entry.name}`), entry]));
-    const seriesByName = new Map(series.map((entry) => [normalize(entry.name), entry]));
-    const updatedKeys = new Set<string>();
-    const updatedEntries = updateResults.filter((result) => isSuccessfulUpdate(result) && result.price !== null).flatMap((result) => {
-      const match = seriesByMaterial.get(normalize(`${result.category}${result.material}`)) || seriesByName.get(normalize(result.material));
-      if (!match || updatedKeys.has(match.key)) return [];
-      updatedKeys.add(match.key);
-      return [match];
+    const keySeries = keyComponentEntries.flatMap((entry) => {
+      const result = keyComponentResults[entry.id];
+      if (!result?.success || result.price === null) return [];
+      const points = sortSeries(result.history?.length
+        ? result.history.map((point) => [point.date, point.price] as [string, number])
+        : [[result.updateDate, result.price] as [string, number]]);
+      const latest = points.at(-1);
+      if (!latest) return [];
+      const average = points.reduce((sum, [, price]) => sum + price, 0) / points.length;
+      return [{
+        key: `key::${entry.id}`,
+        group: entry.category,
+        name: entry.name || entry.mpn,
+        source: result.source || entry.source || "—",
+        unit: displayUnit(result),
+        points,
+        latest,
+        average,
+      }];
     });
-    const insightDate = updatedEntries.length
-      ? updatedEntries.reduce((latest, entry) => entry.latest[0] > latest ? entry.latest[0] : latest, "")
-      : series.reduce((latest, entry) => entry.latest[0] > latest ? entry.latest[0] : latest, "");
-    const calculationBase = updatedEntries.length ? updatedEntries : series.filter((entry) => entry.latest[0] === insightDate);
+    const series = [...trackedSeries, ...keySeries];
+    const insightDate = series.reduce((latest, entry) => entry.latest[0] > latest ? entry.latest[0] : latest, "");
+    const calculationBase = series;
     const movers = calculationBase.flatMap((entry) => {
       const latestIndex = entry.points.findIndex(([date, price]) => date === entry.latest[0] && price === entry.latest[1]);
       const previous = latestIndex > 0 ? entry.points[latestIndex - 1] : undefined;
@@ -1095,7 +1105,7 @@ export default function Home() {
         averageTooltip: `计算方式：\n(当前价格 - 历史平均价格) / 历史平均价格 × 100%\n\n历史均价：${formatTrendPrice(risk.average)} ${risk.unit}\n当前价格：${formatTrendPrice(risk.price)} ${risk.unit}\n结果：${risk.averageGapRate >= 0 ? "+" : ""}${risk.averageGapRate.toFixed(2)}%`,
       },
     };
-  }, [sortedHistory, sourceByTrendKey, unitByTrendKey, updateResults]);
+  }, [keyComponentResults, sortedHistory, sourceByTrendKey, unitByTrendKey]);
   const plasticAnalyses = useMemo(() => analyzePlasticTrends(sortedHistory), [sortedHistory]);
   const marketItemsByCategory = useMemo(() => buildMaterialMarketItems(plasticAnalyses, ddrMarketData), [plasticAnalyses, ddrMarketData]);
   const ddrInsightItems = useMemo(() => buildDdrInsightItems(items, sortedHistory, ddrMarketData), [items, sortedHistory, ddrMarketData]);
