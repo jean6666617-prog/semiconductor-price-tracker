@@ -11,11 +11,22 @@ function todayKey() {
     .format(new Date()).replaceAll("/", "-");
 }
 
+function hasFreshPrices(results: Array<{ success?: boolean; price?: number | null; updateDate?: string }>) {
+  const dates = results
+    .filter((result) => result.success && result.price !== null && result.updateDate)
+    .map((result) => Date.parse(result.updateDate as string))
+    .filter((timestamp) => Number.isFinite(timestamp));
+  if (!dates.length) return false;
+  return Date.now() - Math.max(...dates) < 36 * 60 * 60 * 1000;
+}
+
 export async function GET(request: Request) {
   const forceRefresh = new URL(request.url).searchParams.has("refresh");
   if (!forceRefresh) {
     const cached = await readCrawlerCache<unknown[]>("plastic-market");
-    if (cached) return NextResponse.json(cached, { headers: { "X-Crawler-Cache": "HIT" } });
+    if (Array.isArray(cached) && hasFreshPrices(cached as Array<{ success?: boolean; price?: number | null; updateDate?: string }>)) {
+      return NextResponse.json(cached, { headers: { "X-Crawler-Cache": "HIT" } });
+    }
   } else {
     const secret = process.env.CRON_SECRET?.trim();
     const provided = request.headers.get("x-cron-secret")?.trim();

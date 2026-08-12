@@ -998,10 +998,21 @@ export default function Home() {
   const latestHistoryDate = latestDateFromHistory(history);
   const latestDate = [latestItemDate, latestHistoryDate].reduce((latest, date) => dateKey(date) > latest ? dateKey(date) : latest, "");
   const sortedHistory = useMemo(() => mergeHistory(history), [history]);
+  const displayHistory = useMemo(() => {
+    const merged = { ...sortedHistory };
+    for (const item of items) {
+      const price = Number(String(item.price).replace(/[^0-9.-]/g, ""));
+      const date = dateKey(item.updated);
+      if (item.status !== "已更新" || !date || !Number.isFinite(price) || price <= 0) continue;
+      const key = `${item.group}::${item.name}`;
+      merged[key] = sortSeries([...(merged[key] ?? []), [date, price]]);
+    }
+    return merged;
+  }, [items, sortedHistory]);
   const unitByTrendKey = useMemo(() => new Map(items.map((item) => [`${item.group}::${item.name}`, item.unit])), [items]);
   const sourceByTrendKey = useMemo(() => new Map(items.map((item) => [`${item.group}::${item.name}`, item.source])), [items]);
   const dailyInsights = useMemo(() => {
-    const trackedSeries = Object.entries(sortedHistory).map(([key, points]) => {
+    const trackedSeries = Object.entries(displayHistory).map(([key, points]) => {
       const sorted = sortSeries(points);
       const latest = sorted.at(-1);
       if (!latest) return null;
@@ -1105,10 +1116,10 @@ export default function Home() {
         averageTooltip: `计算方式：\n(当前价格 - 历史平均价格) / 历史平均价格 × 100%\n\n历史均价：${formatTrendPrice(risk.average)} ${risk.unit}\n当前价格：${formatTrendPrice(risk.price)} ${risk.unit}\n结果：${risk.averageGapRate >= 0 ? "+" : ""}${risk.averageGapRate.toFixed(2)}%`,
       },
     };
-  }, [keyComponentResults, sortedHistory, sourceByTrendKey, unitByTrendKey]);
-  const plasticAnalyses = useMemo(() => analyzePlasticTrends(sortedHistory), [sortedHistory]);
+  }, [displayHistory, keyComponentResults, sourceByTrendKey, unitByTrendKey]);
+  const plasticAnalyses = useMemo(() => analyzePlasticTrends(displayHistory), [displayHistory]);
   const marketItemsByCategory = useMemo(() => buildMaterialMarketItems(plasticAnalyses, ddrMarketData), [plasticAnalyses, ddrMarketData]);
-  const ddrInsightItems = useMemo(() => buildDdrInsightItems(items, sortedHistory, ddrMarketData), [items, sortedHistory, ddrMarketData]);
+  const ddrInsightItems = useMemo(() => buildDdrInsightItems(items, displayHistory, ddrMarketData), [items, displayHistory, ddrMarketData]);
   const latestIndustryNewsList = useMemo(() => {
     const industryNews: HeroNewsRecord[] = (ddrMarketData?.industryNews ?? []).map((news) => ({
       source: news.source,
@@ -1151,9 +1162,9 @@ export default function Home() {
   }, [latestIndustryNewsList.length]);
   const activeMarketItems = activeMarketCategory === "Memory" ? ddrInsightItems : marketItemsByCategory[activeMarketCategory];
   const activeMarketSource = activeMarketCategory === "Memory" ? "TrendForce · Tom's Hardware · DigiTimes" : getMarketSourceLabel(activeMarketCategory);
-  const trendGroups = Array.from(new Set(Object.keys(sortedHistory).map((key) => key.split("::")[0])));
-  const trendOptions = Object.keys(sortedHistory).filter((key) => key.startsWith(`${trendGroup}::`));
-  const activeTrendKey = trendOptions.includes(trendCommodity) ? trendCommodity : trendOptions[0] || Object.keys(sortedHistory)[0];
+  const trendGroups = Array.from(new Set(Object.keys(displayHistory).map((key) => key.split("::")[0])));
+  const trendOptions = Object.keys(displayHistory).filter((key) => key.startsWith(`${trendGroup}::`));
+  const activeTrendKey = trendOptions.includes(trendCommodity) ? trendCommodity : trendOptions[0] || Object.keys(displayHistory)[0];
   const trendName = activeTrendKey?.split("::").slice(1).join("::") || "暂无数据";
   const unitForTrendKey = (key?: string) => key ? unitByTrendKey.get(key) || "—" : "—";
   const activeTrendUnit = unitForTrendKey(activeTrendKey);
@@ -1162,15 +1173,15 @@ export default function Home() {
     ? allTrendUnits.length === 1 ? allTrendUnits[0] : activeTrendUnit !== "—" ? activeTrendUnit : allTrendUnits[0] || "—"
     : activeTrendUnit;
   const groupLatestDate = trendOptions.reduce((latest, key) => {
-    const seriesLatest = sortedHistory[key]?.at(-1)?.[0] || "";
+    const seriesLatest = displayHistory[key]?.at(-1)?.[0] || "";
     return seriesLatest > latest ? seriesLatest : latest;
   }, "");
-  const rawTrend = sortedHistory[activeTrendKey] ?? [];
+  const rawTrend = displayHistory[activeTrendKey] ?? [];
   const filteredTrend = filterTrendRange(rawTrend, selectedTrendRange, groupLatestDate);
   const trend = filteredTrend.length ? filteredTrend : rawTrend.length ? rawTrend : [["—", 0] as [string, number]];
   const allTrendSeries = trendOptions.map((key, index) => {
     const name = key.split("::").slice(1).join("::");
-    return { key, name, unit: unitForTrendKey(key), color: trendColor(name, index), points: filterTrendRange(sortedHistory[key] ?? [], selectedTrendRange, groupLatestDate) };
+    return { key, name, unit: unitForTrendKey(key), color: trendColor(name, index), points: filterTrendRange(displayHistory[key] ?? [], selectedTrendRange, groupLatestDate) };
   }).filter((series) => series.points.length);
   const allTrendDates = Array.from(new Set(allTrendSeries.flatMap((series) => series.points.map(([date]) => date)))).sort();
   const allTrendPrices = allTrendSeries.flatMap((series) => series.points.map((point) => point[1]));
