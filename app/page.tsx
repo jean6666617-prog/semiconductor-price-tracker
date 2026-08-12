@@ -53,6 +53,7 @@ const tablePageSize = 10;
 const trackingEntries = trackingConfig as TrackingEntry[];
 const keyComponentEntries = keyComponentsConfig as KeyComponentEntry[];
 const keyComponentResultsStorageKey = "semiconductor-key-component-results-v1";
+const crawlerUpdateSnapshotStorageKey = "semiconductor-crawler-update-snapshot-v1";
 const trendPalette = ["#5b21b6", "#d9369a", "#0b2d5c", "#38bdf8", "#eab308", "#16a34a"];
 const trendColorByName: Record<string, string> = {
   ABS: "#5b21b6",
@@ -892,16 +893,41 @@ export default function Home() {
         return Array.isArray(results) ? results as CachedCrawlerResult[] : [];
       });
       const responses = await Promise.allSettled(requests);
-      let latestCachedUpdate: string | null = null;
+      const cachedResults: CachedCrawlerResult[] = [];
       responses.forEach((response) => {
         if (response.status !== "fulfilled") return;
+        cachedResults.push(...response.value);
         applyCachedResults(response.value);
-        response.value.forEach((result) => {
-          if (!result.crawlTime || !result.success || result.price === null) return;
-          if (!latestCachedUpdate || result.crawlTime > latestCachedUpdate) latestCachedUpdate = result.crawlTime;
-        });
       });
-      if (latestCachedUpdate) setLastUpdatedAt(latestCachedUpdate);
+
+      const snapshot = JSON.stringify(cachedResults
+        .filter((result) => result.success && result.price !== null)
+        
+        .map((result) => ({
+          id: result.id,
+          material: result.material,
+          price: result.price,
+          updateDate: result.updateDate,
+          history: result.history,
+        })));
+      if (snapshot !== "[]") {
+        const stored = window.localStorage.getItem(crawlerUpdateSnapshotStorageKey);
+        let previous: { snapshot?: string; updatedAt?: string } = {};
+        try { previous = stored ? JSON.parse(stored) as { snapshot?: string; updatedAt?: string } : {}; } catch { previous = {}; }
+        if (previous.snapshot === snapshot && previous.updatedAt) {
+          setLastUpdatedAt(previous.updatedAt);
+        } else {
+          const latestCachedUpdate = cachedResults
+            .filter((result) => result.success && result.price !== null && result.crawlTime)
+            .map((result) => result.crawlTime as string)
+            .sort()
+            .at(-1);
+          if (latestCachedUpdate) {
+            setLastUpdatedAt(latestCachedUpdate);
+            window.localStorage.setItem(crawlerUpdateSnapshotStorageKey, JSON.stringify({ snapshot, updatedAt: latestCachedUpdate }));
+          }
+        }
+      }
 
     };
     void loadCachedCrawlerData();
