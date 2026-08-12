@@ -1277,19 +1277,9 @@ export default function Home() {
       }] : [];
     }),
   ];
-  const commonStartDate = rawKeyChartSeries.length
-    ? rawKeyChartSeries.reduce((latest, series) => series.points[0][0] > latest ? series.points[0][0] : latest, rawKeyChartSeries[0].points[0][0])
-    : "";
-  const commonEndDate = rawKeyChartSeries.length
-    ? rawKeyChartSeries.reduce((earliest, series) => series.points.at(-1)![0] < earliest ? series.points.at(-1)![0] : earliest, rawKeyChartSeries[0].points.at(-1)![0])
-    : "";
-  const useCommonDateWindow = Boolean(commonStartDate && commonEndDate && commonStartDate <= commonEndDate);
-  const keyChartSeries = rawKeyChartSeries.map((series) => ({
-    ...series,
-    points: useCommonDateWindow
-      ? series.points.filter(([date]) => date >= commonStartDate && date <= commonEndDate)
-      : series.points,
-  })).filter((series) => series.points.length);
+  // Keep each tracked object's complete history. The x-axis uses the union of
+  // dates so one newly added object cannot trim older points from every line.
+  const keyChartSeries = rawKeyChartSeries.filter((series) => series.points.length);
   const keyTrendDates = Array.from(new Set(keyChartSeries.flatMap((series) => series.points.map(([date]) => date)))).sort();
   const keyTrendPrices = keyChartSeries.flatMap((series) => series.points.map((point) => point[1])).filter((price) => price > 0);
   const keyYTicks = priceTicks(keyTrendPrices);
