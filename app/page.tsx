@@ -62,6 +62,15 @@ const trendColorByName: Record<string, string> = {
   PET: "#38bdf8",
   PP: "#eab308",
 };
+const keyTrendColorByMpn: Record<string, string> = {
+  MCIMX515DJM8C: "#2563eb",
+  "TJA1042T/3": "#16a34a",
+  "TJA1055T/C,518": "#eab308",
+  MIMX9352CVVXMAC: "#7c3aed",
+  PCA9451AHNY: "#db2777",
+  "JSL4BAG167ZAMF-05A": "#0891b2",
+  "FEMDRM032G-A3A55": "#ea580c",
+};
 
 const updateMenuGroups: { title: string; options: { label: string; scope: UpdateScope }[] }[] = [
   {
@@ -607,6 +616,10 @@ function filterTrendRange(series: [string, number][], range: TrendRange, maxDate
 
 function trendColor(name: string, index: number) {
   return trendColorByName[name] || trendPalette[index % trendPalette.length];
+}
+
+function keyTrendColor(name: string, index: number) {
+  return keyTrendColorByMpn[name] || trendPalette[index % trendPalette.length];
 }
 
 function formatTrendPrice(price: number) {
@@ -1283,7 +1296,7 @@ export default function Home() {
         name: entry.mpn,
         unit: result ? displayUnit(result) : "USD/pcs",
         source: result?.source || entry.source,
-        color: trendColor(entry.mpn, index),
+        color: keyTrendColor(entry.mpn, index),
         points,
       }] : [];
     }),
@@ -1291,6 +1304,13 @@ export default function Home() {
   // Keep each tracked object's complete history. The x-axis uses the union of
   // dates so one newly added object cannot trim older points from every line.
   const keyChartSeries = rawKeyChartSeries.filter((series) => series.points.length);
+  const keyChartSeriesByKey = new Map(keyChartSeries.map((series) => [series.key, series]));
+  const keyLegendEntries = keyFilteredEntries.map((entry, index) => ({
+    key: entry.id,
+    name: entry.mpn,
+    color: keyChartSeriesByKey.get(entry.id)?.color || keyTrendColor(entry.mpn, index),
+    hasData: keyChartSeriesByKey.has(entry.id),
+  }));
   const keyTrendDates = Array.from(new Set(keyChartSeries.flatMap((series) => series.points.map(([date]) => date)))).sort();
   const keyTrendPrices = keyChartSeries.flatMap((series) => series.points.map((point) => point[1])).filter((price) => price > 0);
   const keyYTicks = priceTicks(keyTrendPrices);
@@ -2157,7 +2177,7 @@ export default function Home() {
                 </div>
                 <div className="axis-labels"><span>{keyTrendDates[0] || "—"}</span><span>{keyTrendDates.at(-1) || "—"}</span></div>
                 <div className="trend-legend">
-                  {keyChartSeries.map((series) => <span key={series.key}><i style={{ background: series.color }} />{series.name}</span>)}
+                  {keyLegendEntries.map((entry) => <span key={entry.key} className={entry.hasData ? "" : "legend-no-data"} title={entry.hasData ? undefined : "暂无真实价格历史"}><i style={{ background: entry.color }} />{entry.name}{entry.hasData ? "" : "（暂无真实价格）"}</span>)}
                   <span className="chart-unit">{keyChartSeries[0]?.unit || "USD/pcs"}</span>
                 </div>
                 <div className="key-component-table-wrap">

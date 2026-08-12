@@ -156,6 +156,8 @@ button { cursor:pointer; }
 .trend-legend { justify-content:flex-start; flex-wrap:wrap; color:#66756e; font-size:14px; }
 .trend-legend span { display:inline-flex; align-items:center; gap:6px; }
 .trend-legend i { width:8px; height:8px; border-radius:50%; display:inline-block; }
+.trend-legend .legend-no-data { color:#9aa3b0; }
+.trend-legend .legend-no-data i { opacity:.45; }
 .trend-legend .chart-unit { margin-left:auto; color:inherit; font:inherit; font-weight:400; }
 .key-trend-heading { margin:2px 0 14px; }
 .key-trend-heading h3 { margin:0 0 5px; color:var(--ink); font-size:18px; font-weight:700; letter-spacing:-.02em; }
