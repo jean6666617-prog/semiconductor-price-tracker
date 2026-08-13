@@ -466,6 +466,8 @@
     "unit": "USD/pcs",
     "source": "DigiKey",
     "url": "https://www.digikey.com/en/products/detail/rochester-electronics-llc/MCIMX515DVK8B/12595524",
+    "fallbackSource": "LCSC",
+    "fallbackUrl": "https://www.lcsc.com/product-detail/C6666559.html",
     "crawler": "digikey",
     "mode": "real",
     "quantity": 1,

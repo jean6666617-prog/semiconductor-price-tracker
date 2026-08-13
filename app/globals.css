@@ -178,6 +178,11 @@ button { cursor:pointer; }
 .pager-page { display:inline-flex; align-items:center; gap:6px; }
 .pager-gap { color:#8593a1; font-size:10px; }
 .trend-insight { padding:25px; background:var(--ink); color:white; }
+.key-insight-selector { display:grid; gap:7px; margin-bottom:20px; }
+.key-insight-selector span { color:#d7c6ff; font-size:11px; font-weight:700; letter-spacing:.08em; }
+.key-insight-selector select { width:100%; min-width:0; padding:10px 30px 10px 12px; border:1px solid #ffffff42; border-radius:8px; background:#17133e; color:#fff; font:inherit; font-size:12px; outline:none; }
+.key-insight-selector select:focus { border-color:#d9369a; box-shadow:0 0 0 2px #d9369a45; }
+
 .direction { display:inline-flex; border-radius:99px; padding:6px 9px; font-size:10px; font-weight:800; }.direction.up { background:#d6a64a22; color:var(--lime); }.direction.down { background:#a72f3530; color:#f0a497; }
 .trend-insight > p { margin:24px 0 5px; color:#aebbc7; font-size:11px; }.trend-insight > strong { font-family:Georgia,serif; color:var(--lime); font-size:42px; font-weight:500; }
 .trend-insight dl { display:grid; gap:0; margin:24px 0 20px; }.trend-insight dl div { display:flex; justify-content:space-between; padding:11px 0; border-top:1px solid #ffffff18; }.trend-insight dt { color:#aebbc7; font-size:10px; }.trend-insight dd { margin:0; font-family:"SFMono-Regular",Consolas,monospace; font-size:11px; }
@@ -941,4 +946,36 @@ body { background:var(--paper); color:var(--ink); }
 .dashboard-root.view-trend .material-market-insight { margin-top:0; }
 @media (max-width:760px) { .dashboard-root.view-trend #daily-price-insight { margin-top:16px; } }
 
+/* Frosted glass treatment only for the selected-model dropdown. */
+.trend-insight .key-insight-selector select {
+  background:rgba(255,255,255,.18);
+  border-color:rgba(255,255,255,.62);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.24);
+  -webkit-backdrop-filter:blur(18px) saturate(125%);
+  backdrop-filter:blur(18px) saturate(125%);
+}
+.trend-insight .key-insight-selector select option {
+  background:#283b72;
+  color:#fff;
+}
+
 @media (max-width:600px) { .landing-hero-news-slide h1,.landing-hero-news-slide h2 { font-size:32px; } .landing-hero-news-title { font-size:14px; } .landing-hero-copy { font-size:15px; line-height:1.75; } }
+
+.automatic-status-backdrop { position:fixed; inset:0; z-index:60; display:grid; place-items:center; padding:24px; background:rgba(8,20,48,.72); backdrop-filter:blur(5px); }
+.automatic-status-modal { width:min(520px,calc(100vw - 48px)); max-height:min(620px,calc(100vh - 80px)); overflow:auto; position:relative; padding:28px 30px 30px; color:#f4f0eb; background:linear-gradient(135deg,#172f67eF,#61114fF2); border:1px solid #d9369a; border-radius:4px; box-shadow:0 24px 70px #091735aa; }
+.automatic-status-modal .kicker { margin:0 0 8px; color:#f16bb6; font-size:11px; letter-spacing:.18em; }
+.automatic-status-modal h2 { margin:0; font-family:"Microsoft YaHei","Noto Sans SC",sans-serif; font-size:30px; font-weight:700; }
+.automatic-status-time { margin:8px 0 22px; color:#ddd5df; font-family:"Times New Roman",serif; font-size:15px; }
+.automatic-status-close { position:absolute; top:14px; right:16px; border:0; background:none; color:#fff; font-size:28px; line-height:1; cursor:pointer; }
+.automatic-status-group { margin-top:16px; padding-top:14px; border-top:1px solid #ffffff35; }
+.automatic-status-group h3 { display:flex; justify-content:space-between; margin:0 0 9px; font-family:"Microsoft YaHei","Noto Sans SC",sans-serif; font-size:16px; }
+.automatic-status-group h3 span { color:#f16bb6; }
+.automatic-status-list { display:grid; gap:7px; }
+.automatic-status-row { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:3px 12px; padding:9px 0; border-bottom:1px solid #ffffff20; }
+.automatic-status-row strong { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-family:"Microsoft YaHei","Noto Sans SC",sans-serif; font-size:14px; }
+.automatic-status-row span,.automatic-status-row small { color:#d4cbd5; font-size:12px; }
+.automatic-status-row em { grid-column:2; grid-row:1 / span 2; align-self:center; color:#f16bb6; font-family:"Times New Roman",serif; font-size:16px; font-style:normal; }
+.automatic-status-row small { grid-column:1; }
+.automatic-status-empty { margin:0; color:#c6bfca; font-size:13px; }
+.automatic-status-group.is-failed h3,.automatic-status-group.is-failed .automatic-status-row small { color:#ff91a7; }
+.automatic-status-group.is-pending h3 { color:#f2ca6d; }

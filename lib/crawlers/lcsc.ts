@@ -50,6 +50,20 @@ function normalizeMpn(value: unknown) {
   return String(value ?? "").trim().replace(/[\s\/\-,_]/g, "").toUpperCase();
 }
 
+function matchesLCSCModel(actual: unknown, expected: string) {
+  const actualValue = String(actual ?? "").trim();
+  const expectedValue = String(expected ?? "").trim();
+  const actualModel = normalizeMpn(actualValue);
+  const expectedModel = normalizeMpn(expectedValue);
+  if (!actualModel || !expectedModel) return false;
+  if (actualModel === expectedModel) return true;
+
+  // LCSC may append a packaging or inventory suffix after a comma.
+  const actualBase = normalizeMpn(actualValue.split(",")[0]);
+  const expectedBase = normalizeMpn(expectedValue.split(",")[0]);
+  return actualBase.length >= 6 && expectedBase.length >= 6 && actualBase === expectedBase;
+}
+
 function failedResult(entry: KeyComponentEntry, error: string): PriceResult & { id: string } {
   return {
     id: entry.id,
@@ -126,7 +140,7 @@ function parseLcscPrice(html: string, expectedMpn: string): LcscParsedPrice {
   }>("LCSC NEXT_DATA", nextData[1]);
   const webData = data.props?.pageProps?.webData;
   if (!webData) throw new Error("LCSC webData not found");
-  if (normalizeMpn(webData.productModel) !== normalizeMpn(expectedMpn)) {
+  if (!matchesLCSCModel(webData.productModel, expectedMpn)) {
     throw new Error(`LCSC MPN mismatch: expected ${expectedMpn}, got ${webData.productModel || "unknown"}`);
   }
 

@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import trackingConfig from "../../../../config/tracking.json";
 import { fetchDigiKeyPrice } from "../../../../lib/crawlers/digikey";
+import { fetchLcscPrice } from "../../../../lib/crawlers/lcsc";
 import { readCrawlerCache, writeCrawlerCache } from "../../../../lib/cache/edgeCrawlerCache";
 import type { PriceResult, TrackingEntry } from "../../../../lib/crawlers";
+import type { KeyComponentEntry } from "../../../../lib/crawlers/cytech";
 
 type DigiKeyEntry = TrackingEntry & { id: string };
 type ApiResult = PriceResult & { id: string };
@@ -51,10 +53,24 @@ function refreshAuthorized(request: Request) {
   return Boolean(secret && provided && provided === secret);
 }
 
+function fallbackEntry(entry: DigiKeyEntry): KeyComponentEntry | null {
+  if (entry.fallbackSource !== "LCSC" || !entry.fallbackUrl || !entry.mpn || !entry.id) return null;
+  return { id: entry.id, mpn: entry.mpn, name: entry.name, category: entry.category, description: entry.description || "", manufacturer: entry.manufacturer, source: "LCSC", sourceUrl: entry.fallbackUrl, crawler: "lcsc", enabled: true, status: "已追踪" };
+}
+
+async function fetchWithFallback(entry: DigiKeyEntry): Promise<ApiResult> {
+  const primary = await fetchDigiKeyPrice(entry, todayKey());
+  if (primary.success) return { ...primary, id: entry.id };
+  const fallback = fallbackEntry(entry);
+  if (!fallback) return { ...primary, id: entry.id };
+  const secondary = await fetchLcscPrice(fallback);
+  if (secondary.success) return { ...secondary, id: entry.id, material: entry.name, materialName: entry.name, category: entry.category, manufacturer: entry.manufacturer, mpn: entry.mpn, quantity: entry.quantity, unit: secondary.unit, source: entry.fallbackSource || secondary.source, sourceUrl: entry.fallbackUrl };
+  return { ...primary, id: entry.id, error: "DigiKey: " + (primary.error || "价格获取失败") + "；" + entry.fallbackSource + ": " + (secondary.error || "价格获取失败"), source: entry.source + " / " + entry.fallbackSource, sourceUrl: entry.fallbackUrl };
+}
+
 async function fetchEntries(entries: DigiKeyEntry[]) {
   return Promise.all(entries.map(async (entry): Promise<ApiResult> => {
-    const result = await fetchDigiKeyPrice(entry, todayKey());
-    return { ...result, id: entry.id };
+    return fetchWithFallback(entry);
   }));
 }
 
@@ -88,8 +104,7 @@ export async function POST(request: Request) {
     if (entry.crawler !== "digikey") return failedResult(id, entry, "Tracking entry is not a DigiKey crawler");
     if (!entry.enabled) return failedResult(id, entry, "Tracking entry is disabled");
     if (entry.mode !== "real") return failedResult(id, entry, "Tracking entry is not configured for real mode");
-    const result = await fetchDigiKeyPrice(entry, todayKey());
-    return { ...result, id };
+    return fetchWithFallback(entry);
   }));
 
   if (isDevelopment) console.log("[DigiKey API]", { ids: body.ids, results: results.map((result) => ({ id: result.id, success: result.success, error: result.error })) });

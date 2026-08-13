@@ -25,6 +25,7 @@ const trendRanges = ["7天", "30天", "90天", "180天", "全部"] as const;
 type TrendRange = typeof trendRanges[number];
 type TrendMode = "all" | "single" | "key";
 type UpdateResult = PriceResult & { mode?: "real" | "mock" };
+type AutomaticUpdateStatus = { runAt: string | null; results: Array<PriceResult & { id?: string }> };
 type KeyComponentResult = PriceResult & { id: string };
 type KeyComponentTableItem = Omit<Item, "id"> & {
   id: string;
@@ -397,6 +398,10 @@ function sanitizeKeyHistory(series: [string, number][], referencePrice?: number)
   return compatible.length ? compatible : cleaned.slice(-1);
 }
 
+function normalizeKeyUnit(value?: string) {
+  return String(value ?? "").toLowerCase().replace(/[\s]/g, "").replace(/^(usd|cny|rmb)\//, "");
+}
+
 function mergeKeyComponentResult(current: KeyComponentResult | undefined, result: KeyComponentResult) {
   if (!result.success || result.price === null) return current ?? result;
 
@@ -404,9 +409,11 @@ function mergeKeyComponentResult(current: KeyComponentResult | undefined, result
     ? result.history.map((point) => [point.date, point.price] as [string, number])
     : [[result.updateDate, result.price] as [string, number]], result.price);
 
-  const sourceChanged = current && (current.source !== result.source
-    || current.currency !== result.currency
-    || current.unit !== result.unit);
+  // A source switch is safe to merge; only currency or billing-unit changes make prices incomparable.
+  const sourceChanged = current && (
+    String(current.currency || "").toUpperCase() !== String(result.currency || "").toUpperCase()
+    || normalizeKeyUnit(current.unit) !== normalizeKeyUnit(result.unit)
+  );
   const currentHistory = sourceChanged
     ? []
     : current?.history?.map((point) => [point.date, point.price] as [string, number]) ?? [];
@@ -726,9 +733,13 @@ export default function Home() {
   const [selectedTrendRange, setSelectedTrendRange] = useState<TrendRange>("全部");
   const [activeMarketCategory, setActiveMarketCategory] = useState<MarketCategory>("Plastic");
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
+  const [automaticUpdateStatus, setAutomaticUpdateStatus] = useState<AutomaticUpdateStatus | null>(null);
+  const [automaticStatusOpen, setAutomaticStatusOpen] = useState(false);
   const [ddrMarketData, setDdrMarketData] = useState<DDRMarketData | undefined>();
+  const [plasticMarketData, setPlasticMarketData] = useState<PriceResult[]>([]);
   const [trendTooltip, setTrendTooltip] = useState<TrendTooltip>(null);
   const [keyCategory, setKeyCategory] = useState("全部");
+  const [selectedKeyEntryId, setSelectedKeyEntryId] = useState("key-nxp-mcimx515djm8c");
   const [selectedKeyRange, setSelectedKeyRange] = useState<TrendRange>("全部");
   const [keyTooltip, setKeyTooltip] = useState<TrendTooltip>(null);
   const [updatingKeyComponents, setUpdatingKeyComponents] = useState(false);
@@ -814,6 +825,35 @@ export default function Home() {
       setUpdatingKeyComponents(false);
     }
   }, [setKeyComponentResults]);
+
+  useEffect(() => {
+    let active = true;
+    const loadAutomaticStatus = async () => {
+      try {
+        const response = await fetch("/api/crawler/auto-status", { cache: "no-store" });
+        if (!response.ok) return;
+        const payload = await response.json() as AutomaticUpdateStatus;
+        if (active && payload && Array.isArray(payload.results)) setAutomaticUpdateStatus(payload);
+      } catch {
+        // The status panel is supplementary and must not affect the dashboard.
+      }
+    };
+    void loadAutomaticStatus();
+    const timer = window.setInterval(() => { void loadAutomaticStatus(); }, 15 * 60 * 1000);
+    return () => { active = false; window.clearInterval(timer); };
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key.toLowerCase() !== "e" || event.metaKey || event.ctrlKey || event.altKey) return;
+      const target = event.target as HTMLElement | null;
+      if (target?.matches("input, textarea, select, [contenteditable=\"true\"]")) return;
+      event.preventDefault();
+      setAutomaticStatusOpen((open) => !open);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   useEffect(() => {
     const syncViewFromHash = () => {
@@ -910,7 +950,11 @@ export default function Home() {
         const response = await fetch(path, { cache: "no-store" });
         if (!response.ok) throw new Error(`${path} cache request failed: ${response.status}`);
         const payload = await response.json() as unknown;
-        if (path === "/api/crawler/plastic") return Array.isArray(payload) ? payload as CachedCrawlerResult[] : [];
+        if (path === "/api/crawler/plastic") {
+          const plasticResults = Array.isArray(payload) ? payload as CachedCrawlerResult[] : [];
+          if (active) setPlasticMarketData(plasticResults);
+          return plasticResults;
+        }
         if (!payload || typeof payload !== "object") return [];
         const results = (payload as { results?: unknown }).results;
         return Array.isArray(results) ? results as CachedCrawlerResult[] : [];
@@ -1131,7 +1175,15 @@ export default function Home() {
     };
   }, [displayHistory, keyComponentResults, sourceByTrendKey, unitByTrendKey]);
   const plasticAnalyses = useMemo(() => analyzePlasticTrends(displayHistory), [displayHistory]);
-  const marketItemsByCategory = useMemo(() => buildMaterialMarketItems(plasticAnalyses, ddrMarketData), [plasticAnalyses, ddrMarketData]);
+  const marketPlasticAnalyses = useMemo(() => plasticAnalyses.map((analysis) => {
+    const live = plasticMarketData.find((result) => result.material === analysis.material);
+    return live?.analysis ? {
+      ...live.analysis,
+      currentPrice: live.price ?? live.analysis.currentPrice,
+      updateDate: live.updateDate || live.analysis.updateDate,
+    } : analysis;
+  }), [plasticAnalyses, plasticMarketData]);
+  const marketItemsByCategory = useMemo(() => buildMaterialMarketItems(marketPlasticAnalyses, ddrMarketData), [marketPlasticAnalyses, ddrMarketData]);
   const ddrInsightItems = useMemo(() => buildDdrInsightItems(items, displayHistory, ddrMarketData), [items, displayHistory, ddrMarketData]);
   const latestIndustryNewsList = useMemo(() => {
     const industryNews: HeroNewsRecord[] = (ddrMarketData?.industryNews ?? []).map((news) => ({
@@ -1305,6 +1357,10 @@ export default function Home() {
   // dates so one newly added object cannot trim older points from every line.
   const keyChartSeries = rawKeyChartSeries.filter((series) => series.points.length);
   const keyChartSeriesByKey = new Map(keyChartSeries.map((series) => [series.key, series]));
+  const selectedKeyEntry = keyFilteredEntries.find((entry) => entry.id === selectedKeyEntryId)
+    || keyFilteredEntries.find((entry) => entry.id === "key-nxp-mcimx515djm8c")
+    || keyFilteredEntries[0];
+  const selectedKeySeries = selectedKeyEntry ? keyChartSeriesByKey.get(selectedKeyEntry.id) : undefined;
   const keyLegendEntries = keyFilteredEntries.map((entry, index) => ({
     key: entry.id,
     name: entry.mpn,
@@ -1354,9 +1410,19 @@ export default function Home() {
     }
     setKeyTooltip({ date: nearest.date, x: nearest.x, y: nearest.y, entries: [nearest.entry] });
   };
-  const dailyChange = (trendPrices.at(-1)! - trendPrices[0]) / Math.max(trendPrices.length - 1, 1);
-  const forecast = trendPrices.at(-1)! + dailyChange;
-  const changeRate = ((trendPrices.at(-1)! / trendPrices[0]) - 1) * 100;
+  // Keep the insight panel bound to the same series rendered by the chart.
+  // In key-object mode the chart has multiple lines, so summarize its first valid tracked series.
+  const insightSeries = trendMode === "key" ? selectedKeySeries : undefined;
+  const insightName = insightSeries?.name || trendName;
+  const insightPoints = trendMode === "key" ? insightSeries?.points || [] : trend;
+  const insightPrices = insightPoints.map(([, price]) => price);
+  const insightLatestPrice = insightPrices.at(-1) || 0;
+  const insightFirstPrice = insightPrices[0] || insightLatestPrice;
+  const insightDailyChange = insightPrices.length > 1
+    ? (insightLatestPrice - insightFirstPrice) / Math.max(insightPrices.length - 1, 1)
+    : 0;
+  const forecast = insightLatestPrice + insightDailyChange;
+  const changeRate = insightFirstPrice ? ((insightLatestPrice / insightFirstPrice) - 1) * 100 : 0;
   const configurationResults = updateResults.filter((result) => result.status === "configuration_required");
   const failedUpdateResults = updateResults.filter((result) => !isSuccessfulUpdate(result) && result.status !== "configuration_required");
   const successfulUpdateResults = updateResults.filter(isSuccessfulUpdate);
@@ -1968,6 +2034,23 @@ export default function Home() {
         </div> : updateMessage || importMessage}
       </div>}
 
+      {automaticStatusOpen && <div className="automatic-status-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setAutomaticStatusOpen(false); }}>
+        <section className="automatic-status-modal" role="dialog" aria-modal="true" aria-labelledby="automatic-status-title">
+          <button className="automatic-status-close" type="button" onClick={() => setAutomaticStatusOpen(false)} aria-label="关闭自动抓取状态">×</button>
+          <p className="kicker">AUTOMATIC PRICE REFRESH</p>
+          <h2 id="automatic-status-title">自动抓取状态</h2>
+          <p className="automatic-status-time">最近一次自动抓取：{automaticUpdateStatus?.runAt ? formatLastUpdatedAt(automaticUpdateStatus.runAt) : "暂无自动抓取记录"}</p>
+          {(() => {
+            const results = automaticUpdateStatus?.results ?? [];
+            const latest = results.filter((result) => result.success && result.price !== null);
+            const failed = results.filter((result) => result.success === false);
+            const notUpdated = results.filter((result) => result.success !== true && result.success !== false);
+            const group = (title: string, rows: Array<PriceResult & { id?: string }>, className: string) => <section className={`automatic-status-group ${className}`}><h3>{title} <span>{rows.length}</span></h3>{rows.length ? <div className="automatic-status-list">{rows.map((result, index) => <div className="automatic-status-row" key={`${result.id || result.material}-${index}`}><strong>{result.materialName || result.material || result.id || "未命名项目"}</strong><span>{result.source || "未知来源"}</span>{result.success && result.price !== null ? <em>{result.price} {result.currency || ""}</em> : <small>{result.error || "本次未获取到新价格"}</small>}</div>)}</div> : <p className="automatic-status-empty">无</p>}</section>;
+            return <>{group("最新价格", latest, "is-latest")}{group("未更新", notUpdated, "is-pending")}{group("抓取失败", failed, "is-failed")}</>;
+          })()}
+        </section>
+      </div>}
+
       <section className="landing-hero" aria-labelledby="landing-hero-title">
         <div className="landing-hero-content">
           {latestIndustryNewsList.length ? <>
@@ -2268,10 +2351,20 @@ export default function Home() {
               </>}
             </div>
             <aside className="trend-insight">
+              {trendMode === "key" && <label className="key-insight-selector">
+                <span>重点型号</span>
+                <select
+                  value={selectedKeyEntry?.id || ""}
+                  onChange={(event) => setSelectedKeyEntryId(event.target.value)}
+                  aria-label="选择重点追踪型号"
+                >
+                  {keyFilteredEntries.map((entry) => <option key={entry.id} value={entry.id}>{entry.mpn}</option>)}
+                </select>
+              </label>}
               <span className={`direction ${changeRate >= 0 ? "up" : "down"}`}>{changeRate >= 0 ? "↗ 上行" : "↘ 下行"}</span>
-              <p>样本期变化</p><strong>{changeRate >= 0 ? "+" : ""}{changeRate.toFixed(2)}%</strong>
-              <dl><div><dt>最新价格</dt><dd>{trendPrices.at(-1)!.toLocaleString()}</dd></div><div><dt>短期参考值</dt><dd>{forecast.toFixed(2)}</dd></div><div><dt>历史样本</dt><dd>{trend.length} 天</dd></div></dl>
-              <small>{trend.length > 1 ? "预测值为简单线性外推；历史继续积累后可升级为移动平均或时间序列模型。" : "当前只有一个历史日期，先展示价格点；导入下一期数据后会自动形成趋势线。"}</small>
+              <p>{trendMode === "key" ? `${insightName} · 样本期变化` : "样本期变化"}</p><strong>{changeRate >= 0 ? "+" : ""}{changeRate.toFixed(2)}%</strong>
+              <dl><div><dt>最新价格</dt><dd>{insightLatestPrice.toLocaleString()}</dd></div><div><dt>短期参考值</dt><dd>{forecast.toFixed(2)}</dd></div><div><dt>历史样本</dt><dd>{insightPoints.length} 天</dd></div></dl>
+              <small>{insightPoints.length > 1 ? "预测值为简单线性外推；历史继续积累后可升级为移动平均或时间序列模型。" : "当前只有一个历史日期，先展示价格点；导入下一期数据后会自动形成趋势线。"}</small>
             </aside>
           </div>
           <div className="coverage-note"><strong>趋势数据状态</strong><span>实线为表格中的真实历史价格；右侧预测值按样本期平均日变化外推，仅用于方向参考。</span><span>所有品类均保留 Excel 中的全部日期，多期数据绘制趋势线。</span></div>

@@ -8,6 +8,8 @@ export type TrackingEntry = {
   name: string;
   source: string;
   url?: string;
+  fallbackSource?: string;
+  fallbackUrl?: string;
   crawler: string;
   mode?: "real" | "mock";
   unit?: string;
