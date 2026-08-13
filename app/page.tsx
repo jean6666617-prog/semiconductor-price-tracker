@@ -37,6 +37,7 @@ type TrendTooltipEntry = {
   price: number;
   unit: string;
   source?: string;
+  sourceUrl?: string;
   color: string;
 };
 type TrendTooltip = {
@@ -1066,7 +1067,8 @@ export default function Home() {
     return merged;
   }, [items, sortedHistory]);
   const unitByTrendKey = useMemo(() => new Map(items.map((item) => [`${item.group}::${item.name}`, item.unit])), [items]);
-  const sourceByTrendKey = useMemo(() => new Map(items.map((item) => [`${item.group}::${item.name}`, item.source])), [items]);
+  const sourceByTrendKey = useMemo(() => new Map(items.map((item) => [item.group + "::" + item.name, item.source])), [items]);
+  const sourceUrlByTrendKey = useMemo(() => new Map(items.map((item) => [item.group + "::" + item.name, item.url])), [items]);
   const dailyInsights = useMemo(() => {
     const trackedSeries = Object.entries(displayHistory).map(([key, points]) => {
       const sorted = sortSeries(points);
@@ -1245,7 +1247,7 @@ export default function Home() {
   const trend = filteredTrend.length ? filteredTrend : rawTrend.length ? rawTrend : [["—", 0] as [string, number]];
   const allTrendSeries = trendOptions.map((key, index) => {
     const name = key.split("::").slice(1).join("::");
-    return { key, name, unit: unitForTrendKey(key), color: trendColor(name, index), points: filterTrendRange(displayHistory[key] ?? [], selectedTrendRange, groupLatestDate) };
+    return { key, name, unit: unitForTrendKey(key), source: sourceByTrendKey.get(key), sourceUrl: sourceUrlByTrendKey.get(key), color: trendColor(name, index), points: filterTrendRange(displayHistory[key] ?? [], selectedTrendRange, groupLatestDate) };
   }).filter((series) => series.points.length);
   const allTrendDates = Array.from(new Set(allTrendSeries.flatMap((series) => series.points.map(([date]) => date)))).sort();
   const allTrendPrices = allTrendSeries.flatMap((series) => series.points.map((point) => point[1]));
@@ -1257,7 +1259,10 @@ export default function Home() {
   const pricePadding = Math.max((priceMax - priceMin) * 0.08, Math.abs(priceMax) * 0.005, 1);
   const yMin = Math.min(yTicks[0], priceMin - pricePadding);
   const yMax = Math.max(yTicks.at(-1) || yMin + 1, priceMax + pricePadding);
-  const yRange = Math.max(yMax - yMin, 1);
+  const useCompressedYAxis = trendMode === "all" && trendGroup === "电池" && activeTrendPrices.length > 1 && priceMin > 0 && priceMax / priceMin > 20;
+  const axisMin = useCompressedYAxis ? Math.log1p(Math.max(yMin, 0)) : yMin;
+  const axisMax = useCompressedYAxis ? Math.log1p(Math.max(yMax, 0)) : yMax;
+  const axisRange = Math.max(axisMax - axisMin, 1);
   const activeTrendDates = trendMode === "all" ? allTrendDates : trend.map((point) => point[0]);
   const xTicks = dateTicks(activeTrendDates);
   const chartLeft = 18;
@@ -1267,10 +1272,13 @@ export default function Home() {
   const chartWidth = chartRight - chartLeft;
   const chartHeight = chartBottom - chartTop;
   const xForPoint = (index: number) => chartLeft + index * (chartWidth / Math.max(trend.length - 1, 1));
-  const yForPrice = (price: number) => chartBottom - ((price - yMin) / yRange) * chartHeight;
+  const yForPrice = (price: number) => {
+    const value = useCompressedYAxis ? Math.log1p(Math.max(price, 0)) : price;
+    return chartBottom - ((value - axisMin) / axisRange) * chartHeight;
+  };
   const chartPoints = trend.map((point, index) => `${xForPoint(index)},${yForPrice(point[1])}`).join(" ");
   const xForDate = (date: string) => chartLeft + Math.max(allTrendDates.indexOf(date), 0) * (chartWidth / Math.max(allTrendDates.length - 1, 1));
-  const yForAllPrice = (price: number) => chartBottom - ((price - yMin) / yRange) * chartHeight;
+  const yForAllPrice = yForPrice;
   const xForTick = (date: string) => trendMode === "all"
     ? xForDate(date)
     : xForPoint(Math.max(activeTrendDates.indexOf(date), 0));
@@ -1293,6 +1301,7 @@ export default function Home() {
           price,
           unit: series.unit,
           source: sourceByTrendKey.get(series.key),
+          sourceUrl: sourceUrlByTrendKey.get(series.key),
           color: series.color,
         },
       })))
@@ -1305,6 +1314,7 @@ export default function Home() {
           price,
           unit: chartUnit,
           source: sourceByTrendKey.get(activeTrendKey),
+          sourceUrl: sourceUrlByTrendKey.get(activeTrendKey),
           color: trendColor(trendName, 0),
         },
       }));
@@ -1347,6 +1357,7 @@ export default function Home() {
         name: entry.mpn,
         unit: result ? displayUnit(result) : "USD/pcs",
         source: result?.source || entry.source,
+        sourceUrl: result?.sourceUrl || entry.officialUrl || entry.sourceUrl,
         color: keyTrendColor(entry.mpn, index),
         points,
       }] : [];
@@ -1395,6 +1406,7 @@ export default function Home() {
         price,
         unit: series.unit,
         source: series.source,
+        sourceUrl: series.sourceUrl,
         color: series.color,
       },
     })));
@@ -2253,7 +2265,7 @@ export default function Home() {
                     {keyTooltip.entries.map((entry) => <div className="trend-tooltip-row" key={`${entry.name}-${entry.price}-${entry.unit}`}>
                       <span><i style={{ background: entry.color }} /><em>{entry.name}</em></span>
                       <b>{formatTrendPrice(entry.price)} {entry.unit}</b>
-                      {entry.source && entry.source !== "—" && <small>{entry.source}</small>}
+                      {entry.source && entry.source !== "—" && <small>{entry.sourceUrl ? <a href={entry.sourceUrl} target="_blank" rel="noreferrer">{entry.source} ↗</a> : entry.source}</small>}
                     </div>)}
                   </div>}
                 </div>
@@ -2291,9 +2303,6 @@ export default function Home() {
                   <select value={trendGroup} onChange={(event) => { const nextGroup = event.target.value; const first = Object.keys(sortedHistory).find((key) => key.startsWith(`${nextGroup}::`)); setTrendGroup(nextGroup); if (first) setTrendCommodity(first); }} aria-label="选择大品类">
                     {trendGroups.map((name) => <option key={name} value={name}>{trendMode === "all" ? `${name}（全部）` : name}</option>)}
                   </select>
-                  {trendMode === "single" && <select value={activeTrendKey} onChange={(event) => setTrendCommodity(event.target.value)} aria-label="选择具体物料">
-                    {trendOptions.map((key) => <option key={key} value={key}>{key.split("::").slice(1).join("::")}</option>)}
-                  </select>}
                 </div>
                 <div className="range-buttons" aria-label="选择时间范围">
                   {trendRanges.map((range) => <button key={range} className={selectedTrendRange === range ? "active" : ""} onClick={() => setSelectedTrendRange(range)} type="button">{range}</button>)}
@@ -2336,15 +2345,15 @@ export default function Home() {
                   {trendTooltip.entries.map((entry) => <div className="trend-tooltip-row" key={`${entry.name}-${entry.price}-${entry.unit}`}>
                     <span><i style={{ background: entry.color }} /><em>{entry.name}</em></span>
                     <b>{formatTrendPrice(entry.price)} {entry.unit}</b>
-                    {entry.source && entry.source !== "—" && <small>{entry.source}</small>}
+                    {entry.source && entry.source !== "—" && <small>{entry.sourceUrl ? <a href={entry.sourceUrl} target="_blank" rel="noreferrer">{entry.source} ↗</a> : entry.source}</small>}
                   </div>)}
                 </div>}
               </div>
               <div className="axis-labels"><span>{trendMode === "all" ? allTrendDates[0] || "—" : trend[0][0]}</span><span>{trendMode === "all" ? allTrendDates.at(-1) || "—" : trend.at(-1)![0]}</span></div>
               <div className="trend-legend">
                 {trendMode === "all"
-                  ? allTrendSeries.map((series) => <span key={series.key}><i style={{ background: series.color }} />{series.name}</span>)
-                  : <span><i />{trendName}</span>}
+                  ? allTrendSeries.map((series) => <span key={series.key}><i style={{ background: series.color }} />{series.sourceUrl ? <a href={series.sourceUrl} target="_blank" rel="noreferrer">{series.name}</a> : series.name}</span>)
+                  : <span><i />{sourceUrlByTrendKey.get(activeTrendKey) ? <a href={sourceUrlByTrendKey.get(activeTrendKey)} target="_blank" rel="noreferrer">{trendName}</a> : trendName}</span>}
                 <span className="chart-unit">{chartUnit}</span>
               </div>
               </>}
@@ -2360,9 +2369,16 @@ export default function Home() {
                   {keyFilteredEntries.map((entry) => <option key={entry.id} value={entry.id}>{entry.mpn}</option>)}
                 </select>
               </label>}
+              {trendMode !== "key" && <label className="trend-insight-model-selector">
+                <span>具体型号</span>
+                <select value={activeTrendKey} onChange={(event) => setTrendCommodity(event.target.value)} aria-label="选择具体型号">
+                  {trendOptions.map((key) => <option key={key} value={key}>{key.split("::").slice(1).join("::")}</option>)}
+                </select>
+              </label>}
               <span className={`direction ${changeRate >= 0 ? "up" : "down"}`}>{changeRate >= 0 ? "↗ 上行" : "↘ 下行"}</span>
-              <p>{trendMode === "key" ? `${insightName} · 样本期变化` : "样本期变化"}</p><strong>{changeRate >= 0 ? "+" : ""}{changeRate.toFixed(2)}%</strong>
-              <dl><div><dt>最新价格</dt><dd>{insightLatestPrice.toLocaleString()}</dd></div><div><dt>短期参考值</dt><dd>{forecast.toFixed(2)}</dd></div><div><dt>历史样本</dt><dd>{insightPoints.length} 天</dd></div></dl>
+              <p>{(trendMode === "key" ? insightName : trendName) + " · 样本期变化"}</p>
+              {(trendMode === "key" ? (selectedKeyEntry?.sourceUrl || selectedKeyEntry?.officialUrl) : sourceUrlByTrendKey.get(activeTrendKey)) && <a className="trend-insight-source" href={trendMode === "key" ? (selectedKeyEntry?.sourceUrl || selectedKeyEntry?.officialUrl) : sourceUrlByTrendKey.get(activeTrendKey)} target="_blank" rel="noreferrer">来源：{trendMode === "key" ? selectedKeyEntry?.source : sourceByTrendKey.get(activeTrendKey)} ↗</a>}<strong>{changeRate >= 0 ? "+" : ""}{changeRate.toFixed(2)}%</strong>
+              <dl><div><dt>最新价格</dt><dd>{insightLatestPrice.toLocaleString()}</dd></div><div><dt>短期参考值</dt><dd>{forecast.toFixed(2)}</dd></div><div><dt>历史样本</dt><dd>{new Set(insightPoints.map(([date]) => date)).size} 天</dd></div></dl>
               <small>{insightPoints.length > 1 ? "预测值为简单线性外推；历史继续积累后可升级为移动平均或时间序列模型。" : "当前只有一个历史日期，先展示价格点；导入下一期数据后会自动形成趋势线。"}</small>
             </aside>
           </div>

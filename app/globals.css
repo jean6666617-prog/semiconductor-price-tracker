@@ -158,7 +158,7 @@ button { cursor:pointer; }
 .trend-legend i { width:8px; height:8px; border-radius:50%; display:inline-block; }
 .trend-legend .legend-no-data { color:#9aa3b0; }
 .trend-legend .legend-no-data i { opacity:.45; }
-.trend-legend .chart-unit { margin-left:auto; color:inherit; font:inherit; font-weight:400; }
+.trend-legend .chart-unit { margin-left:auto; color:inherit; font:inherit; font-weight:400; } .trend-legend a { color:inherit; text-decoration:none; } .trend-legend a:hover { text-decoration:underline; }
 .key-trend-heading { margin:2px 0 14px; }
 .key-trend-heading h3 { margin:0 0 5px; color:var(--ink); font-size:18px; font-weight:700; letter-spacing:-.02em; }
 .key-trend-heading p { margin:0; color:var(--muted); font-size:12px; line-height:1.6; }
@@ -184,7 +184,7 @@ button { cursor:pointer; }
 .key-insight-selector select:focus { border-color:#d9369a; box-shadow:0 0 0 2px #d9369a45; }
 
 .direction { display:inline-flex; border-radius:99px; padding:6px 9px; font-size:10px; font-weight:800; }.direction.up { background:#d6a64a22; color:var(--lime); }.direction.down { background:#a72f3530; color:#f0a497; }
-.trend-insight > p { margin:24px 0 5px; color:#aebbc7; font-size:11px; }.trend-insight > strong { font-family:Georgia,serif; color:var(--lime); font-size:42px; font-weight:500; }
+.trend-insight > p { margin:24px 0 5px; color:#aebbc7; font-size:11px; } .trend-insight-source { display:block; margin-top:6px; color:#ff5cae; font-size:10px; text-decoration:none; } .trend-insight-source:hover { text-decoration:underline; }.trend-insight > strong { font-family:Georgia,serif; color:var(--lime); font-size:42px; font-weight:500; }
 .trend-insight dl { display:grid; gap:0; margin:24px 0 20px; }.trend-insight dl div { display:flex; justify-content:space-between; padding:11px 0; border-top:1px solid #ffffff18; }.trend-insight dt { color:#aebbc7; font-size:10px; }.trend-insight dd { margin:0; font-family:"SFMono-Regular",Consolas,monospace; font-size:11px; }
 .trend-insight small { display:block; color:#718293; font-size:9px; line-height:1.65; }
 .coverage-note { margin-top:12px; padding:14px 17px; border:1px solid var(--line); border-radius:11px; background:#edf2ee; display:flex; flex-wrap:wrap; gap:12px 24px; color:var(--muted); font-size:10px; }.coverage-note strong { color:var(--ink); }.coverage-note span::before { content:"•"; color:var(--green); margin-right:7px; }
@@ -979,3 +979,10 @@ body { background:var(--paper); color:var(--ink); }
 .automatic-status-empty { margin:0; color:#c6bfca; font-size:13px; }
 .automatic-status-group.is-failed h3,.automatic-status-group.is-failed .automatic-status-row small { color:#ff91a7; }
 .automatic-status-group.is-pending h3 { color:#f2ca6d; }
+
+/* Keep the general model selector beside the trend metrics, matching the key-model control. */
+.trend-insight-model-selector { display:grid; gap:7px; margin-bottom:20px; }
+.trend-insight-model-selector span { color:#d7c6ff; font-size:11px; font-weight:700; letter-spacing:.08em; }
+.trend-insight-model-selector select { width:100%; min-width:0; padding:10px 30px 10px 12px; border:1px solid rgba(255,255,255,.62); border-radius:8px; background:rgba(255,255,255,.18); box-shadow:inset 0 1px 0 rgba(255,255,255,.24); color:#fff; font:inherit; font-size:12px; outline:none; -webkit-backdrop-filter:blur(18px) saturate(125%); backdrop-filter:blur(18px) saturate(125%); }
+.trend-insight-model-selector select:focus { border-color:#d9369a; box-shadow:0 0 0 2px #d9369a45; }
+.trend-insight-model-selector select option { background:#283b72; color:#fff; }
