@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { readCrawlerCache, writeCrawlerCache } from "../../../../lib/cache/edgeCrawlerCache";
+import { mergeCrawlerResultHistories, readCrawlerCache, writeCrawlerCache } from "../../../../lib/cache/edgeCrawlerCache";
 import { fetchPlasticPrice, plasticFallbackUrls } from "../../../../lib/crawlers/plastic";
 import type { TrackingEntry, PriceResult } from "../../../../lib/crawlers";
 import { supportedPlasticMaterials } from "../../../../lib/analysis/plasticTrendAnalysis";
@@ -58,8 +58,10 @@ export async function GET(request: Request) {
     success: result.success,
     error: result.error,
   }));
-  if (payload.some((result) => result.success)) await writeCrawlerCache("plastic-market", payload);
-  return NextResponse.json(payload, { headers: { "X-Crawler-Cache": "MISS" } });
+  const cached = await readCrawlerCache<typeof payload>("plastic-market");
+  const mergedPayload = mergeCrawlerResultHistories(cached || [], payload);
+  if (mergedPayload.some((result) => result.success)) await writeCrawlerCache("plastic-market", mergedPayload);
+  return NextResponse.json(mergedPayload, { headers: { "X-Crawler-Cache": "MISS" } });
 }
 
 export async function POST(request: Request) {

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import trackingConfig from "../../../../config/tracking.json";
 import { fetchTrendForcePriceBatch } from "../../../../lib/crawlers/trendforce";
-import { readCrawlerCache, writeCrawlerCache } from "../../../../lib/cache/edgeCrawlerCache";
+import { mergeCrawlerResultHistories, readCrawlerCache, writeCrawlerCache } from "../../../../lib/cache/edgeCrawlerCache";
 import type { PriceResult, TrackingEntry } from "../../../../lib/crawlers";
 
 type TrendForceEntry = TrackingEntry & { id: string };
@@ -74,7 +74,8 @@ export async function GET(request: Request) {
   }
   const entries = trustedEntries.filter((entry) => entry.enabled && entry.mode === "real" && entry.crawler === "trendforce");
   const results = await fetchEntries(entries);
-  const payload = { success: true, results };
+  const cached = await readCrawlerCache<{ success: boolean; results: ApiResult[] }>("trendforce-market");
+  const payload = { success: true, results: mergeCrawlerResultHistories(cached?.results || [], results) };
   if (results.some((result) => result.success)) await writeCrawlerCache("trendforce-market", payload);
   return NextResponse.json(payload, { headers: { "X-Crawler-Cache": "MISS" } });
 }
@@ -148,5 +149,8 @@ export async function POST(request: Request) {
       results: results.map((result) => ({ id: result.id, success: result.success, error: result.error })),
     });
   }
-  return NextResponse.json({ success: true, results });
+  const cached = await readCrawlerCache<{ success: boolean; results: ApiResult[] }>("trendforce-market");
+  const mergedResults = mergeCrawlerResultHistories(cached?.results || [], results);
+  if (mergedResults.some((result) => result.success)) await writeCrawlerCache("trendforce-market", { success: true, results: mergedResults });
+  return NextResponse.json({ success: true, results: mergedResults });
 }

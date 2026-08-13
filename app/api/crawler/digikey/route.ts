@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import trackingConfig from "../../../../config/tracking.json";
 import { fetchDigiKeyPrice } from "../../../../lib/crawlers/digikey";
 import { fetchLcscPrice } from "../../../../lib/crawlers/lcsc";
-import { readCrawlerCache, writeCrawlerCache } from "../../../../lib/cache/edgeCrawlerCache";
+import { mergeCrawlerResultHistories, readCrawlerCache, writeCrawlerCache } from "../../../../lib/cache/edgeCrawlerCache";
 import type { PriceResult, TrackingEntry } from "../../../../lib/crawlers";
 import type { KeyComponentEntry } from "../../../../lib/crawlers/cytech";
 
@@ -84,7 +84,8 @@ export async function GET(request: Request) {
   }
   const entries = trustedEntries.filter((entry) => entry.enabled && entry.mode === "real" && entry.crawler === "digikey");
   const results = await fetchEntries(entries);
-  const payload = { success: true, results };
+  const cached = await readCrawlerCache<{ success: boolean; results: ApiResult[] }>("digikey-market");
+  const payload = { success: true, results: mergeCrawlerResultHistories(cached?.results || [], results) };
   if (results.some((result) => result.success)) await writeCrawlerCache("digikey-market", payload);
   return NextResponse.json(payload, { headers: { "X-Crawler-Cache": "MISS" } });
 }
@@ -108,5 +109,8 @@ export async function POST(request: Request) {
   }));
 
   if (isDevelopment) console.log("[DigiKey API]", { ids: body.ids, results: results.map((result) => ({ id: result.id, success: result.success, error: result.error })) });
-  return NextResponse.json({ success: true, results });
+  const cached = await readCrawlerCache<{ success: boolean; results: ApiResult[] }>("digikey-market");
+  const mergedResults = mergeCrawlerResultHistories(cached?.results || [], results);
+  if (mergedResults.some((result) => result.success)) await writeCrawlerCache("digikey-market", { success: true, results: mergedResults });
+  return NextResponse.json({ success: true, results: mergedResults });
 }

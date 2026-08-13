@@ -1016,7 +1016,6 @@ export default function Home() {
   }, [updateMenuOpen]);
 
   const keyComponentTableItems = useMemo<KeyComponentTableItem[]>(() => keyComponentEntries
-    .filter((entry) => entry.category === "NXP")
     .map((entry) => {
       const result = keyComponentResults[entry.id];
       const latestPoint = latestKeyComponentPoint(result);
