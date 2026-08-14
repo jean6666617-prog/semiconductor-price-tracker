@@ -18,7 +18,7 @@ export type MarketItem = {
   url?: string;
 };
 
-export const marketCategories: MarketCategory[] = ["Plastic", "Memory", "Display", "Battery", "SOC"];
+export const marketCategories: MarketCategory[] = ["Memory", "Plastic", "Display", "Battery", "SOC"];
 
 const ddrSourceLabel = "Price: DRAMeXchange | Contract: DRAMeXchange / TrendForce | Market Trend: TrendForce | Analysis: Tom's Hardware | Industry News: DigiTimes";
 
