@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { mergeCrawlerResultHistories, readCrawlerCache, writeCrawlerCache } from "../../../../lib/cache/edgeCrawlerCache";
 import { fetchPlasticPrice, plasticFallbackUrls } from "../../../../lib/crawlers/plastic";
 import type { TrackingEntry, PriceResult } from "../../../../lib/crawlers";
-import { supportedPlasticMaterials } from "../../../../lib/analysis/plasticTrendAnalysis";
+import { analyzePlasticTrend, plasticNewsInputs, supportedPlasticMaterials } from "../../../../lib/analysis/plasticTrendAnalysis";
 
 export const runtime = "edge";
 
@@ -60,8 +60,29 @@ export async function GET(request: Request) {
   }));
   const cached = await readCrawlerCache<typeof payload>("plastic-market");
   const mergedPayload = mergeCrawlerResultHistories(cached || [], payload);
-  if (mergedPayload.some((result) => result.success)) await writeCrawlerCache("plastic-market", mergedPayload);
-  return NextResponse.json(mergedPayload, { headers: { "X-Crawler-Cache": "MISS" } });
+  const stabilizedPayload = mergedPayload.map((result) => {
+    if (result.success && result.price !== null) return result;
+    const latest = [...(result.history || [])]
+      .filter((point) => point && Number.isFinite(point.price) && point.price > 0 && point.date)
+      .sort((left, right) => left.date.localeCompare(right.date))
+      .at(-1);
+    if (!latest) return result;
+    const analysis = analyzePlasticTrend(
+      result.material,
+      (result.history || []).map((point) => [point.date, point.price]),
+      plasticNewsInputs[result.material as keyof typeof plasticNewsInputs] || [],
+      result.unit || "RMB/ton",
+    );
+    return {
+      ...result,
+      price: latest.price,
+      updateDate: latest.date,
+      analysis,
+      stale: true,
+    };
+  });
+  if (stabilizedPayload.some((result) => result.success || result.price !== null)) await writeCrawlerCache("plastic-market", stabilizedPayload);
+  return NextResponse.json(stabilizedPayload, { headers: { "X-Crawler-Cache": "MISS" } });
 }
 
 export async function POST(request: Request) {
