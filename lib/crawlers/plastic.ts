@@ -3,6 +3,7 @@ import { analyzePlasticTrend, plasticNewsInputs, supportedPlasticMaterials, type
 import { targetResponseError } from "./response";
 
 const isDevelopment = process.env.NODE_ENV === "development";
+const maxScrapeAttempts = 3;
 
 export const plasticFallbackUrls: Record<string, string> = {
   ABS: "https://www.sunsirs.com/uk/prodetail-713.html",
@@ -133,43 +134,56 @@ export async function fetchSunSirsPlastic(entry: TrackingEntry, fallbackDate: st
     return result;
   }
 
-  try {
-    const { response, html } = await fetchSunSirsHtml(url, material);
-    if (!response.ok) throw new Error(targetResponseError("SunSirs", response, html, `SunSirs ${material} request failed`));
-    const parsed = parseSunSirsHistory(html, material);
-    const latest = parsed.history.at(-1);
-    if (isDevelopment) {
-      console.log("[SunSirs History]", {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= maxScrapeAttempts; attempt += 1) {
+    try {
+      const { response, html } = await fetchSunSirsHtml(url, material);
+      if (!response.ok) throw new Error(targetResponseError("SunSirs", response, html, `SunSirs ${material} request failed`));
+      const parsed = parseSunSirsHistory(html, material);
+      const latest = parsed.history.at(-1);
+      if (isDevelopment) {
+        console.log("[SunSirs History]", {
+          material,
+          attempt,
+          totalRows: parsed.totalRows,
+          validRows: parsed.history.length,
+          firstDate: parsed.history[0]?.date || "",
+          lastDate: latest?.date || "",
+          latestPrice: latest?.price ?? null,
+        });
+      }
+      if (!latest) throw new Error(`SunSirs ${material} price not found`);
+      const result: PriceResult = {
+        success: true,
+        category: entry.category,
         material,
-        totalRows: parsed.totalRows,
-        validRows: parsed.history.length,
-        firstDate: parsed.history[0]?.date || "",
-        lastDate: latest?.date || "",
-        latestPrice: latest?.price ?? null,
+        price: latest.price,
+        currency: "RMB",
+        unit: entry.unit || "RMB/ton",
+        source: entry.source || "SunSirs",
+        updateDate: latest.date,
+        history: parsed.history,
+        analysis: analysisForResult(material, parsed.history, entry.unit || "RMB/ton"),
+        crawlTime: new Date().toISOString(),
+      };
+      if (isDevelopment) console.log("[SunSirs Plastic]", { material, attempt, price: result.price, updateDate: result.updateDate, success: result.success });
+      return result;
+    } catch (error) {
+      lastError = error;
+      console.warn("[SunSirs Plastic] attempt failed", {
+        material,
+        attempt,
+        maxAttempts: maxScrapeAttempts,
+        error: error instanceof Error ? error.message : String(error),
       });
+      if (attempt < maxScrapeAttempts) await new Promise((resolve) => setTimeout(resolve, 500 * attempt));
     }
-    if (!latest) throw new Error(`SunSirs ${material} price not found`);
-    const result: PriceResult = {
-      success: true,
-      category: entry.category,
-      material,
-      price: latest.price,
-      currency: "RMB",
-      unit: entry.unit || "RMB/ton",
-      source: entry.source || "SunSirs",
-      updateDate: latest.date,
-      history: parsed.history,
-      analysis: analysisForResult(material, parsed.history, entry.unit || "RMB/ton"),
-      crawlTime: new Date().toISOString(),
-    };
-    if (isDevelopment) console.log("[SunSirs Plastic]", { material, price: result.price, updateDate: result.updateDate, success: result.success });
-    return result;
-  } catch (error) {
-    const result = failedResult(entry, fallbackDate, error instanceof Error ? error.message : `SunSirs ${material} fetch failed`);
-    console.warn("[SunSirs Plastic] fetch failed", { material, error: result.error });
-    if (isDevelopment) console.log("[SunSirs Plastic]", { material, price: result.price, updateDate: result.updateDate, success: result.success });
-    return result;
   }
+
+  const result = failedResult(entry, fallbackDate, lastError instanceof Error ? lastError.message : `SunSirs ${material} fetch failed`);
+  console.error("[SunSirs Plastic] all attempts failed", { material, attempts: maxScrapeAttempts, error: result.error });
+  if (isDevelopment) console.log("[SunSirs Plastic]", { material, price: result.price, updateDate: result.updateDate, success: result.success });
+  return result;
 }
 
 export async function fetchPlasticPrice(entry: TrackingEntry, updateDate: string): Promise<PriceResult> {
