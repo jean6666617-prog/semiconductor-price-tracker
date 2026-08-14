@@ -114,32 +114,24 @@ export function mergeCrawlerResultHistories<T extends HistoricalCrawlerResult>(p
 
 export async function readCrawlerCache<T>(name: string): Promise<T | null> {
   const key = crawlerKey(name);
-  const cache = getEdgeCache();
-  if (cache) {
-    try {
-      const response = await cache.match(edgeCacheKey(key));
-      if (response) {
-        try {
-          const payload = await response.json() as T;
-          console.info("[crawler-cache] edge cache HIT", { key, crawlTime: payloadCrawlTime(payload) });
-          return payload;
-        } catch (error) {
-          console.warn("[crawler-cache] edge cache invalid JSON", { key, error: String(error) });
-        }
-      } else {
-        console.info("[crawler-cache] edge cache MISS", { key });
-      }
-    } catch (error) {
-      console.warn("[crawler-cache] edge cache read failure", { key, error: String(error) });
-    }
-  } else {
-    console.info("[crawler-cache] edge cache MISS", { key, reason: "unavailable" });
-  }
-
   const kv = getCrawlerDataKv();
   if (!kv) {
-    console.warn("[crawler-cache] KV read MISS", { key, reason: "binding unavailable" });
-    return null;
+    console.warn("[crawler-cache] KV unavailable; using edge cache fallback", { key });
+    const cache = getEdgeCache();
+    if (!cache) return null;
+    try {
+      const response = await cache.match(edgeCacheKey(key));
+      if (!response) {
+        console.info("[crawler-cache] edge cache MISS", { key });
+        return null;
+      }
+      const payload = await response.json() as T;
+      console.info("[crawler-cache] edge cache HIT (fallback)", { key, crawlTime: payloadCrawlTime(payload) });
+      return payload;
+    } catch (error) {
+      console.warn("[crawler-cache] edge cache fallback failure", { key, error: String(error) });
+      return null;
+    }
   }
 
   let serialized: string | null;
