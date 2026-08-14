@@ -2081,6 +2081,7 @@ export default function Home() {
             </div>
           </> : <h1 id="landing-hero-title">半导体供应链最新市场动态</h1>}
         </div>
+        <div className="landing-hero-brand-mark" aria-label="ETAS"><Image src="/etas-logo-white.svg" alt="ETAS" width={128} height={39} /></div>
         <div className="landing-hero-meta" aria-hidden="true"><span>WAFER / MEMORY / COMPONENTS</span><span>LIVE MARKET VIEW</span></div>
       </section>
 
