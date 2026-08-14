@@ -7,6 +7,7 @@
     "dev": "next dev",
     "build": "next build",
     "pages:build": "npx @cloudflare/next-on-pages",
+    "preview:cloudflare": "npm run pages:build && wrangler pages dev .vercel/output/static --compatibility-date=2026-07-23 --persist-to .wrangler/state",
     "cron:deploy": "wrangler deploy -c wrangler.cron.toml",
     "start": "next start",
     "lint": "eslint ."

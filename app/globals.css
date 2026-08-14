@@ -169,6 +169,7 @@ button { cursor:pointer; }
 .key-component-table { min-width:880px; }
 .key-component-table th { padding:12px 13px; }
 .key-component-table td { padding:13px; }
+.key-component-table .source-links { display:flex; flex-direction:column; align-items:flex-start; gap:6px; white-space:nowrap; }
 .key-status { display:inline-flex; align-items:center; border-radius:99px; padding:6px 9px; font-size:10px; font-weight:700; white-space:nowrap; }
 .key-status.已追踪 { color:var(--green); background:#e8eef3; }
 .key-status.待验证 { color:#98642a; background:#fff4dd; }
@@ -463,8 +464,6 @@ td a,.text-button { color:var(--green); text-decoration:none; border:0; backgrou
 .landing-hero-link span { color:#d6a64a; font-size:24px; line-height:1; transition:transform .18s ease; }
 .landing-hero-link:hover span { transform:translateX(5px); }
 .landing-hero-meta { position:absolute; right:8vw; bottom:62px; display:grid; gap:8px; color:#d6e5e2; font-family:"SFMono-Regular",Consolas,monospace; font-size:10px; letter-spacing:.12em; text-align:right; }
-.landing-hero-brand-mark { position:absolute; right:8vw; bottom:126px; z-index:1; width:128px; opacity:.94; }
-.landing-hero-brand-mark img { display:block; width:100%; height:auto; }
 @media (max-width:900px) { .landing-hero { min-height:380px; padding:72px 7vw 56px; }.landing-hero-meta { right:7vw; bottom:28px; } }
 @media (max-width:600px) { .landing-hero { min-height:360px; padding:54px 22px 54px; background-position:58% center; }.landing-hero-kicker { font-size:10px; line-height:1.5; }.landing-hero h1 { font-size:32px; }.landing-hero-news-title { font-size:14px; }.landing-hero-copy { font-size:15px; line-height:1.75; }.landing-hero-meta { position:relative; right:auto; bottom:auto; margin:34px 0 0; font-size:9px; text-align:left; } }
 

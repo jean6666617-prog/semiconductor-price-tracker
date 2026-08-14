@@ -78,6 +78,12 @@ function digiKeyProductSearchUrl(mpn: string) {
   return `https://www.digikey.com/en/products/result?keywords=${encodeURIComponent(mpn)}`;
 }
 
+function keyProductVerificationUrl(entry: KeyComponentEntry, result?: KeyComponentResult) {
+  if (entry.officialUrl) return entry.officialUrl;
+  const candidate = result?.sourceUrl || entry.sourceUrl;
+  return /(?:lcsc\.com\/product-detail|cytechsystems\.com\/product\/)/i.test(candidate || "") ? candidate : "";
+}
+
 const updateMenuGroups: { title: string; options: { label: string; scope: UpdateScope }[] }[] = [
   {
     title: "半导体器件",
@@ -1374,6 +1380,9 @@ export default function Home() {
   const selectedKeyEntry = keyFilteredEntries.find((entry) => entry.id === selectedKeyEntryId)
     || keyFilteredEntries.find((entry) => entry.id === "key-nxp-mcimx515djm8c")
     || keyFilteredEntries[0];
+  const selectedKeyResult = selectedKeyEntry ? keyComponentResults[selectedKeyEntry.id] : undefined;
+  const selectedKeySource = selectedKeyResult?.source || selectedKeyEntry?.source;
+  const selectedKeySourceUrl = selectedKeyResult?.sourceUrl || selectedKeyEntry?.officialUrl || selectedKeyEntry?.sourceUrl;
   const selectedKeySeries = selectedKeyEntry ? keyChartSeriesByKey.get(selectedKeyEntry.id) : undefined;
   const keyLegendEntries = keyFilteredEntries.map((entry, index) => ({
     key: entry.id,
@@ -2085,7 +2094,6 @@ export default function Home() {
             </div>
           </> : <h1 id="landing-hero-title">半导体供应链最新市场动态</h1>}
         </div>
-        <div className="landing-hero-brand-mark" aria-label="ETAS"><Image src="/etas-logo-white.svg" alt="ETAS" width={128} height={39} /></div>
         <div className="landing-hero-meta" aria-hidden="true"><span>WAFER / MEMORY / COMPONENTS</span><span>LIVE MARKET VIEW</span></div>
       </section>
 
@@ -2286,6 +2294,7 @@ export default function Home() {
                       {keyFilteredEntries.map((entry) => {
                         const result = keyComponentResults[entry.id];
                         const hasPrice = Boolean(result?.success && result.price !== null);
+                        const verificationUrl = keyProductVerificationUrl(entry, result);
                         return <tr key={entry.id}>
                           <td><span className="mpn">{entry.mpn}</span></td>
                           <td>{entry.description}</td>
@@ -2293,7 +2302,7 @@ export default function Home() {
                           <td>{result?.source || entry.source}</td>
                           <td><span className={`key-status ${entry.status}`}>{entry.status}</span></td>
                           <td>{hasPrice ? <span className="price">{formatTrendPrice(result.price!)}<small className="unit">{displayUnit(result)}</small></span> : "--"}</td>
-                          <td><div className="source-links">{result?.success && result.sourceUrl && <a href={result.sourceUrl} target="_blank" rel="noreferrer">{result.source || "价格"}价格</a>}<a href={entry.officialUrl || entry.sourceUrl} target="_blank" rel="noreferrer">产品验证</a><a href={digiKeyProductSearchUrl(entry.mpn)} target="_blank" rel="noreferrer">DigiKey</a></div></td>
+                          <td><div className="source-links">{result?.success && result.sourceUrl && <a href={result.sourceUrl} target="_blank" rel="noreferrer">{result.source || "价格"}价格</a>}{verificationUrl && <a href={verificationUrl} target="_blank" rel="noreferrer">产品验证</a>}<a href={digiKeyProductSearchUrl(entry.mpn)} target="_blank" rel="noreferrer">DigiKey</a></div></td>
                           <td>{entry.enabled
                             ? <button className="text-button" type="button" onClick={() => fetchKeyComponentPrices([entry.id])} disabled={updatingKeyComponents}>刷新</button>
                             : <span className="key-action-muted">--</span>}</td>
@@ -2382,7 +2391,7 @@ export default function Home() {
               </label>}
               <span className={`direction ${changeRate >= 0 ? "up" : "down"}`}>{changeRate >= 0 ? "↗ 上行" : "↘ 下行"}</span>
               <p>{(trendMode === "key" ? insightName : trendName) + " · 样本期变化"}</p>
-              {(trendMode === "key" ? (selectedKeyEntry?.sourceUrl || selectedKeyEntry?.officialUrl) : sourceUrlByTrendKey.get(activeTrendKey)) && <a className="trend-insight-source" href={trendMode === "key" ? (selectedKeyEntry?.sourceUrl || selectedKeyEntry?.officialUrl) : sourceUrlByTrendKey.get(activeTrendKey)} target="_blank" rel="noreferrer">来源：{trendMode === "key" ? selectedKeyEntry?.source : sourceByTrendKey.get(activeTrendKey)} ↗</a>}<strong>{changeRate >= 0 ? "+" : ""}{changeRate.toFixed(2)}%</strong>
+              {(trendMode === "key" ? selectedKeySourceUrl : sourceUrlByTrendKey.get(activeTrendKey)) && <a className="trend-insight-source" href={trendMode === "key" ? selectedKeySourceUrl : sourceUrlByTrendKey.get(activeTrendKey)} target="_blank" rel="noreferrer">来源：{trendMode === "key" ? selectedKeySource : sourceByTrendKey.get(activeTrendKey)} ↗</a>}<strong>{changeRate >= 0 ? "+" : ""}{changeRate.toFixed(2)}%</strong>
               <dl><div><dt>最新价格</dt><dd>{insightLatestPrice.toLocaleString()}</dd></div><div><dt>短期参考值</dt><dd>{forecast.toFixed(2)}</dd></div><div><dt>历史样本</dt><dd>{new Set(insightPoints.map(([date]) => date)).size} 天</dd></div></dl>
               <small>{insightPoints.length > 1 ? "预测值为简单线性外推；历史继续积累后可升级为移动平均或时间序列模型。" : "当前只有一个历史日期，先展示价格点；导入下一期数据后会自动形成趋势线。"}</small>
             </aside>
