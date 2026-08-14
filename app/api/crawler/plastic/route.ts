@@ -20,12 +20,43 @@ function hasFreshPrices(results: Array<{ success?: boolean; price?: number | nul
   return Date.now() - Math.max(...dates) < 36 * 60 * 60 * 1000;
 }
 
+type PlasticPayloadItem = {
+  material: string;
+  price: number | null;
+  unit: string;
+  updateDate: string;
+  history: Array<{ date: string; price: number }>;
+  analysis?: ReturnType<typeof analyzePlasticTrend>;
+  success: boolean;
+  [key: string]: unknown;
+};
+
+type PlasticPayload = PlasticPayloadItem[];
+
+function stabilizePlasticPayload(results: PlasticPayload) {
+  return results.map((result) => {
+    if (result.success && result.price !== null) return result;
+    const latest = [...(result.history || [])]
+      .filter((point) => point && Number.isFinite(point.price) && point.price > 0 && point.date)
+      .sort((left, right) => left.date.localeCompare(right.date))
+      .at(-1);
+    if (!latest) return result;
+    const analysis = analyzePlasticTrend(
+      result.material,
+      (result.history || []).map((point) => [point.date, point.price]),
+      plasticNewsInputs[result.material as keyof typeof plasticNewsInputs] || [],
+      result.unit || "RMB/ton",
+    );
+    return { ...result, price: latest.price, updateDate: latest.date, analysis, stale: true };
+  });
+}
+
 export async function GET(request: Request) {
   const forceRefresh = new URL(request.url).searchParams.has("refresh");
   if (!forceRefresh) {
     const cached = await readCrawlerCache<unknown[]>("plastic-market");
     if (Array.isArray(cached) && hasFreshPrices(cached as Array<{ success?: boolean; price?: number | null; updateDate?: string }>)) {
-      return NextResponse.json(cached, { headers: { "X-Crawler-Cache": "HIT" } });
+      return NextResponse.json(stabilizePlasticPayload(cached as typeof payload), { headers: { "X-Crawler-Cache": "HIT" } });
     }
   } else {
     const secret = process.env.CRON_SECRET?.trim();
@@ -60,27 +91,7 @@ export async function GET(request: Request) {
   }));
   const cached = await readCrawlerCache<typeof payload>("plastic-market");
   const mergedPayload = mergeCrawlerResultHistories(cached || [], payload);
-  const stabilizedPayload = mergedPayload.map((result) => {
-    if (result.success && result.price !== null) return result;
-    const latest = [...(result.history || [])]
-      .filter((point) => point && Number.isFinite(point.price) && point.price > 0 && point.date)
-      .sort((left, right) => left.date.localeCompare(right.date))
-      .at(-1);
-    if (!latest) return result;
-    const analysis = analyzePlasticTrend(
-      result.material,
-      (result.history || []).map((point) => [point.date, point.price]),
-      plasticNewsInputs[result.material as keyof typeof plasticNewsInputs] || [],
-      result.unit || "RMB/ton",
-    );
-    return {
-      ...result,
-      price: latest.price,
-      updateDate: latest.date,
-      analysis,
-      stale: true,
-    };
-  });
+  const stabilizedPayload = stabilizePlasticPayload(mergedPayload);
   if (stabilizedPayload.some((result) => result.success || result.price !== null)) await writeCrawlerCache("plastic-market", stabilizedPayload);
   return NextResponse.json(stabilizedPayload, { headers: { "X-Crawler-Cache": "MISS" } });
 }
