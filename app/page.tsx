@@ -74,6 +74,10 @@ const keyTrendColorByMpn: Record<string, string> = {
   "FEMDRM032G-A3A55": "#ea580c",
 };
 
+function digiKeyProductSearchUrl(mpn: string) {
+  return `https://www.digikey.com/en/products/result?keywords=${encodeURIComponent(mpn)}`;
+}
+
 const updateMenuGroups: { title: string; options: { label: string; scope: UpdateScope }[] }[] = [
   {
     title: "半导体器件",
@@ -732,7 +736,7 @@ export default function Home() {
   const [trendMode, setTrendMode] = useState<TrendMode>("all");
   const [activeView, setActiveView] = useState<DashboardView>("home");
   const [selectedTrendRange, setSelectedTrendRange] = useState<TrendRange>("全部");
-  const [activeMarketCategory, setActiveMarketCategory] = useState<MarketCategory>("Plastic");
+  const [activeMarketCategory, setActiveMarketCategory] = useState<MarketCategory>("Memory");
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
   const [automaticUpdateStatus, setAutomaticUpdateStatus] = useState<AutomaticUpdateStatus | null>(null);
   const [automaticStatusOpen, setAutomaticStatusOpen] = useState(false);
@@ -2289,7 +2293,7 @@ export default function Home() {
                           <td>{result?.source || entry.source}</td>
                           <td><span className={`key-status ${entry.status}`}>{entry.status}</span></td>
                           <td>{hasPrice ? <span className="price">{formatTrendPrice(result.price!)}<small className="unit">{displayUnit(result)}</small></span> : "--"}</td>
-                          <td><div className="source-links">{result?.success && result.sourceUrl && <a href={result.sourceUrl} target="_blank" rel="noreferrer">价格</a>}<a href={entry.officialUrl || entry.sourceUrl} target="_blank" rel="noreferrer">产品验证</a></div></td>
+                          <td><div className="source-links">{result?.success && result.sourceUrl && <a href={result.sourceUrl} target="_blank" rel="noreferrer">{result.source || "价格"}价格</a>}<a href={entry.officialUrl || entry.sourceUrl} target="_blank" rel="noreferrer">产品验证</a><a href={digiKeyProductSearchUrl(entry.mpn)} target="_blank" rel="noreferrer">DigiKey</a></div></td>
                           <td>{entry.enabled
                             ? <button className="text-button" type="button" onClick={() => fetchKeyComponentPrices([entry.id])} disabled={updatingKeyComponents}>刷新</button>
                             : <span className="key-action-muted">--</span>}</td>
