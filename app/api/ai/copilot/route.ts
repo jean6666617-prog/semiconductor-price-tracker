@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { getAIProvider } from "../../../../lib/ai/provider";
-import type { Message, ProcurementContext } from "../../../../lib/ai/types";
+import { buildCopilotMessages } from "../../../../lib/ai/prompt";
+import { buildLiveSearchQuery, shouldUseLiveSearch } from "../../../../lib/ai/search-intent";
+import { createGroqLiveSearchProvider } from "../../../../lib/ai/search/groq";
+import type { LiveSearchResult, Message, ProcurementContext } from "../../../../lib/ai/types";
 import { isAIResponse, validateAIResponseAgainstContext } from "../../../../lib/ai/validation";
 
 export const runtime = "edge";
@@ -18,8 +21,40 @@ function isHistory(value: unknown): value is Message[] {
     && typeof (item as Message).content === "string");
 }
 
+function isLiveSearchResult(value: unknown): value is LiveSearchResult {
+  if (!value || typeof value !== "object") return false;
+  const item = value as Partial<LiveSearchResult>;
+  if (typeof item.title !== "string" || !item.title.trim() || typeof item.url !== "string") return false;
+  try {
+    const url = new URL(item.url);
+    if (url.protocol !== "http:" && url.protocol !== "https:") return false;
+  } catch { return false; }
+  return item.accessType === "live_search" && (!item.source || typeof item.source === "string");
+}
+
+function dedupeLiveSearchResults(context: ProcurementContext, results: LiveSearchResult[]) {
+  const existingUrls = new Set([
+    ...(context.news || []).map((item) => item.url),
+    ...(context.marketAnalyses || []).map((item) => item.url),
+    ...(context.sources || []).map((item) => item.url),
+  ].filter((url): url is string => Boolean(url)).map((url) => url.toLowerCase()));
+  const existingTitles = new Set([
+    ...(context.news || []).map((item) => `${item.title}|${item.source || ""}`),
+    ...(context.marketAnalyses || []).map((item) => `${item.title || ""}|${item.source || ""}`),
+  ].map((key) => key.toLowerCase()));
+  const seen = new Set<string>();
+  return results.filter((item) => {
+    const titleKey = `${item.title}|${item.source || ""}`.toLowerCase();
+    const urlKey = item.url.toLowerCase();
+    if (existingUrls.has(urlKey) || existingTitles.has(titleKey) || seen.has(urlKey) || seen.has(titleKey)) return false;
+    seen.add(urlKey);
+    seen.add(titleKey);
+    return true;
+  }).slice(0, 5);
+}
+
 export async function POST(request: Request) {
-  let body: { question?: unknown; context?: unknown; history?: unknown };
+  let body: { question?: unknown; context?: unknown; history?: unknown; liveSearchResults?: unknown };
   try {
     body = await request.json() as typeof body;
   } catch {
@@ -34,6 +69,9 @@ export async function POST(request: Request) {
   if (body.history !== undefined && !isHistory(body.history)) {
     return NextResponse.json({ success: false, error: "Invalid message history" }, { status: 400 });
   }
+  if (body.liveSearchResults !== undefined && (!Array.isArray(body.liveSearchResults) || !body.liveSearchResults.every(isLiveSearchResult))) {
+    return NextResponse.json({ success: false, error: "Invalid live search results" }, { status: 400 });
+  }
 
   try {
     const resolution = getAIProvider();
@@ -44,13 +82,44 @@ export async function POST(request: Request) {
         error: resolution.unavailable?.message || "AI采购助手当前不可用。网站价格和趋势数据不受影响。",
       }, { status: 503 });
     }
+    const currentQuestion = body.question.trim().slice(0, 2000);
+    const priorHistory = body.history || [];
+    const needsLiveSearch = shouldUseLiveSearch(currentQuestion);
+    const priorLiveSearchResults = dedupeLiveSearchResults(body.context, (body.liveSearchResults as LiveSearchResult[] | undefined) || []);
+    let liveSearchResults = needsLiveSearch ? [] : priorLiveSearchResults;
+    let liveSearchError: string | undefined;
+    let liveSearchQuery: string | undefined;
+    if (needsLiveSearch) {
+      liveSearchQuery = buildLiveSearchQuery({ question: currentQuestion, materialName: body.context.materialName, category: body.context.category });
+      const searchProvider = createGroqLiveSearchProvider();
+      if (!searchProvider) {
+        liveSearchError = "实时搜索服务未配置";
+      } else {
+        try {
+          liveSearchResults = dedupeLiveSearchResults(body.context, await searchProvider.search({ query: liveSearchQuery, materialName: body.context.materialName, category: body.context.category }));
+        } catch (searchError) {
+          liveSearchError = searchError instanceof Error ? searchError.message : "实时搜索暂时不可用";
+          console.warn("[AI Copilot] live search failed", { error: liveSearchError });
+          liveSearchResults = [];
+        }
+      }
+    }
     const result = await resolution.provider.chat({
-      question: body.question.trim().slice(0, 2000),
+      question: currentQuestion,
       context: body.context,
-      history: body.history,
+      history: priorHistory,
+      liveSearchResults,
     });
     if (!isAIResponse(result)) throw new Error("AI provider returned an invalid AIResponse schema");
-    return NextResponse.json({ success: true, result: validateAIResponseAgainstContext(result, body.context) });
+    const debugMessages = process.env.NODE_ENV !== "production"
+      ? buildCopilotMessages({ question: currentQuestion, context: body.context, history: priorHistory, liveSearchResults })
+      : undefined;
+    return NextResponse.json({
+      success: true,
+      result: validateAIResponseAgainstContext(result, body.context, liveSearchResults),
+      liveSearch: { triggered: needsLiveSearch, ...(liveSearchQuery ? { query: liveSearchQuery } : {}), results: liveSearchResults, ...(liveSearchError ? { error: liveSearchError } : {}) },
+      ...(debugMessages ? { debugMessages } : {}),
+    });
   } catch (error) {
     console.error("[AI Copilot] provider request failed", { error: String(error) });
     return NextResponse.json({

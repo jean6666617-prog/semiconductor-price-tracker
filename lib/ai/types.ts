@@ -28,6 +28,16 @@ export type NewsItem = {
   accessType?: AccessType;
 };
 
+export type LiveSearchResult = {
+  title: string;
+  source?: string;
+  url: string;
+  publishedAt?: string;
+  snippet?: string;
+  sourceType?: "authoritative_news" | "news" | "industry_research";
+  accessType?: "live_search";
+};
+
 export type MarketAnalysis = {
   title?: string;
   summary?: string;
@@ -108,6 +118,7 @@ export type AIRecommendation = {
 };
 
 export type AIResponse = {
+  answer?: string;
   summary: string;
   drivers: AIDriver[];
   risk: {
@@ -125,6 +136,7 @@ export interface AIProvider {
     question: string;
     context: ProcurementContext;
     history?: Message[];
+    liveSearchResults?: LiveSearchResult[];
   }): Promise<AIResponse>;
 }
 

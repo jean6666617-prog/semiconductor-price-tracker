@@ -61,8 +61,10 @@ export const mockProvider: AIProvider = {
       context.sources?.[0] ? { label: "数据来源", value: context.sources[0].label, source: context.sources[0].url } : undefined,
     ].filter((item): item is NonNullable<typeof item> => Boolean(item));
 
+    const answer = `${context.materialName}${direction}。${hasHistory ? "当前已有历史价格序列。" : "当前没有足够历史价格序列，不能形成可靠趋势结论。"}`;
     return {
-      summary: `${context.materialName}${direction}。${hasHistory ? "当前已有历史价格序列。" : "当前没有足够历史价格序列，不能形成可靠趋势结论。"}`,
+      answer,
+      summary: answer,
       drivers: buildDrivers(context),
       risk: {
         level,

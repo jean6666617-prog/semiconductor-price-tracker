@@ -37,7 +37,7 @@ function parseJsonContent(content: string): unknown {
   return JSON.parse(trimmed);
 }
 
-function extractResponse(payload: unknown, context: Parameters<AIProvider["chat"]>[0]["context"]): AIResponse {
+function extractResponse(payload: unknown, context: Parameters<AIProvider["chat"]>[0]["context"], liveSearchResults: Parameters<AIProvider["chat"]>[0]["liveSearchResults"]): AIResponse {
   if (!payload || typeof payload !== "object") throw new Error("External AI returned an invalid response body");
   const choice = (payload as { choices?: Array<{ message?: { content?: unknown } }> }).choices?.[0];
   if (typeof choice?.message?.content !== "string") throw new Error("External AI response did not contain message content");
@@ -48,7 +48,7 @@ function extractResponse(payload: unknown, context: Parameters<AIProvider["chat"
     throw new Error("External AI returned invalid JSON content");
   }
   if (!isAIResponse(parsed)) throw new Error("External AI returned an invalid AIResponse schema");
-  return validateAIResponseAgainstContext(parsed, context);
+  return validateAIResponseAgainstContext(parsed, context, liveSearchResults);
 }
 
 async function fetchWithTimeout(url: string, init: RequestInit) {
@@ -119,7 +119,7 @@ export function createExternalProvider(): AIProvider | null {
       } catch {
         throw new Error("External AI returned a non-JSON response");
       }
-      return extractResponse(payload, input.context);
+      return extractResponse(payload, input.context, input.liveSearchResults);
     },
   };
 }

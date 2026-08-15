@@ -300,7 +300,9 @@ function buildDdrInsightItems(items: Item[], history: Record<string, [string, nu
   const analysis = [...(ddrData?.marketAnalyses ?? [])].sort((a, b) => b.date.localeCompare(a.date))[0];
   const tomsNews = (ddrData?.industryNews ?? []).filter((news) => news.source === "Tom's Hardware");
   const digitimesNews = (ddrData?.industryNews ?? []).filter((news) => news.source === "DigiTimes");
-  const newsItems = [...tomsNews, ...digitimesNews].slice(0, 4);
+  // Keep the full crawler-backed news list on the homepage. AI contexts apply
+  // their own smaller evidence window below so page coverage is not lost.
+  const newsItems = [...tomsNews, ...digitimesNews];
   const factors = analysis?.factors?.filter((factor) => !factor.startsWith("趋势：")) ?? [];
   const candidates = items
     .filter((candidate) => candidate.group === "DDR内存" && candidate.source === "TrendForce")
@@ -1466,9 +1468,9 @@ export default function Home() {
     setProcurementAiOpen(true);
   }
 
-  const latestAiNews = latestIndustryNewsList.slice(0, 4).map((news) => ({
+  const latestAiNews = latestIndustryNewsList.slice(0, 3).map((news) => ({
     title: news.title,
-    summary: news.summary,
+    summary: cleanDdrSummary(news.summary).slice(0, 240),
     source: news.source,
     url: news.url,
     date: news.date,

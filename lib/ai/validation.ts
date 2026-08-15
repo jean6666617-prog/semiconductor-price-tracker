@@ -1,4 +1,4 @@
-import type { AIDriver, AIResponse, Evidence, ProcurementContext } from "./types";
+import type { AIDriver, AIResponse, Evidence, LiveSearchResult, ProcurementContext } from "./types";
 
 const DRIVER_TYPES = new Set<AIDriver["type"]>(["data", "news", "market_analysis", "platform_analysis", "inference"]);
 
@@ -26,10 +26,11 @@ function isDriver(value: unknown): value is AIDriver {
 }
 
 export function isAIResponse(value: unknown): value is AIResponse {
-  if (!isRecord(value) || !hasOnlyKeys(value, ["summary", "drivers", "risk", "recommendation", "evidence", "dataConfidence", "disclaimer"])) return false;
+  if (!isRecord(value) || !hasOnlyKeys(value, ["answer", "summary", "drivers", "risk", "recommendation", "evidence", "dataConfidence", "disclaimer"])) return false;
   const risk = value.risk;
   const recommendation = value.recommendation;
-  return typeof value.summary === "string" && value.summary.trim().length > 0
+  return (value.answer === undefined || (typeof value.answer === "string" && value.answer.trim().length > 0))
+    && typeof value.summary === "string" && value.summary.trim().length > 0
     && Array.isArray(value.drivers) && value.drivers.every(isDriver)
     && isRecord(risk)
     && hasOnlyKeys(risk, ["level", "explanation"])
@@ -44,7 +45,7 @@ export function isAIResponse(value: unknown): value is AIResponse {
     && (value.disclaimer === undefined || typeof value.disclaimer === "string");
 }
 
-function knownSources(context: ProcurementContext) {
+function knownSources(context: ProcurementContext, liveSearchResults: LiveSearchResult[] = []) {
   const labels = new Set<string>();
   const urls = new Set<string>();
   const canonicalByLabel = new Map<string, string>();
@@ -59,6 +60,7 @@ function knownSources(context: ProcurementContext) {
   context.sources?.forEach((source) => add(source.label, source.url));
   context.news?.forEach((item) => add(item.source, item.url));
   context.marketAnalyses?.forEach((item) => add(item.source, item.url));
+  liveSearchResults.forEach((item) => add(item.source, item.url));
   return { labels, urls, canonicalByLabel };
 }
 
@@ -108,8 +110,8 @@ function hasUnverifiedAttribution(text: string) {
     || /[\u4e00-\u9fffA-Za-z0-9._-]{2,40}\s*(?:表示|称|报道|指出|报告|消息称|显示)/.test(text);
 }
 
-export function validateAIResponseAgainstContext(response: AIResponse, context: ProcurementContext): AIResponse {
-  const known = knownSources(context);
+export function validateAIResponseAgainstContext(response: AIResponse, context: ProcurementContext, liveSearchResults: LiveSearchResult[] = []): AIResponse {
+  const known = knownSources(context, liveSearchResults);
   let removedDriverSource = false;
   const drivers = response.drivers.map((driver) => {
     if (isKnownSource(driver.source, known)) return { ...driver, ...(driver.source ? { source: canonicalSource(driver.source, known) } : {}) };

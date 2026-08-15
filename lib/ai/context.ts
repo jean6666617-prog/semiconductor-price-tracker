@@ -385,14 +385,14 @@ export function buildPlasticContext(input: ContextPlasticInput): ProcurementCont
 }
 
 function ddrContent(data?: DDRMarketData) {
-  const industryNews: NewsItem[] = (data?.industryNews ?? []).map((item: DDRIndustryNewsRecord) => ({
+  const industryNews: NewsItem[] = (data?.industryNews ?? []).slice(0, 4).map((item: DDRIndustryNewsRecord) => ({
     title: item.title,
     summary: item.summary,
     source: item.source,
     url: item.url,
     date: item.date,
   }));
-  const marketAnalyses: MarketAnalysis[] = (data?.marketAnalyses ?? []).map((item: DDRMarketAnalysisRecord) => ({
+  const marketAnalyses: MarketAnalysis[] = (data?.marketAnalyses ?? []).slice(0, 2).map((item: DDRMarketAnalysisRecord) => ({
     title: item.title,
     summary: item.summary,
     source: item.source,
