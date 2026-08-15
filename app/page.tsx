@@ -12,6 +12,9 @@ import type { DDRIndustryNewsRecord, DDRMarketAnalysisRecord, DDRMarketData } fr
 import { parseJsonTargetResponse } from "../lib/crawlers/response";
 import type { KeyComponentEntry } from "../lib/crawlers/cytech";
 import { exportAllPriceData, exportLatestUpdateData, type PriceExportRow } from "../lib/exportExcel";
+import ProcurementAiDrawer from "./components/ProcurementAiDrawer";
+import { buildDDRContext, buildMoverContext, buildPlasticContext, buildRiskContext, buildTrendContext, type ContextMoverEntry } from "../lib/ai/context";
+import type { ProcurementContext } from "../lib/ai/types";
 import { categorySources, seedItems } from "./data";
 import { workbookHistory, workbookItems } from "./workbook-data";
 import type { Item, Status } from "./types";
@@ -149,6 +152,7 @@ function filterObsoleteHistory(history?: Record<string, [string, number][]>) {
 }
 
 type DDRInsightItem = MarketItem & {
+  historyKey?: string;
   priceUrl?: string;
   trendUrl?: string;
   analysisUrl?: string;
@@ -318,6 +322,7 @@ function buildDdrInsightItems(items: Item[], history: Record<string, [string, nu
   return [{
     name: "DDR / DRAM",
     category: "Memory" as const,
+    historyKey: selected.entry.group + "::" + selected.entry.name,
     price: selected.price,
     unit: selected.entry.unit || "USD",
     change,
@@ -746,6 +751,8 @@ export default function Home() {
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
   const [automaticUpdateStatus, setAutomaticUpdateStatus] = useState<AutomaticUpdateStatus | null>(null);
   const [automaticStatusOpen, setAutomaticStatusOpen] = useState(false);
+  const [procurementAiOpen, setProcurementAiOpen] = useState(false);
+  const [procurementAiContext, setProcurementAiContext] = useState<ProcurementContext | null>(null);
   const [ddrMarketData, setDdrMarketData] = useState<DDRMarketData | undefined>();
   const [plasticMarketData, setPlasticMarketData] = useState<PriceResult[]>([]);
   const [trendTooltip, setTrendTooltip] = useState<TrendTooltip>(null);
@@ -1454,6 +1461,93 @@ export default function Home() {
   }, new Map<string, number>()).entries()).map(([source, count]) => `${source} ${count}`).join(" · ");
   const hasOnlyFailedUpdates = updateResults.length > 0 && successfulUpdateResults.length === 0 && failedUpdateResults.length > 0;
 
+  function openProcurementAi(context: ProcurementContext) {
+    setProcurementAiContext(context);
+    setProcurementAiOpen(true);
+  }
+
+  const latestAiNews = latestIndustryNewsList.slice(0, 4).map((news) => ({
+    title: news.title,
+    summary: news.summary,
+    source: news.source,
+    url: news.url,
+    date: news.date,
+  }));
+
+  function contextFromMover(entry: ContextMoverEntry): ProcurementContext {
+    return buildMoverContext({
+      entry,
+      historyByKey: displayHistory,
+      sourceUrl: entry.key ? sourceUrlByTrendKey.get(entry.key) : undefined,
+      riskLevel: dailyInsights.risk.level,
+      riskReason: dailyInsights.risk.reason,
+      lastUpdated: lastUpdatedAt || undefined,
+      news: latestAiNews,
+    });
+  }
+
+  function contextFromRisk(entry: ContextMoverEntry): ProcurementContext {
+    return buildRiskContext({
+      entry,
+      historyByKey: displayHistory,
+      sourceUrl: entry.key ? sourceUrlByTrendKey.get(entry.key) : undefined,
+      riskLevel: dailyInsights.risk.level,
+      riskReason: dailyInsights.risk.reason,
+      lastUpdated: lastUpdatedAt || undefined,
+      news: latestAiNews,
+    });
+  }
+
+  function contextFromTrend(): ProcurementContext {
+    const isKeyTrend = trendMode === "key";
+    const keyPoints = selectedKeySeries?.points || [];
+    const contextPoints = isKeyTrend ? keyPoints : insightPoints;
+    const contextLatestPrice = isKeyTrend ? keyPoints.at(-1)?.[1] : insightPrices.at(-1);
+    return buildTrendContext({
+      materialName: isKeyTrend ? selectedKeyEntry?.mpn || insightName : insightName,
+      category: isKeyTrend ? selectedKeyEntry?.category || trendGroup : trendGroup,
+      points: contextPoints,
+      currentPrice: contextLatestPrice,
+      unit: isKeyTrend ? selectedKeySeries?.unit || "USD/pcs" : activeTrendUnit,
+      source: isKeyTrend ? selectedKeySource : sourceByTrendKey.get(activeTrendKey),
+      sourceUrl: isKeyTrend ? selectedKeySourceUrl : sourceUrlByTrendKey.get(activeTrendKey),
+      news: latestAiNews,
+      lastUpdated: lastUpdatedAt || undefined,
+      timeRange: selectedTrendRange,
+    });
+  }
+
+  function contextFromMarketItem(item: MarketItem): ProcurementContext {
+    const historyKey = item.category === "Plastic"
+      ? `塑料件::${item.name}`
+      : (item as DDRInsightItem).historyKey;
+    if (item.category === "Memory") {
+      return buildDDRContext({
+        item,
+        historyByKey: displayHistory,
+        historyKey,
+        ddrData: ddrMarketData,
+        news: [],
+        lastUpdated: lastUpdatedAt || undefined,
+      });
+    }
+    if (item.category === "Plastic") {
+      return buildPlasticContext({
+        item,
+        historyByKey: displayHistory,
+        historyKey,
+        analysis: marketPlasticAnalyses.find((analysis) => analysis.material === item.name),
+        lastUpdated: lastUpdatedAt || undefined,
+      });
+    }
+    return buildPlasticContext({
+      item,
+      historyByKey: displayHistory,
+      historyKey,
+      lastUpdated: lastUpdatedAt || undefined,
+    });
+  }
+
   function markUpdated(id: number) {
     const today = new Intl.DateTimeFormat("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit" })
       .format(new Date()).replaceAll("/", "-");
@@ -2106,6 +2200,7 @@ export default function Home() {
                   <div className="risk-level"><span>风险等级</span><strong>{dailyInsights.risk.level}</strong></div>
                   <strong className="risk-name">最大涨幅：{dailyInsights.risk.entry.name}</strong>
                   <p>{dailyInsights.risk.reason}</p>
+                  {dailyInsights.risk.entry !== dailyInsights.risk.emptyEntry && <button type="button" className="context-ai-button" onClick={() => openProcurementAi(contextFromRisk(dailyInsights.risk.entry))}>AI分析原因</button>}
                   <dl>
                     <div><dt>当前价格</dt><dd>{formatTrendPrice(dailyInsights.risk.entry.price)} {dailyInsights.risk.entry.unit}</dd></div>
                     <div><dt>最大涨幅</dt><dd>{dailyInsights.risk.entry.changeRate >= 0 ? "+" : ""}{dailyInsights.risk.entry.changeRate.toFixed(2)}%</dd></div>
@@ -2127,8 +2222,9 @@ export default function Home() {
 昨日价格：${formatTrendPrice(entry.previousPrice || 0)} ${entry.unit}
 今日价格：${formatTrendPrice(entry.price)} ${entry.unit}
 
-结果：${entry.changeRate >= 0 ? "+" : ""}${entry.changeRate.toFixed(2)}%`}>{entry.changeRate >= 0 ? "+" : ""}{entry.changeRate.toFixed(2)}%</strong>
+                        结果：${entry.changeRate >= 0 ? "+" : ""}${entry.changeRate.toFixed(2)}%`}>{entry.changeRate >= 0 ? "+" : ""}{entry.changeRate.toFixed(2)}%</strong>
                         <small className="mover-price">{formatTrendPrice(entry.price)} {entry.unit}</small>
+                        <button type="button" className="context-ai-button compact-context-ai-button" onClick={() => openProcurementAi(contextFromMover(entry))}>解释变化</button>
                       </div>;
                     }) : <div className="price-mover-empty compact-empty">今日暂无发生价格变化的追踪对象。</div>}
                   </div>
@@ -2189,6 +2285,7 @@ export default function Home() {
                         <section className="ddr-card-section" aria-label={`${item.name} Price Movement Drivers`}>
                           <small>价格驱动因素 / Price Movement Drivers · <a href={trendUrl} target="_blank" rel="noreferrer">TrendForce ↗</a> / <a href={analysisUrl} target="_blank" rel="noreferrer">{"Tom's Hardware ↗"}</a></small>
                           <div className="ddr-driver-list">{driverDetails.map((driver) => <div key={driver.title}><strong>{driver.title}</strong><p>{driver.body}</p></div>)}</div>
+                          <button type="button" className="context-ai-button" onClick={() => openProcurementAi(contextFromMarketItem(item))}>AI分析价格驱动</button>
                         </section>
                         <section className="ddr-card-section" aria-label={`${item.name} Industry Intelligence`}>
                           <small>行业情报 / Industry Intelligence · <a href={analysisUrl} target="_blank" rel="noreferrer">{"Tom's Hardware ↗"}</a></small>
@@ -2210,6 +2307,7 @@ export default function Home() {
                         <div className="material-card-analysis-head"><span>市场判断 / Market View</span>{item.url && <a href={item.url} target="_blank" rel="noreferrer">原文 ↗</a>}</div>
                         <p>{item.description}</p>
                       </div>
+                      <button type="button" className="context-ai-button" onClick={() => openProcurementAi(contextFromMarketItem(item))}>生成采购建议</button>
                       <ul>{(item.factors.length ? item.factors : ["暂无明确关键词信号"]).slice(0, 3).map((factor) => <li key={factor}>{factor}</li>)}</ul>
                     </article>;
                   })}
@@ -2392,6 +2490,7 @@ export default function Home() {
               {(trendMode === "key" ? selectedKeySourceUrl : sourceUrlByTrendKey.get(activeTrendKey)) && <a className="trend-insight-source" href={trendMode === "key" ? selectedKeySourceUrl : sourceUrlByTrendKey.get(activeTrendKey)} target="_blank" rel="noreferrer">来源：{trendMode === "key" ? selectedKeySource : sourceByTrendKey.get(activeTrendKey)} ↗</a>}<strong>{changeRate >= 0 ? "+" : ""}{changeRate.toFixed(2)}%</strong>
               <dl><div><dt>最新价格</dt><dd>{insightLatestPrice.toLocaleString()}</dd></div><div><dt>短期参考值</dt><dd>{forecast.toFixed(2)}</dd></div><div><dt>历史样本</dt><dd>{new Set(insightPoints.map(([date]) => date)).size} 天</dd></div></dl>
               <small>{insightPoints.length > 1 ? "预测值为简单线性外推；历史继续积累后可升级为移动平均或时间序列模型。" : "当前只有一个历史日期，先展示价格点；导入下一期数据后会自动形成趋势线。"}</small>
+              <button type="button" className="context-ai-button trend-context-ai-button" onClick={() => openProcurementAi(contextFromTrend())}>AI分析该趋势</button>
             </aside>
           </div>
           <div className="coverage-note"><strong>趋势数据状态</strong><span>实线为表格中的真实历史价格；右侧预测值按样本期平均日变化外推，仅用于方向参考。</span><span>所有品类均保留 Excel 中的全部日期，多期数据绘制趋势线。</span></div>
@@ -2465,6 +2564,7 @@ export default function Home() {
           <div className="modal-actions"><button className="ghost-button" onClick={() => setEditing(null)}>取消</button><button className="primary-button" onClick={saveReference}>保存来源</button></div>
         </div>
       </div>}
+      <ProcurementAiDrawer open={procurementAiOpen} context={procurementAiContext} onClose={() => setProcurementAiOpen(false)} />
     </main>
   );
 }
