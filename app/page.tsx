@@ -844,7 +844,12 @@ export default function Home() {
         const response = await fetch("/api/crawler/auto-status", { cache: "no-store" });
         if (!response.ok) return;
         const payload = await response.json() as AutomaticUpdateStatus;
-        if (active && payload && Array.isArray(payload.results)) setAutomaticUpdateStatus(payload);
+        if (active && payload && Array.isArray(payload.results)) {
+          setAutomaticUpdateStatus(payload);
+          // The Cron run time is authoritative. Keep the dashboard timestamp
+          // aligned even when a crawl returns the same price as the prior run.
+          if (payload.runAt) setLastUpdatedAt(payload.runAt);
+        }
       } catch {
         // The status panel is supplementary and must not affect the dashboard.
       }
@@ -989,21 +994,14 @@ export default function Home() {
           history: result.history,
         })));
       if (snapshot !== "[]") {
-        const stored = window.localStorage.getItem(crawlerUpdateSnapshotStorageKey);
-        let previous: { snapshot?: string; updatedAt?: string } = {};
-        try { previous = stored ? JSON.parse(stored) as { snapshot?: string; updatedAt?: string } : {}; } catch { previous = {}; }
-        if (previous.snapshot === snapshot && previous.updatedAt) {
-          setLastUpdatedAt(previous.updatedAt);
-        } else {
-          const latestCachedUpdate = cachedResults
-            .filter((result) => result.success && result.price !== null && result.crawlTime)
-            .map((result) => result.crawlTime as string)
-            .sort()
-            .at(-1);
-          if (latestCachedUpdate) {
-            setLastUpdatedAt(latestCachedUpdate);
-            window.localStorage.setItem(crawlerUpdateSnapshotStorageKey, JSON.stringify({ snapshot, updatedAt: latestCachedUpdate }));
-          }
+        const latestCachedUpdate = cachedResults
+          .filter((result) => result.success && result.price !== null && result.crawlTime)
+          .map((result) => result.crawlTime as string)
+          .sort()
+          .at(-1);
+        if (latestCachedUpdate) {
+          setLastUpdatedAt(latestCachedUpdate);
+          window.localStorage.setItem(crawlerUpdateSnapshotStorageKey, JSON.stringify({ snapshot, updatedAt: latestCachedUpdate }));
         }
       }
 
