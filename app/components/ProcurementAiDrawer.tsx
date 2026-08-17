@@ -7,6 +7,7 @@ import type { AIResponse, AIDriver, LiveSearchResult, Message, ProcurementContex
 type Props = {
   open: boolean;
   context: ProcurementContext | null;
+  generalEntry?: boolean;
   onClose: () => void;
 };
 
@@ -61,7 +62,7 @@ function isUrl(value: string) {
   return /^https?:\/\//i.test(value);
 }
 
-export default function ProcurementAiDrawer({ open, context, onClose }: Props) {
+export default function ProcurementAiDrawer({ open, context, generalEntry = false, onClose }: Props) {
   const [question, setQuestion] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [pendingQuestion, setPendingQuestion] = useState<string | null>(null);
@@ -89,7 +90,7 @@ export default function ProcurementAiDrawer({ open, context, onClose }: Props) {
       setLiveSearchResults([]);
       setLiveSearchMeta({ triggered: false });
     }
-  }, [open, context?.materialName]);
+  }, [open, context?.materialName, generalEntry]);
 
   if (!open || !context) return null;
 
@@ -137,6 +138,7 @@ export default function ProcurementAiDrawer({ open, context, onClose }: Props) {
 
   const coverage = context.dataCoverage;
   const sources = context.sources || [];
+  const externalSources = sources.filter((source) => source.sourceType === "pricing" || source.sourceType === "distributor" || source.accessType === "crawler" || source.accessType === "api" || source.accessType === "licensed");
   const news = context.news || [];
   const marketAnalyses = context.marketAnalyses || [];
   const hasPlatformAnalysis = Boolean(context.riskLevel || context.riskReason || context.trendDirection || context.marketFactors);
@@ -148,19 +150,25 @@ export default function ProcurementAiDrawer({ open, context, onClose }: Props) {
         <button type="button" className="procurement-ai-close" onClick={onClose} aria-label="关闭 AI采购助手">×</button>
       </div>
       <div className="procurement-ai-body">
-        <section className="procurement-ai-subject">
-          <span>当前分析对象</span>
-          <strong>{context.materialName}</strong>
-          <small>{context.category} · 更新于 {context.lastUpdated || "暂无数据"}</small>
-        </section>
+        {generalEntry ? <section className="procurement-ai-subject procurement-ai-general-entry">
+          <span>AI采购助手</span>
+          <strong>今天想分析什么材料？</strong>
+          <small>输入材料名称、型号或采购问题，开始分析。</small>
+        </section> : <>
+          <section className="procurement-ai-subject">
+            <span>当前分析对象</span>
+            <strong>{context.materialName}</strong>
+            <small>{context.category} · 更新于 {context.lastUpdated || "暂无数据"}</small>
+          </section>
 
-        <div className="procurement-ai-context-quick" aria-label="当前数据摘要">
-          <span>当前价格</span><b>{priceLabel(context)}</b>
-          <span>7日变化</span><b>{percent(context.change7d)}</b>
-          <span>30日变化</span><b>{percent(context.change30d)}</b>
-        </div>
+          <div className="procurement-ai-context-quick" aria-label="当前数据摘要">
+            <span>当前价格</span><b>{priceLabel(context)}</b>
+            <span>7日变化</span><b>{percent(context.change7d)}</b>
+            <span>30日变化</span><b>{percent(context.change30d)}</b>
+          </div>
+        </>}
 
-        <details className="procurement-ai-context-details" open={contextExpanded} onToggle={(event) => setContextExpanded(event.currentTarget.open)}>
+        {!generalEntry && <details className="procurement-ai-context-details" open={contextExpanded} onToggle={(event) => setContextExpanded(event.currentTarget.open)}>
           <summary>查看当前数据上下文</summary>
         <section className="procurement-ai-layer procurement-ai-platform-data" aria-label="平台数据">
           <div className="procurement-ai-layer-heading"><h3>平台数据</h3><span>Platform Data</span></div>
@@ -179,6 +187,7 @@ export default function ProcurementAiDrawer({ open, context, onClose }: Props) {
 
         <section className="procurement-ai-layer procurement-ai-external-evidence" aria-label="外部证据">
           <div className="procurement-ai-layer-heading"><h3>外部证据</h3><span>External Evidence</span></div>
+          <div className="procurement-ai-subsection"><strong>外部报价 / 产品数据</strong>{externalSources.length ? externalSources.slice(0, 4).map((source, index) => <div className="procurement-ai-source-item" key={`${source.label}-${index}`}><span>{source.label}{source.accessType === "crawler" ? " · 爬虫获取" : " · 外部链接"}</span>{source.url ? <a href={source.url} target="_blank" rel="noreferrer">查看来源 ↗</a> : <b>来源链接未提供</b>}<small>{source.value || "已提供外部来源，可用于核验当前报价或型号信息。"}</small></div>) : <small>暂无外部报价数据</small>}</div>
           <div className="procurement-ai-subsection"><strong>新闻</strong>{news.length ? news.slice(0, 4).map((item, index) => <div className="procurement-ai-source-item" key={`${item.title}-${index}`}><span>{sourceLabel(item.source)}{sourceMeta(item)}{item.date ? ` · ${item.date}` : ""}</span>{item.url ? <a href={item.url} target="_blank" rel="noreferrer">{item.title} ↗</a> : <b>{item.title}</b>}<small>{item.summary || "暂无摘要"}</small></div>) : <small>暂无新闻数据</small>}</div>
           <div className="procurement-ai-subsection"><strong>机构市场分析</strong>{marketAnalyses.length ? marketAnalyses.slice(0, 4).map((item, index) => <div className="procurement-ai-source-item" key={`${item.title || "analysis"}-${index}`}><span>{sourceLabel(item.source)}{item.date ? ` · ${item.date}` : ""}</span>{item.url ? <a href={item.url} target="_blank" rel="noreferrer">{item.title || "机构分析"} ↗</a> : <b>{item.title || "机构分析"}</b>}<small>{item.summary || "暂无摘要"}</small></div>) : <small>暂无机构市场分析</small>}</div>
         </section>
@@ -194,7 +203,7 @@ export default function ProcurementAiDrawer({ open, context, onClose }: Props) {
           <button type="button" onClick={() => setShowContextDebug((current) => !current)}>{showContextDebug ? "隐藏 AI Context" : "查看 AI Context"}</button>
           {showContextDebug && <pre>{JSON.stringify(context, null, 2)}</pre>}
         </section>}
-        </details>
+        </details>}
 
         {messages.length === 0 && !pendingQuestion && !loading && <section className="procurement-ai-suggestions"><h3>你可以这样问</h3><div>{suggestions.map((item) => <button type="button" key={item} onClick={() => void sendQuestion(item)}>{item}</button>)}</div></section>}
         {(messages.length > 0 || pendingQuestion) && <details className="procurement-ai-suggestions procurement-ai-suggestions-collapsed"><summary>推荐问题</summary><div>{suggestions.map((item) => <button type="button" key={item} onClick={() => void sendQuestion(item)}>{item}</button>)}</div></details>}
@@ -207,7 +216,7 @@ export default function ProcurementAiDrawer({ open, context, onClose }: Props) {
         {process.env.NODE_ENV !== "production" && debugMessages.length > 0 && <details className="procurement-ai-debug procurement-ai-message-debug"><summary>查看本轮 AI Messages</summary><pre>{JSON.stringify(debugMessages, null, 2)}</pre></details>}
         {process.env.NODE_ENV !== "production" && liveSearchMeta.triggered && <details className="procurement-ai-debug procurement-ai-live-search-debug"><summary>查看本轮 Live Search</summary><pre>{JSON.stringify({ query: liveSearchMeta.query, resultCount: liveSearchResults.length, results: liveSearchResults }, null, 2)}</pre></details>}
         {loading && <div className="procurement-ai-loading">正在基于平台数据、外部证据和平台分析生成 AI 推断…</div>}
-        {liveSearchMeta.error && <div className="procurement-ai-live-search-notice">实时信息搜索暂时不可用，我先基于平台现有数据回答。</div>}
+          {liveSearchMeta.error && <div className="procurement-ai-live-search-notice">{liveSearchMeta.error.includes("付费升级") ? "实时搜索当前需要付费升级，暂未开通；本次已降级使用普通 AI，并参考平台已爬取的新闻和机构分析。" : "实时搜索暂时不可用；本次已降级使用普通 AI，并参考平台已爬取的新闻和机构分析。"}</div>}
         {error && <div className={`procurement-ai-error ${serviceUnavailable ? "is-service-unavailable" : ""}`}><strong>{serviceUnavailable ? "AI服务暂不可用" : "分析请求失败"}</strong><span>{error}</span>{serviceUnavailable && <small>当前价格、历史趋势和自动抓取功能不受影响。</small>}</div>}
         {result && <>
           <section className="procurement-ai-layer procurement-ai-inference" aria-label="AI推断">
@@ -229,7 +238,7 @@ export default function ProcurementAiDrawer({ open, context, onClose }: Props) {
         </>}
       </div>
       <form className="procurement-ai-input" onSubmit={(event) => { event.preventDefault(); void sendQuestion(question); }}>
-        <input value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="询问这个物料的价格、趋势或采购风险…" aria-label="向 AI采购助手提问" />
+        <input value={question} onChange={(event) => setQuestion(event.target.value)} placeholder={generalEntry ? "输入材料名称或采购问题…" : "询问这个物料的价格、趋势或采购风险…"} aria-label="向 AI采购助手提问" />
         <button type="submit" disabled={loading || !question.trim()}>发送</button>
       </form>
     </aside>

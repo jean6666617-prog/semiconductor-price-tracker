@@ -54,8 +54,11 @@ export type ContextTrendInput = {
   unit?: string;
   source?: string;
   sourceUrl?: string;
+  sources?: Source[];
   lastUpdated?: string;
   news?: NewsItem[];
+  marketAnalyses?: MarketAnalysis[];
+  marketFactors?: MarketFactors;
   timeRange?: string;
 };
 
@@ -346,8 +349,10 @@ export function buildTrendContext(input: ContextTrendInput): ProcurementContext 
     currency: input.currency,
     unit: input.unit,
     history: input.points,
-    sources: input.source ? [{ label: input.source, ...(input.sourceUrl ? { url: input.sourceUrl } : {}) }] : [],
+    sources: input.sources ?? (input.source ? [{ label: input.source, ...(input.sourceUrl ? { url: input.sourceUrl } : {}) }] : []),
     news: input.news,
+    marketAnalyses: input.marketAnalyses,
+    marketFactors: input.marketFactors,
     lastUpdated: input.lastUpdated,
     timeRange: input.timeRange,
   });

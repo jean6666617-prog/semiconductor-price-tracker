@@ -14,7 +14,7 @@ import type { KeyComponentEntry } from "../lib/crawlers/cytech";
 import { exportAllPriceData, exportLatestUpdateData, type PriceExportRow } from "../lib/exportExcel";
 import ProcurementAiDrawer from "./components/ProcurementAiDrawer";
 import { buildDDRContext, buildMoverContext, buildPlasticContext, buildRiskContext, buildTrendContext, type ContextMoverEntry } from "../lib/ai/context";
-import type { ProcurementContext } from "../lib/ai/types";
+import type { MarketAnalysis, MarketFactors, ProcurementContext, Source } from "../lib/ai/types";
 import { categorySources, seedItems } from "./data";
 import { workbookHistory, workbookItems } from "./workbook-data";
 import type { Item, Status } from "./types";
@@ -53,6 +53,15 @@ type UpdateScope = {
   label: string;
   trackingFilter?: (entry: TrackingEntry) => boolean;
   keyFilter?: (entry: KeyComponentEntry) => boolean;
+};
+type FloatingAiPosition = { left: number; top: number };
+type FloatingAiDragState = {
+  pointerId: number;
+  offsetX: number;
+  offsetY: number;
+  startX: number;
+  startY: number;
+  moved: boolean;
 };
 const tablePageSize = 10;
 const trackingEntries = trackingConfig as TrackingEntry[];
@@ -755,6 +764,8 @@ export default function Home() {
   const [automaticStatusOpen, setAutomaticStatusOpen] = useState(false);
   const [procurementAiOpen, setProcurementAiOpen] = useState(false);
   const [procurementAiContext, setProcurementAiContext] = useState<ProcurementContext | null>(null);
+  const [procurementAiGeneralEntry, setProcurementAiGeneralEntry] = useState(false);
+  const [floatingAiPosition, setFloatingAiPosition] = useState<FloatingAiPosition | null>(null);
   const [ddrMarketData, setDdrMarketData] = useState<DDRMarketData | undefined>();
   const [plasticMarketData, setPlasticMarketData] = useState<PriceResult[]>([]);
   const [trendTooltip, setTrendTooltip] = useState<TrendTooltip>(null);
@@ -774,6 +785,9 @@ export default function Home() {
   const [trendMenuOpen, setTrendMenuOpen] = useState(false);
   const [expandedTrendCategoryMenu, setExpandedTrendCategoryMenu] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
+  const floatingAiRef = useRef<HTMLButtonElement>(null);
+  const floatingAiDragRef = useRef<FloatingAiDragState | null>(null);
+  const suppressFloatingAiClickRef = useRef(false);
   const updateMenuRef = useRef<HTMLDivElement>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const toastRemaining = useRef(6000);
@@ -1463,9 +1477,73 @@ export default function Home() {
   }, new Map<string, number>()).entries()).map(([source, count]) => `${source} ${count}`).join(" · ");
   const hasOnlyFailedUpdates = updateResults.length > 0 && successfulUpdateResults.length === 0 && failedUpdateResults.length > 0;
 
-  function openProcurementAi(context: ProcurementContext) {
+  function openProcurementAi(context: ProcurementContext, generalEntry = false) {
     setProcurementAiContext(context);
+    setProcurementAiGeneralEntry(generalEntry);
     setProcurementAiOpen(true);
+  }
+
+  function openFloatingProcurementAi() {
+    openProcurementAi(contextFromTrend(), true);
+  }
+
+  function clampFloatingAiPosition(left: number, top: number): FloatingAiPosition {
+    const element = floatingAiRef.current;
+    const width = element?.offsetWidth || 108;
+    const height = element?.offsetHeight || 118;
+    return {
+      left: Math.max(8, Math.min(left, window.innerWidth - width - 8)),
+      top: Math.max(8, Math.min(top, window.innerHeight - height - 8)),
+    };
+  }
+
+  function handleFloatingAiPointerDown(event: React.PointerEvent<HTMLButtonElement>) {
+    const element = floatingAiRef.current;
+    if (!element) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const rect = element.getBoundingClientRect();
+    setFloatingAiPosition({ left: rect.left, top: rect.top });
+    const dragState: FloatingAiDragState = {
+      pointerId: event.pointerId,
+      offsetX: event.clientX - rect.left,
+      offsetY: event.clientY - rect.top,
+      startX: event.clientX,
+      startY: event.clientY,
+      moved: false,
+    };
+    floatingAiDragRef.current = dragState;
+
+    const handleMove = (moveEvent: PointerEvent) => {
+      const drag = floatingAiDragRef.current;
+      if (!drag || drag.pointerId !== moveEvent.pointerId) return;
+      moveEvent.preventDefault();
+      if (Math.hypot(moveEvent.clientX - drag.startX, moveEvent.clientY - drag.startY) > 4) drag.moved = true;
+      setFloatingAiPosition(clampFloatingAiPosition(moveEvent.clientX - drag.offsetX, moveEvent.clientY - drag.offsetY));
+    };
+    const handleEnd = (endEvent: PointerEvent) => {
+      const drag = floatingAiDragRef.current;
+      if (!drag || drag.pointerId !== endEvent.pointerId) return;
+      if (drag.moved) {
+        suppressFloatingAiClickRef.current = true;
+        setTimeout(() => { suppressFloatingAiClickRef.current = false; }, 0);
+      }
+      floatingAiDragRef.current = null;
+      window.removeEventListener("pointermove", handleMove);
+      window.removeEventListener("pointerup", handleEnd);
+      window.removeEventListener("pointercancel", handleEnd);
+    };
+    window.addEventListener("pointermove", handleMove, { passive: false });
+    window.addEventListener("pointerup", handleEnd);
+    window.addEventListener("pointercancel", handleEnd);
+  }
+
+  function handleFloatingAiClick() {
+    if (suppressFloatingAiClickRef.current) {
+      suppressFloatingAiClickRef.current = false;
+      return;
+    }
+    openFloatingProcurementAi();
   }
 
   const latestAiNews = latestIndustryNewsList.slice(0, 3).map((news) => ({
@@ -1504,17 +1582,71 @@ export default function Home() {
     const isKeyTrend = trendMode === "key";
     const keyPoints = selectedKeySeries?.points || [];
     const contextPoints = isKeyTrend ? keyPoints : insightPoints;
-    const contextLatestPrice = isKeyTrend ? keyPoints.at(-1)?.[1] : insightPrices.at(-1);
+    const contextLatestPrice = isKeyTrend
+      ? selectedKeyResult?.price ?? keyPoints.at(-1)?.[1]
+      : insightPrices.at(-1);
+
+    // Key objects use the actual distributor/product-page crawl as their
+    // external evidence.  Do not attach DDR news to unrelated NXP parts.
+    const keySourceValue = isKeyTrend && selectedKeyResult?.success && selectedKeyResult.price !== null
+      ? `${selectedKeyResult.price} ${selectedKeyResult.currency || ""}${selectedKeyResult.unit ? ` / ${selectedKeyResult.unit}` : ""}`.trim()
+      : undefined;
+    const keySources: Source[] = isKeyTrend && selectedKeySource
+      ? [{
+        label: selectedKeySource,
+        ...(selectedKeySourceUrl ? { url: selectedKeySourceUrl } : {}),
+        ...(keySourceValue ? { value: keySourceValue } : {}),
+        sourceType: "pricing",
+        accessType: selectedKeyResult?.success ? "crawler" : "link_only",
+      }]
+      : [];
+    const keyNews = isKeyTrend && selectedKeyEntry?.category === "Memory"
+      ? (ddrMarketData?.industryNews ?? []).slice(0, 3).map((item: DDRIndustryNewsRecord) => ({
+        title: item.title,
+        summary: item.summary,
+        source: item.source,
+        url: item.url,
+        date: item.date,
+      }))
+      : [];
+    const keyMarketAnalyses: MarketAnalysis[] = isKeyTrend && selectedKeyEntry?.category === "Memory"
+      ? (ddrMarketData?.marketAnalyses ?? []).slice(0, 2).map((item: DDRMarketAnalysisRecord) => ({
+        title: item.title,
+        summary: item.summary,
+        source: item.source,
+        url: item.url,
+        date: item.date,
+      }))
+      : [];
+    const keyMarketFactors: MarketFactors | undefined = isKeyTrend && selectedKeyResult?.success
+      ? {
+        positiveFactors: [
+          `${selectedKeySource || "外部价格来源"}已返回当前报价，可用于核验现价。`,
+        ],
+        negativeFactors: contextPoints.length < 2
+          ? ["当前对象的历史样本不足，暂不能据此确认7日或30日趋势。"]
+          : [],
+        marketView: contextPoints.length < 2
+          ? "当前可确认的是外部来源的最新报价；趋势判断仍需要更多时间序列或相关行业信息。"
+          : "当前判断同时参考外部来源报价与已有历史样本。",
+      }
+      : undefined;
+
     return buildTrendContext({
       materialName: isKeyTrend ? selectedKeyEntry?.mpn || insightName : insightName,
       category: isKeyTrend ? selectedKeyEntry?.category || trendGroup : trendGroup,
       points: contextPoints,
       currentPrice: contextLatestPrice,
       unit: isKeyTrend ? selectedKeySeries?.unit || "USD/pcs" : activeTrendUnit,
-      source: isKeyTrend ? selectedKeySource : sourceByTrendKey.get(activeTrendKey),
-      sourceUrl: isKeyTrend ? selectedKeySourceUrl : sourceUrlByTrendKey.get(activeTrendKey),
-      news: latestAiNews,
-      lastUpdated: lastUpdatedAt || undefined,
+      source: isKeyTrend ? undefined : sourceByTrendKey.get(activeTrendKey),
+      sourceUrl: isKeyTrend ? undefined : sourceUrlByTrendKey.get(activeTrendKey),
+      sources: isKeyTrend ? keySources : undefined,
+      news: isKeyTrend ? keyNews : latestAiNews,
+      marketAnalyses: isKeyTrend ? keyMarketAnalyses : undefined,
+      marketFactors: keyMarketFactors,
+      lastUpdated: isKeyTrend
+        ? selectedKeyResult?.crawlTime || selectedKeyResult?.updateDate || lastUpdatedAt || undefined
+        : lastUpdatedAt || undefined,
       timeRange: selectedTrendRange,
     });
   }
@@ -2273,7 +2405,14 @@ export default function Home() {
                       const trendUrl = ddrItem.trendUrl || "https://www.trendforce.cn/";
                       const analysisUrl = ddrItem.analysisUrl || "https://www.tomshardware.com/tag/ram-shortage";
                       return <article className={`plastic-insight-card material-insight-card ddr-market-card ${item.price === null ? "pending" : ""}`} key={`${item.category}-${item.name}`}>
-                        <div className="plastic-card-top"><strong>{item.name}</strong><span>{item.updateDate || ddrItem.marketAnalysis?.date}</span></div>
+                        <div className="plastic-card-top ddr-card-title-row">
+                          <div className="ddr-card-title-main">
+                            <strong>{item.name}</strong>
+                            <span className="ddr-ai-badge" aria-label="AI功能提示">✦ AI</span>
+                            <button type="button" className="ddr-title-ai-button" onClick={() => openProcurementAi(contextFromMarketItem(item))}><span aria-hidden="true">✦</span> AI分析价格驱动</button>
+                          </div>
+                          <span>{item.updateDate || ddrItem.marketAnalysis?.date}</span>
+                        </div>
                         <section className="ddr-card-section price-snapshot" aria-label={`${item.name} Price Snapshot`}>
                           <small>价格快照 / Price Snapshot</small>
                           <div className="plastic-price"><b>{displayPrice}</b><small>{item.unit || "USD"}</small></div>
@@ -2287,7 +2426,6 @@ export default function Home() {
                         <section className="ddr-card-section" aria-label={`${item.name} Price Movement Drivers`}>
                           <small>价格驱动因素 / Price Movement Drivers · <a href={trendUrl} target="_blank" rel="noreferrer">TrendForce ↗</a> / <a href={analysisUrl} target="_blank" rel="noreferrer">{"Tom's Hardware ↗"}</a></small>
                           <div className="ddr-driver-list">{driverDetails.map((driver) => <div key={driver.title}><strong>{driver.title}</strong><p>{driver.body}</p></div>)}</div>
-                          <button type="button" className="context-ai-button" onClick={() => openProcurementAi(contextFromMarketItem(item))}>AI分析价格驱动</button>
                         </section>
                         <section className="ddr-card-section" aria-label={`${item.name} Industry Intelligence`}>
                           <small>行业情报 / Industry Intelligence · <a href={analysisUrl} target="_blank" rel="noreferrer">{"Tom's Hardware ↗"}</a></small>
@@ -2566,7 +2704,21 @@ export default function Home() {
           <div className="modal-actions"><button className="ghost-button" onClick={() => setEditing(null)}>取消</button><button className="primary-button" onClick={saveReference}>保存来源</button></div>
         </div>
       </div>}
-      <ProcurementAiDrawer open={procurementAiOpen} context={procurementAiContext} onClose={() => setProcurementAiOpen(false)} />
+      {!procurementAiOpen && <button
+        type="button"
+        ref={floatingAiRef}
+        className="procurement-ai-floating-entry"
+        style={floatingAiPosition ? { left: `${floatingAiPosition.left}px`, top: `${floatingAiPosition.top}px`, right: "auto", bottom: "auto" } : undefined}
+        onClick={handleFloatingAiClick}
+        onPointerDown={handleFloatingAiPointerDown}
+        onDragStart={(event) => event.preventDefault()}
+        aria-label="打开 AI 采购助手"
+        title="打开 AI 采购助手"
+      >
+        <Image src="/ai-bunny-mascot.png" alt="AI采购助手小兔子" width={96} height={96} priority draggable={false} />
+        <span aria-hidden="true">AI</span>
+      </button>}
+      <ProcurementAiDrawer open={procurementAiOpen} context={procurementAiContext} generalEntry={procurementAiGeneralEntry} onClose={() => setProcurementAiOpen(false)} />
     </main>
   );
 }

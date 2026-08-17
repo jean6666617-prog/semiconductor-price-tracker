@@ -84,23 +84,33 @@ export async function POST(request: Request) {
     }
     const currentQuestion = body.question.trim().slice(0, 2000);
     const priorHistory = body.history || [];
-    const needsLiveSearch = shouldUseLiveSearch(currentQuestion);
+    const wantsLiveSearch = shouldUseLiveSearch(currentQuestion);
+    // Live search is an optional paid capability. Keep it opt-in so a plan
+    // limitation or network failure never blocks the normal procurement AI.
+    const liveSearchEnabled = process.env.AI_LIVE_SEARCH_ENABLED?.trim().toLowerCase() === "true";
+    const needsLiveSearch = wantsLiveSearch && liveSearchEnabled;
     const priorLiveSearchResults = dedupeLiveSearchResults(body.context, (body.liveSearchResults as LiveSearchResult[] | undefined) || []);
-    let liveSearchResults = needsLiveSearch ? [] : priorLiveSearchResults;
+    let liveSearchResults = priorLiveSearchResults;
     let liveSearchError: string | undefined;
     let liveSearchQuery: string | undefined;
-    if (needsLiveSearch) {
+    if (wantsLiveSearch) {
       liveSearchQuery = buildLiveSearchQuery({ question: currentQuestion, materialName: body.context.materialName, category: body.context.category });
+    }
+    if (wantsLiveSearch && !liveSearchEnabled) {
+      liveSearchError = "实时搜索需要付费升级，当前暂未开通；已降级使用普通 AI，并参考平台已爬取的新闻和机构分析。";
+    } else if (needsLiveSearch) {
       const searchProvider = createGroqLiveSearchProvider();
       if (!searchProvider) {
-        liveSearchError = "实时搜索服务未配置";
+        liveSearchError = "实时搜索服务未配置；已降级使用普通 AI，并参考平台已爬取的新闻和机构分析。";
       } else {
         try {
-          liveSearchResults = dedupeLiveSearchResults(body.context, await searchProvider.search({ query: liveSearchQuery, materialName: body.context.materialName, category: body.context.category }));
+          const searchQuery = liveSearchQuery || buildLiveSearchQuery({ question: currentQuestion, materialName: body.context.materialName, category: body.context.category });
+          liveSearchResults = dedupeLiveSearchResults(body.context, await searchProvider.search({ query: searchQuery, materialName: body.context.materialName, category: body.context.category }));
         } catch (searchError) {
-          liveSearchError = searchError instanceof Error ? searchError.message : "实时搜索暂时不可用";
+          const detail = searchError instanceof Error ? searchError.message : "实时搜索暂时不可用";
+          liveSearchError = `${detail}；已降级使用普通 AI，并参考平台已爬取的新闻和机构分析。`;
           console.warn("[AI Copilot] live search failed", { error: liveSearchError });
-          liveSearchResults = [];
+          liveSearchResults = priorLiveSearchResults;
         }
       }
     }
@@ -117,7 +127,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       result: validateAIResponseAgainstContext(result, body.context, liveSearchResults),
-      liveSearch: { triggered: needsLiveSearch, ...(liveSearchQuery ? { query: liveSearchQuery } : {}), results: liveSearchResults, ...(liveSearchError ? { error: liveSearchError } : {}) },
+      liveSearch: { triggered: wantsLiveSearch, enabled: liveSearchEnabled, ...(liveSearchQuery ? { query: liveSearchQuery } : {}), results: liveSearchResults, ...(liveSearchError ? { error: liveSearchError } : {}) },
       ...(debugMessages ? { debugMessages } : {}),
     });
   } catch (error) {
