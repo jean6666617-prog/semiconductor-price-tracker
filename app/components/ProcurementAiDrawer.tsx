@@ -223,7 +223,10 @@ export default function ProcurementAiDrawer({ open, context, generalEntry = fals
             <div className="procurement-ai-layer-heading"><h3>AI推断</h3><span>Data Support · 数据支撑度 {result.dataConfidence || "暂无数据"}</span></div>
             <div className="procurement-ai-result-block"><h4>回答当前问题</h4><p>{result.answer || result.summary}</p></div>
             {result.answer && result.summary !== result.answer && <div className="procurement-ai-result-block"><h4>相关摘要</h4><p>{result.summary}</p></div>}
-            <div className="procurement-ai-result-block"><h4>可能原因</h4><ul className="procurement-ai-driver-list">{result.drivers.map((driver, index) => <li key={`${driver.text}-${index}`}><span className="procurement-ai-tag">{driverTypeLabel(driver.type)}</span><p>{driver.text}</p>{driver.source && <small>来源：{driver.source}</small>}</li>)}</ul></div>
+            <div className="procurement-ai-result-block"><h4>可能原因</h4><ul className="procurement-ai-driver-list">{result.drivers.map((driver, index) => {
+              const linkedSource = driver.source && isUrl(driver.source) ? driver.source : undefined;
+              return <li key={`${driver.text}-${index}`}><span className="procurement-ai-tag">{driverTypeLabel(driver.type)}</span>{linkedSource ? <a className="procurement-ai-driver-link" href={linkedSource} target="_blank" rel="noreferrer">{driver.text} ↗</a> : <p>{driver.text}</p>}{driver.source && !linkedSource && <small>来源：{driver.source}</small>}</li>;
+            })}</ul></div>
             <div className={`procurement-ai-risk risk-${result.risk.level}`}><div><h4>AI风险解释</h4><strong>{riskLabel(result.risk.level)}</strong></div><p>{result.risk.explanation}</p></div>
           </section>
           <section className="procurement-ai-layer procurement-ai-recommendation" aria-label="采购建议">
