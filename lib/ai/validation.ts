@@ -105,6 +105,62 @@ export function deriveDataConfidence(context: ProcurementContext) {
   return confidenceForContext(context);
 }
 
+function contextPriceLabel(context: ProcurementContext) {
+  if (typeof context.currentPrice !== "number") return undefined;
+  return [context.currentPrice, context.currency, context.unit ? `/ ${context.unit}` : ""]
+    .filter(Boolean)
+    .join(" ");
+}
+
+/** Facts copied from Context so optional model evidence cannot hide available data. */
+function contextEvidence(context: ProcurementContext): Evidence[] {
+  const evidence: Evidence[] = [];
+  const add = (label: string, value?: string, source?: string) => {
+    if (value?.trim()) evidence.push({ label, value, ...(source ? { source } : {}) });
+  };
+  add("当前价格", contextPriceLabel(context));
+  if (typeof context.change1d === "number") add("1日变化", `${context.change1d >= 0 ? "+" : ""}${context.change1d.toFixed(2)}%`);
+  if (typeof context.change7d === "number") add("7日变化", `${context.change7d >= 0 ? "+" : ""}${context.change7d.toFixed(2)}%`);
+  if (typeof context.change30d === "number") add("30日变化", `${context.change30d >= 0 ? "+" : ""}${context.change30d.toFixed(2)}%`);
+  if (typeof context.streak === "number") add("连续变化", `${context.streak} 天`);
+  const historyPoints = context.dataCoverage?.historyPoints ?? context.history?.length ?? 0;
+  if (historyPoints > 0) add("历史样本", `${historyPoints} 天`);
+  if (typeof context.dataCoverage?.historySpanDays === "number" && context.dataCoverage.historySpanDays > 0) {
+    add("历史跨度", `${context.dataCoverage.historySpanDays} 天`);
+  }
+  context.sources?.slice(0, 4).forEach((source) => add("数据来源", source.label, source.url || source.label));
+  context.news?.slice(0, 3).forEach((item) => add("新闻证据", item.title, item.url || item.source));
+  context.marketAnalyses?.slice(0, 3).forEach((item) => add("机构分析", item.title || item.summary, item.url || item.source));
+  return evidence;
+}
+
+function normalizedRiskLevel(value?: string): AIResponse["risk"]["level"] | undefined {
+  if (!value) return undefined;
+  const normalized = value.trim().toLowerCase();
+  if (["高", "high"].includes(normalized)) return "high";
+  if (["中", "medium"].includes(normalized)) return "medium";
+  if (["低", "low"].includes(normalized)) return "low";
+  return undefined;
+}
+
+function deterministicRiskExplanation(context: ProcurementContext, effectiveLevel?: AIResponse["risk"]["level"]) {
+  const facts = [
+    contextPriceLabel(context) ? `当前价格为${contextPriceLabel(context)}` : "当前价格缺失",
+    typeof context.change7d === "number" ? `7日变化${context.change7d >= 0 ? "+" : ""}${context.change7d.toFixed(2)}%` : "缺少7日变化",
+    typeof context.change30d === "number" ? `30日变化${context.change30d >= 0 ? "+" : ""}${context.change30d.toFixed(2)}%` : "缺少30日变化",
+  ];
+  const coverage = context.dataCoverage;
+  const missing = [
+    coverage?.has7dBaseline === false ? "7日前附近的基准样本" : "",
+    coverage?.has30dBaseline === false ? "30日前附近的基准样本" : "",
+    !context.sources?.length ? "可核验来源" : "",
+  ].filter(Boolean);
+  if (effectiveLevel && effectiveLevel !== "unknown") {
+    return `${context.riskReason ? `${context.riskReason} ` : `平台风险等级为${context.riskLevel || effectiveLevel}。 `}已核验数据：${facts.join("；")}。`;
+  }
+  return `当前 Context 未提供确定的平台风险等级。已核验数据：${facts.join("；")}。${missing.length ? `仍缺少${missing.join("、")}，因此不能据此给出确定的风险结论。` : "这些数据可用于继续跟踪，但不足以单独确认未来风险。"}`;
+}
+
 function hasUnverifiedAttribution(text: string) {
   return /\b(?:according to|reported by|reports?|says?|cited by)\s+[A-Z][\w.-]*/i.test(text)
     || /[\u4e00-\u9fffA-Za-z0-9._-]{2,40}\s*(?:表示|称|报道|指出|报告|消息称|显示)/.test(text);
@@ -132,10 +188,27 @@ export function validateAIResponseAgainstContext(response: AIResponse, context: 
   }).map((item) => ({ ...item, ...(item.source ? { source: canonicalSource(item.source, known) } : {}) }));
   const removedUnverifiedDriver = response.drivers.length !== drivers.length;
   const validationNote = removedEvidence || removedUnverifiedDriver || removedDriverSource ? "部分模型生成内容未能在平台 Context 中核验，已隐藏。" : "";
+  const deterministic = contextEvidence(context);
+  const evidenceKeys = new Set(evidence.map((item) => `${item.label}|${item.value || ""}|${item.source || ""}`));
+  const mergedEvidence = [...evidence, ...deterministic.filter((item) => {
+    const key = `${item.label}|${item.value || ""}|${item.source || ""}`;
+    if (evidenceKeys.has(key)) return false;
+    evidenceKeys.add(key);
+    return true;
+  })];
+  const contextRiskLevel = normalizedRiskLevel(context.riskLevel);
+  const effectiveRiskLevel = response.risk.level === "unknown" && contextRiskLevel ? contextRiskLevel : response.risk.level;
   return {
     ...response,
+    risk: {
+      ...response.risk,
+      level: effectiveRiskLevel,
+      ...(response.risk.level === "unknown" || !response.risk.explanation.trim()
+        ? { explanation: deterministicRiskExplanation(context, effectiveRiskLevel) }
+        : {}),
+    },
     drivers,
-    evidence,
+    evidence: mergedEvidence,
     dataConfidence: confidenceForContext(context),
     disclaimer: [response.disclaimer, validationNote].filter(Boolean).join(" ") || undefined,
   };
