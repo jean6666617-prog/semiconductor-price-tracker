@@ -2715,7 +2715,9 @@ export default function Home() {
         aria-label="打开 AI 采购助手"
         title="打开 AI 采购助手"
       >
-        <Image src="/ai-bunny-mascot.png" alt="AI采购助手小兔子" width={96} height={96} priority draggable={false} />
+        <div className="procurement-ai-mascot" aria-hidden="true">
+          <Image src="/ai-bunny-mascot.png" alt="AI采购助手小兔子" width={96} height={96} priority draggable={false} />
+        </div>
         <span aria-hidden="true">AI</span>
       </button>}
       <ProcurementAiDrawer open={procurementAiOpen} context={procurementAiContext} generalEntry={procurementAiGeneralEntry} onClose={() => setProcurementAiOpen(false)} />

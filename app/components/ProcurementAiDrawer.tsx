@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { shouldUseLiveSearch } from "../../lib/ai/search-intent";
 import type { AIResponse, AIDriver, LiveSearchResult, Message, ProcurementContext, PromptMessage } from "../../lib/ai/types";
 
@@ -150,6 +151,9 @@ export default function ProcurementAiDrawer({ open, context, generalEntry = fals
         <button type="button" className="procurement-ai-close" onClick={onClose} aria-label="关闭 AI采购助手">×</button>
       </div>
       <div className="procurement-ai-body">
+        <div className="procurement-ai-drawer-mascot" aria-hidden="true">
+          <Image src="/ai-bunny-mascot.png" alt="" width={132} height={132} priority draggable={false} />
+        </div>
         {generalEntry ? <section className="procurement-ai-subject procurement-ai-general-entry">
           <span>AI采购助手</span>
           <strong>今天想分析什么材料？</strong>

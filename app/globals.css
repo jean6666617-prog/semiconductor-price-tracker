@@ -1003,21 +1003,27 @@ body { background:var(--paper); color:var(--ink); }
 .procurement-ai-floating-entry:active { cursor:grabbing; }
 .procurement-ai-floating-entry:hover { transform:translateY(-5px) scale(1.05); filter:drop-shadow(0 14px 18px #09173555); }
 .procurement-ai-floating-entry:focus-visible { outline:3px solid #f2ca6d; outline-offset:4px; }
-.procurement-ai-floating-entry img { width:112px; height:112px; border-radius:0; object-fit:contain; filter:drop-shadow(0 8px 10px #09173545); -webkit-user-drag:none; }
+.procurement-ai-mascot { display:block; width:112px; height:112px; pointer-events:none; animation:procurement-ai-float 2.2s ease-in-out infinite; }
+.procurement-ai-mascot img { width:112px; height:112px; border-radius:0; object-fit:contain; filter:drop-shadow(0 8px 10px #09173545); -webkit-user-drag:none; }
+@keyframes procurement-ai-float { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-7px); } }
+@media (prefers-reduced-motion:reduce) { .procurement-ai-mascot { animation:none; } }
 .procurement-ai-floating-entry span { position:absolute; right:-5px; top:-7px; display:grid; place-items:center; min-width:26px; height:20px; padding:0 5px; border:1px solid #f2ca6d; border-radius:999px; background:#61114f; color:#f8e6a9; font-size:10px; font-weight:800; letter-spacing:.04em; }
-@media (max-width:600px) { .procurement-ai-floating-entry { right:10px; bottom:10px; width:82px; height:94px; } .procurement-ai-floating-entry img { width:90px; height:90px; } }
+@media (max-width:600px) { .procurement-ai-floating-entry { right:10px; bottom:10px; width:82px; height:94px; } .procurement-ai-mascot { width:90px; height:90px; } .procurement-ai-mascot img { width:90px; height:90px; } }
 .procurement-ai-backdrop { position:fixed; inset:0; z-index:120; display:flex; justify-content:flex-end; background:#07173566; backdrop-filter:blur(4px); }
 .procurement-ai-drawer { width:min(460px,100vw); height:100%; display:flex; flex-direction:column; color:#f8f1f4; background:linear-gradient(155deg,#132e6e 0%,#3c1d76 52%,#76145f 100%); border-left:1px solid #d9369a; box-shadow:-24px 0 70px #09173555; }
 .procurement-ai-header { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; padding:28px 26px 20px; border-bottom:1px solid #ffffff2e; }
 .procurement-ai-header .kicker { margin:0 0 7px; color:#f16bb6; font-size:10px; letter-spacing:.18em; }
 .procurement-ai-header h2 { margin:0; font-size:28px; font-weight:700; }
 .procurement-ai-close { border:0; background:transparent; color:#fff; font-size:28px; line-height:1; cursor:pointer; }
-.procurement-ai-body { flex:1; overflow:auto; padding:20px 26px 16px; }
+.procurement-ai-body { position:relative; flex:1; overflow:auto; padding:20px 26px 16px; }
+.procurement-ai-drawer-mascot { position:absolute; top:0; left:34px; z-index:1; width:104px; height:104px; pointer-events:none; animation:procurement-ai-float 2.2s ease-in-out infinite; }
+.procurement-ai-drawer-mascot img { width:104px; height:104px; object-fit:contain; filter:drop-shadow(0 8px 10px #09173545); -webkit-user-drag:none; }
 .procurement-ai-subject { display:grid; gap:6px; margin-bottom:16px; }
 .procurement-ai-subject span,.procurement-ai-context span { color:#d5cbe4; font-size:11px; }
 .procurement-ai-subject strong { font-size:18px; line-height:1.35; }
 .procurement-ai-subject small { color:#d8c9dc; font-size:11px; }
-.procurement-ai-general-entry { padding:12px 0 16px; }
+.procurement-ai-general-entry { padding:12px 0 16px 124px; }
+.procurement-ai-drawer .procurement-ai-subject:not(.procurement-ai-general-entry) { padding-left:124px; }
 .procurement-ai-general-entry strong { font-size:24px; color:#f5c9e8; }
 .procurement-ai-context-quick { display:grid; grid-template-columns:auto 1fr auto 1fr auto 1fr; gap:6px 9px; align-items:center; margin:0 0 12px; padding:10px 12px; border:1px solid #ffffff24; border-radius:8px; background:#ffffff0d; }
 .procurement-ai-context-quick span { color:#d5cbe4; font-size:10px; }.procurement-ai-context-quick b { color:#f5c9e8; font-size:11px; white-space:nowrap; }
@@ -1094,7 +1100,7 @@ body { background:var(--paper); color:var(--ink); }
 .procurement-ai-input input { min-width:0; flex:1; height:42px; border:1px solid #ffffff40; border-radius:8px; padding:0 12px; outline:0; background:#ffffff15; color:#fff; font:inherit; font-size:12px; }
 .procurement-ai-input input::placeholder { color:#d4c8df; }.procurement-ai-input input:focus { border-color:#f16bb6; box-shadow:0 0 0 2px #d9369a44; }
 .procurement-ai-input button { border:0; border-radius:8px; padding:0 15px; background:#d9369a; color:#fff; font-weight:800; cursor:pointer; }.procurement-ai-input button:disabled { opacity:.45; cursor:not-allowed; }
-@media (max-width:600px) { .procurement-ai-drawer { width:100vw; }.procurement-ai-header { padding:22px 18px 16px; }.procurement-ai-body { padding:18px; }.procurement-ai-input { padding:12px 14px 16px; } }
+@media (max-width:600px) { .procurement-ai-drawer { width:100vw; }.procurement-ai-header { padding:22px 18px 16px; }.procurement-ai-body { padding:18px; }.procurement-ai-drawer-mascot { top:0; left:18px; width:88px; height:88px; }.procurement-ai-drawer-mascot img { width:88px; height:88px; }.procurement-ai-general-entry,.procurement-ai-drawer .procurement-ai-subject:not(.procurement-ai-general-entry) { padding-left:100px; }.procurement-ai-input { padding:12px 14px 16px; } }
 
 .ai-evaluation-page { min-height:100vh; padding:48px clamp(20px,5vw,80px); background:linear-gradient(135deg,#101c48,#35154d); color:#f7eef4; }
 .ai-evaluation-header { display:flex; justify-content:space-between; gap:24px; align-items:flex-end; max-width:1200px; margin:0 auto 28px; }.ai-evaluation-eyebrow { color:#f2ca6d; letter-spacing:.18em; font-size:11px; }.ai-evaluation-header h1 { margin:4px 0 8px; font-size:clamp(28px,4vw,48px); }.ai-evaluation-header p { margin:0; color:#dbcfe3; }.ai-evaluation-actions { display:flex; gap:10px; }.ai-evaluation-actions button { border:1px solid #ffffff45; border-radius:8px; padding:10px 14px; background:#ffffff16; color:#fff; cursor:pointer; }.ai-evaluation-actions button:first-child { background:#d9369a; border-color:#d9369a; }.ai-evaluation-actions button:disabled { opacity:.45; cursor:not-allowed; }
