@@ -60,14 +60,9 @@ export const ddrSourceUrls = {
   contractPriceTrendForce: "https://www.trendforce.cn/",
   marketAnalysis: "https://www.trendforce.cn/",
   industryNews: "https://www.digitimes.com/tech/",
-  tomsHardwareAnalysis: "https://www.tomshardware.com/tag/ram-shortage",
+  tomsHardwareAnalysis: "https://www.tomshardware.com/tag/memory",
 } as const;
 
-const trendForceTrendUrls = [
-  "https://www.trendforce.cn/presscenter/news/20260703-13133.html",
-  "https://www.trendforce.cn/presscenter/news/20260602-13073.html",
-  "https://www.trendforce.cn/presscenter/news/20260331-12993.html",
-];
 const tomsHardwareAnalysisUrl = ddrSourceUrls.tomsHardwareAnalysis;
 const digiTimesFallbackUrl = "https://apps.digitimes.com/tag/semiconductors/0014475.html";
 
@@ -99,15 +94,24 @@ function stripHtml(html: string) {
 }
 
 async function fetchText(url: string) {
-  const response = await fetch(url, {
-    cache: "no-store",
-    headers: {
-      "user-agent": "Mozilla/5.0 (compatible; SemiconductorPriceTracker/1.0)",
-      accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-    },
-  });
-  if (!response.ok) throw new Error(`${url} responded ${response.status}`);
-  return response.text();
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      const response = await fetch(url, {
+        cache: "no-store",
+        headers: {
+          "user-agent": "Mozilla/5.0 (compatible; SemiconductorPriceTracker/1.0)",
+          accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        },
+      });
+      if (!response.ok) throw new Error(`${url} responded ${response.status}`);
+      return await response.text();
+    } catch (error) {
+      lastError = error;
+      if (attempt < 3) await new Promise((resolve) => setTimeout(resolve, attempt * 500));
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error(`${url} request failed`);
 }
 
 function parseDramExchangeDate(text: string) {
@@ -219,7 +223,10 @@ export async function fetchDDRMarketAnalyses(): Promise<DDRMarketAnalysisRecord[
   } catch {
     discoveredUrls = [];
   }
-  const candidateUrls = Array.from(new Set([...discoveredUrls, ...trendForceTrendUrls]));
+  // Do not fall back to hard-coded historical articles. If the current
+  // TrendForce page cannot be reached, returning no analysis is safer than
+  // presenting a June/July article as the latest market signal.
+  const candidateUrls = Array.from(new Set(discoveredUrls));
   for (const url of candidateUrls) {
     try {
       const html = await fetchText(url);
@@ -257,7 +264,14 @@ function parseDigiTimesDate(value: string, year: number) {
   return Number.isFinite(timestamp) ? new Date(timestamp).toISOString() : normalized;
 }
 
-function parseDigiTimesTechNews(html: string, baseUrl: string = ddrSourceUrls.industryNews, allowTaggedTitles = false): DDRIndustryNewsRecord[] {
+function digiTimesDateFromUrl(url: string) {
+  const match = url.match(/\/news\/a(20\d{2})(\d{2})(\d{2})[A-Za-z0-9]+(?:\.html)?(?:\/|\?|$)/i);
+  if (!match) return "";
+  const timestamp = Date.parse(`${match[1]}-${match[2]}-${match[3]}T00:00:00Z`);
+  return Number.isFinite(timestamp) ? new Date(timestamp).toISOString() : "";
+}
+
+function parseDigiTimesTechNews(html: string, baseUrl: string = ddrSourceUrls.industryNews): DDRIndustryNewsRecord[] {
   const pageDate = html.match(/<meta[^>]+name=["']Date["'][^>]+content=["'][^"']*?(20\d{2})/i)?.[1];
   const year = Number(pageDate || new Date().getUTCFullYear());
   const records: DDRIndustryNewsRecord[] = [];
@@ -277,7 +291,8 @@ function parseDigiTimesTechNews(html: string, baseUrl: string = ddrSourceUrls.in
     if (seen.has(url)) continue;
     const titleHtml = inner.match(/<(?:div|h[1-6]|span)[^>]*class=["'][^"']*\btitle\b[^"']*["'][^>]*>([\s\S]*?)<\/(?:div|h[1-6]|span)>/i)?.[1] || inner;
     const title = stripHtml(titleHtml).replace(/\s+/g, " ").trim();
-    if (title.length < 12 || (!allowTaggedTitles && !/DRAM|DDR|memory|HBM|semiconductor|chip|shortage|AI|Samsung|SK Hynix|Micron|CXMT/i.test(title))) continue;
+    const isSemiconductorTopic = /DRAM|DDR|memory|HBM|semiconductor|chip|shortage|AI|Samsung|SK Hynix|Micron|CXMT|ASIC|packaging|foundry|wafer|Nvidia|AMD|Intel/i.test(title);
+    if (title.length < 12 || !isSemiconductorTopic) continue;
     const index = match.index ?? 0;
     const context = html.slice(Math.max(0, index - 900), Math.min(html.length, index + match[0].length + 1400));
     const dateText = context.match(/(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\s+(?:\d{1,2}\s+(?:Jan|February|March|April|May|June|July|August|September|October|November|December)\s+\d{4}|(?:Jan|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2}(?:,\s*\d{4})?)/i)?.[0]
@@ -291,7 +306,7 @@ function parseDigiTimesTechNews(html: string, baseUrl: string = ddrSourceUrls.in
       type: "industry_news",
       source: "DigiTimes",
       title,
-      date: parseDigiTimesDate(dateText, year),
+      date: digiTimesDateFromUrl(url) || parseDigiTimesDate(dateText, year),
       summary: summary || "DigiTimes公开页面提供了该半导体行业新闻摘要。",
       impact: /shortage|price|rise|increase|demand|supply|investment|capacity|HBM/i.test(combined) ? "上涨原因" : "行业观察",
       url,
@@ -303,6 +318,19 @@ function parseDigiTimesTechNews(html: string, baseUrl: string = ddrSourceUrls.in
   const sortedRecords = records.sort((a, b) => (Date.parse(b.date) || 0) - (Date.parse(a.date) || 0)).slice(0, 8);
   console.log("DigiTimes extracted titles", sortedRecords.map((record) => record.title));
   return sortedRecords;
+}
+
+function sortIndustryNews(records: DDRIndustryNewsRecord[]) {
+  const unique = new Map<string, DDRIndustryNewsRecord>();
+  for (const record of records) {
+    const key = `${record.source}:${record.url}:${record.title}`;
+    if (!unique.has(key)) unique.set(key, record);
+  }
+  return [...unique.values()].sort((left, right) => {
+    const leftTime = Date.parse(left.date);
+    const rightTime = Date.parse(right.date);
+    return (Number.isFinite(rightTime) ? rightTime : 0) - (Number.isFinite(leftTime) ? leftTime : 0);
+  });
 }
 
 export async function fetchDDRIndustryNews(): Promise<DDRIndustryNewsRecord[]> {
@@ -325,7 +353,7 @@ export async function fetchDDRIndustryNews(): Promise<DDRIndustryNewsRecord[]> {
       console.log("DigiTimes HTML preview", { url, preview: html.slice(0, 1000) });
       if (!response.ok) throw new Error(url + " responded " + response.status);
 
-      const news = parseDigiTimesTechNews(html, url, url === digiTimesFallbackUrl);
+      const news = parseDigiTimesTechNews(html, url);
       if (news.length) return news;
       lastError = new Error("DigiTimes article list empty: " + url);
     } catch (error) {
@@ -413,10 +441,10 @@ export async function fetchDDRMarketData(fallback?: DDRFallbackInput): Promise<D
   ]);
   const spotPrices = spotResult.status === "fulfilled" ? spotResult.value : [];
   const marketAnalyses = analysisResult.status === "fulfilled" ? analysisResult.value : [];
-  const industryNews = [
+  const industryNews = sortIndustryNews([
     ...(newsResult.status === "fulfilled" ? newsResult.value : []),
     ...(tomsHardwareResult.status === "fulfilled" ? tomsHardwareResult.value : []),
-  ];
+  ]);
   if (spotResult.status === "rejected") errors.push(`DRAMeXchange spot price unavailable: ${spotResult.reason instanceof Error ? spotResult.reason.message : "unknown error"}`);
   if (analysisResult.status === "rejected") errors.push(`TrendForce analysis unavailable: ${analysisResult.reason instanceof Error ? analysisResult.reason.message : "unknown error"}`);
   if (newsResult.status === "rejected") errors.push(`DigiTimes news unavailable: ${newsResult.reason instanceof Error ? newsResult.reason.message : "unknown error"}`);

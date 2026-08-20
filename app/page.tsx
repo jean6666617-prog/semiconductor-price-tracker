@@ -311,7 +311,11 @@ function buildDdrInsightItems(items: Item[], history: Record<string, [string, nu
   const digitimesNews = (ddrData?.industryNews ?? []).filter((news) => news.source === "DigiTimes");
   // Keep the full crawler-backed news list on the homepage. AI contexts apply
   // their own smaller evidence window below so page coverage is not lost.
-  const newsItems = [...tomsNews, ...digitimesNews];
+  const newsItems = [...tomsNews, ...digitimesNews].sort((left, right) => {
+    const leftTime = Date.parse(left.date);
+    const rightTime = Date.parse(right.date);
+    return (Number.isFinite(rightTime) ? rightTime : 0) - (Number.isFinite(leftTime) ? leftTime : 0);
+  });
   const factors = analysis?.factors?.filter((factor) => !factor.startsWith("趋势：")) ?? [];
   const candidates = items
     .filter((candidate) => candidate.group === "DDR内存" && candidate.source === "TrendForce")
@@ -344,7 +348,7 @@ function buildDdrInsightItems(items: Item[], history: Record<string, [string, nu
     updateDate: analysis?.date || selected.latest?.[0] || selected.entry.updated,
     priceUrl: selected.entry.url,
     trendUrl: analysis?.url || "https://www.trendforce.cn/",
-    analysisUrl: "https://www.tomshardware.com/tag/ram-shortage",
+    analysisUrl: "https://www.tomshardware.com/tag/memory",
     newsItems,
     marketAnalysis: analysis,
   }];
@@ -2403,7 +2407,7 @@ export default function Home() {
                       const newsItems = ddrItem.newsItems ?? [];
                       const driverDetails = ddrDriverDetails(ddrItem, newsItems);
                       const trendUrl = ddrItem.trendUrl || "https://www.trendforce.cn/";
-                      const analysisUrl = ddrItem.analysisUrl || "https://www.tomshardware.com/tag/ram-shortage";
+                      const analysisUrl = ddrItem.analysisUrl || "https://www.tomshardware.com/tag/memory";
                       return <article className={`plastic-insight-card material-insight-card ddr-market-card ${item.price === null ? "pending" : ""}`} key={`${item.category}-${item.name}`}>
                         <div className="plastic-card-top ddr-card-title-row">
                           <div className="ddr-card-title-main">
@@ -2422,6 +2426,10 @@ export default function Home() {
                         <section className="ddr-card-section" aria-label={`${item.name} Market Trend Analysis`}>
                           <small>市场趋势分析 / Market Trend Analysis · <a href={trendUrl} target="_blank" rel="noreferrer">TrendForce ↗</a></small>
                           <p>{ddrMarketSummary(ddrItem)}</p>
+                          {ddrItem.marketAnalysis && <a className="ddr-market-analysis-link" href={ddrItem.marketAnalysis.url} target="_blank" rel="noreferrer">
+                            <strong>{ddrItem.marketAnalysis.title}</strong>
+                            <span>{ddrItem.marketAnalysis.date} · TrendForce 机构分析 ↗</span>
+                          </a>}
                         </section>
                         <section className="ddr-card-section" aria-label={`${item.name} Price Movement Drivers`}>
                           <small>价格驱动因素 / Price Movement Drivers · <a href={trendUrl} target="_blank" rel="noreferrer">TrendForce ↗</a> / <a href={analysisUrl} target="_blank" rel="noreferrer">{"Tom's Hardware ↗"}</a></small>
