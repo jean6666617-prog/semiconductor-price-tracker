@@ -30,6 +30,7 @@ const crawlerKeys: Record<string, string> = {
   "automatic-update-status": "crawler:auto-status",
   "market-news-display": "crawler:market-news:display",
   "market-news-battery": "crawler:market-news:battery",
+  "market-news-soc": "crawler:market-news:soc",
 };
 
 // Edge entries are only an acceleration layer. Keep their maximum lifetime short

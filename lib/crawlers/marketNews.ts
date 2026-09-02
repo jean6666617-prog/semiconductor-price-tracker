@@ -1,4 +1,4 @@
-export type MarketNewsCategory = "Display" | "Battery";
+export type MarketNewsCategory = "Display" | "Battery" | "SOC";
 
 export type MarketNewsRecord = {
   category: MarketNewsCategory;
@@ -44,6 +44,18 @@ const batterySources: SourceDefinition[] = [
   { source: "IEA", url: "https://www.iea.org/news?type=news", relevant: /battery|batteries|lithium|cell|cathode|anode|nickel|cobalt|graphite|ev|energy storage|separator|electrolyte/i, articlePath: /\/news\//i },
 ];
 
+// SoC sources are public newsroom/index pages. We only collect visible
+// headlines and links; no prices are fabricated when a source does not expose
+// a verifiable quote.
+const socSources: SourceDefinition[] = [
+  { source: "Tom's Hardware", url: "https://www.tomshardware.com/feeds.xml", relevant: /soc|processor|chip|cpu|gpu|architecture|silicon|automotive|iot|semiconductor/i, articlePath: /\//i },
+  { source: "EE Times SoC", url: "https://www.eetimes.com/tag/soc/", relevant: /soc|system[- ]on[- ]chip|processor|chip|eda|architecture|ip|automotive|iot|snapdragon|mediatek|qualcomm/i, articlePath: /\//i },
+  { source: "Qualcomm Newsroom", url: "https://www.qualcomm.com/news/releases", relevant: /soc|snapdragon|processor|chip|automotive|iot|edge|platform/i, articlePath: /\/news\//i },
+  { source: "MediaTek Press Room", url: "https://corp.mediatek.com/news-events/press-releases", relevant: /soc|dimensity|processor|chip|automotive|iot|connectivity|platform/i, articlePath: /\/news-events\//i },
+  { source: "Arm Newsroom", url: "https://newsroom.arm.com/", relevant: /soc|processor|cpu|gpu|chip|architecture|automotive|iot|neoverse|cortex/i, articlePath: /\//i },
+  { source: "Counterpoint AP-SoC", url: "https://counterpointresearch.com/en/insights/ap-soc", relevant: /soc|application processor|smartphone|chip|mediatek|qualcomm|apple|silicon/i, articlePath: /\//i },
+];
+
 function decodeEntities(value: string) {
   return value
     .replace(/&nbsp;/gi, " ")
@@ -71,6 +83,11 @@ function absoluteUrl(value: string, base: string) {
 }
 
 function parseDate(value: string, url: string) {
+  const rfc = value.match(/\b\d{1,2}\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+20\d{2}\b/i);
+  if (rfc) {
+    const parsedRfc = Date.parse(rfc[0]);
+    if (Number.isFinite(parsedRfc)) return new Date(parsedRfc).toISOString().slice(0, 10);
+  }
   const iso = value.match(/20\d{2}[-/]\d{1,2}[-/]\d{1,2}/)?.[0];
   const slash = url.match(/20(\d{2})[/-](\d{2})[/-](\d{2})/);
   const compact = url.match(/20(\d{2})(\d{2})(\d{2})/);
@@ -92,10 +109,37 @@ function parseDate(value: string, url: string) {
 }
 
 function articleAnalysis(category: MarketNewsCategory, text: string) {
-  const subject = category === "Display" ? "显示面板供需、出货或成本" : "电池材料、产能、出货或需求";
+  const subject = category === "Display" ? "显示面板供需、出货或成本" : category === "Battery" ? "电池材料、产能、出货或需求" : "SoC 产品发布、芯片设计与终端需求";
   return new RegExp("price|cost|shipment|demand|supply|shortage|capacity|production|inventory|sales|\u4ef7\u683c|\u51fa\u8d27|\u4f9b\u9700|\u4ea7\u80fd", "i").test(text)
     ? `该新闻提供${subject}背景，可作为外部证据与平台价格样本交叉验证，不单独代表价格结论。`
     : "该新闻作为行业背景证据，不单独代表价格方向。";
+}
+
+function xmlValue(block: string, tag: string) {
+  const match = block.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`, "i"));
+  return match ? cleanText(match[1]) : "";
+}
+
+function extractRssArticles(xml: string, category: MarketNewsCategory, definition: SourceDefinition) {
+  const records: MarketNewsRecord[] = [];
+  const itemPattern = /<item\b[\s\S]*?<\/item>/gi;
+  console.debug("[SOC raw item count]", definition.source, (xml.match(/<item\b/gi) || []).length);
+  let match: RegExpExecArray | null;
+  while ((match = itemPattern.exec(xml)) && records.length < 8) {
+    const block = match[0];
+    const title = cleanTitle(xmlValue(block, "title"));
+    const rawUrl = xmlValue(block, "link") || xmlValue(block, "guid");
+    const url = absoluteUrl(rawUrl, definition.url);
+    const summary = cleanText(xmlValue(block, "description") || title).slice(0, 260) || title;
+    const date = parseDate(xmlValue(block, "pubDate") || xmlValue(block, "dc:date") || xmlValue(block, "date") || xmlValue(block, "updated"), url);
+    if (!title || title.length < 10) { console.debug("[SOC rejected item]", definition.source, "missing_title"); continue; }
+    if (!url) { console.debug("[SOC rejected item]", definition.source, "missing_url"); continue; }
+    if (!definition.relevant.test(`${title} ${summary}`)) { console.debug("[SOC rejected item]", definition.source, "not_soc_related"); continue; }
+    if (records.some((record) => record.url === url)) { console.debug("[SOC rejected item]", definition.source, "duplicate"); continue; }
+    records.push({ category, title, summary, source: definition.source, date, url, sourceUrl: definition.url, accessType: "crawler", analysis: articleAnalysis(category, `${title} ${summary}`) });
+  }
+  console.debug("[SOC classified item count]", definition.source, records.length);
+  return records;
 }
 
 function extractArticles(html: string, category: MarketNewsCategory, definition: SourceDefinition) {
@@ -110,7 +154,7 @@ function extractArticles(html: string, category: MarketNewsCategory, definition:
     const title = cleanTitle(heading || match[2]);
     const href = attributes.match(/href\s*=\s*["']([^"']+)["']/i)?.[1] || "";
     const url = absoluteUrl(href, definition.url);
-    if (!url || !title || title.length < 18 || !definition.articlePath.test(new URL(url).pathname) || !definition.relevant.test(title)) continue;
+    if (!url || !title || title.length < 10 || !definition.articlePath.test(new URL(url).pathname) || !definition.relevant.test(title)) continue;
     if (new URL(url).hostname !== new URL(definition.url).hostname || seen.has(url)) continue;
     const windowText = cleanText(html.slice(Math.max(0, match.index - 360), Math.min(html.length, anchorPattern.lastIndex + 560)));
     const summaryCandidate = cleanText(paragraph || windowText.replace(title, "")).replace(/^(?:daily|news|category|battery|display)\s+/i, "").replace(/https?:\/\/\S+/g, "").trim();
@@ -121,6 +165,31 @@ function extractArticles(html: string, category: MarketNewsCategory, definition:
     seen.add(url);
     records.push({ category, title, summary, source: definition.source, date, url, sourceUrl: definition.url, accessType: "crawler", analysis: articleAnalysis(category, `${title} ${summary}`) });
   }
+  // Several modern newsroom pages render article cards client-side but still
+  // expose JSON-LD metadata. Use it as a read-only fallback when anchors are
+  // unavailable; the headline and URL still come directly from the source.
+  if (!records.length) {
+    const jsonLdPattern = /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+    let jsonMatch: RegExpExecArray | null;
+    while ((jsonMatch = jsonLdPattern.exec(html)) && records.length < 8) {
+      try {
+        const parsed = JSON.parse(jsonMatch[1].trim()) as Record<string, unknown> | Array<Record<string, unknown>>;
+        const entries = Array.isArray(parsed) ? parsed : [parsed];
+        for (const entry of entries) {
+          const title = cleanTitle(String(entry.headline || entry.name || ""));
+          const url = absoluteUrl(String(entry.url || entry.mainEntityOfPage || ""), definition.url);
+          if (!title || title.length < 10 || !url || new URL(url).hostname !== new URL(definition.url).hostname || !definition.relevant.test(title)) continue;
+          const date = parseDate(String(entry.datePublished || entry.dateCreated || ""), url);
+          const summary = cleanText(String(entry.description || title)).slice(0, 260) || title;
+          if (seen.has(url)) continue;
+          seen.add(url);
+          records.push({ category, title, summary, source: definition.source, date, url, sourceUrl: definition.url, accessType: "crawler", analysis: articleAnalysis(category, `${title} ${summary}`) });
+        }
+      } catch {
+        // Ignore malformed metadata and continue trying the next source.
+      }
+    }
+  }
   return records.sort((left, right) => (Date.parse(right.date) || 0) - (Date.parse(left.date) || 0)).slice(0, 6);
 }
 
@@ -128,9 +197,13 @@ async function fetchSource(url: string) {
   let lastError: unknown;
   for (let attempt = 1; attempt <= 3; attempt += 1) {
     try {
-      const response = await fetch(url, { headers: { accept: "text/html,application/xhtml+xml", "user-agent": "SemiconductorPriceTracker/1.0" }, cache: "no-store" });
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8000);
+      const response = await fetch(url, { headers: { accept: "application/rss+xml,application/atom+xml,text/html,application/xhtml+xml", "user-agent": "SemiconductorPriceTracker/1.0" }, cache: "no-store", signal: controller.signal }).finally(() => clearTimeout(timeout));
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      return await response.text();
+      const text = await response.text();
+      console.debug("[SOC source response]", url, response.status, response.headers.get("content-type") || "", text.length);
+      return text;
     } catch (error) {
       lastError = error;
       if (attempt < 3) await new Promise((resolve) => setTimeout(resolve, 300 * attempt));
@@ -140,12 +213,16 @@ async function fetchSource(url: string) {
 }
 
 export async function fetchMarketNews(category: MarketNewsCategory): Promise<MarketNewsData> {
-  const sources = category === "Display" ? displaySources : batterySources;
+  const sources = category === "Display" ? displaySources : category === "Battery" ? batterySources : socSources;
   const errors: string[] = [];
   const attemptedSources = sources.map((source) => source.source);
   for (const source of sources) {
     try {
-      const records = extractArticles(await fetchSource(source.url), category, source);
+      const raw = await fetchSource(source.url);
+      const records = /<rss\\b|<feed\\b/i.test(raw)
+        ? extractRssArticles(raw, category, source)
+        : extractArticles(raw, category, source);
+      console.debug("[SOC normalized item count]", source.source, records.length);
       if (records.length) return { success: true, category, status: errors.length ? "partial" : "ready", source: source.source, sourceUrl: source.url, news: records, attemptedSources, errors, crawlTime: new Date().toISOString() };
       errors.push(`${source.source}: no relevant article links found`);
     } catch (error) {

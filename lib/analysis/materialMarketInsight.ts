@@ -218,5 +218,6 @@ export function getMarketSourceLabel(category: MarketCategory) {
   if (category === "Memory") return "DDR · 数据接入中";
   if (category === "Display") return "TrendForce · LCD TV / Monitor / Notebook";
   if (category === "Battery") return "TrendForce · 电芯 / 电池包 / 锂钴镍";
+  if (category === "SOC") return "EE Times · Qualcomm · MediaTek · Arm · Tom's Hardware · Counterpoint";
   return `${category} · 数据接入中`;
 }

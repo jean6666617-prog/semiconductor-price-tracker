@@ -208,7 +208,7 @@ function ddrMarketSummary(item: DDRInsightItem) {
 const marketPriceSignalPattern = /price|pricing|cost|supply|demand|shipment|capacity|inventory|shortage|sales|价格|报价|成本|供需|出货|产能|库存|短缺|销量|上涨|下跌|涨|跌/i;
 
 function marketNewsDigest(records: MarketNewsData["news"], category: MarketNewsCategory) {
-  const topic = category === "Display" ? "LCD 面板" : "Battery 电池";
+  const topic = category === "Display" ? "LCD 面板" : category === "Battery" ? "Battery 电池" : "SoC 芯片";
   if (!records.length) return `当前暂无可核验的 ${topic} 新闻，暂时无法形成新闻摘要。`;
   const priceSignals = records.filter((record) => marketPriceSignalPattern.test(`${record.title} ${record.summary}`));
   const selected = (priceSignals.length ? priceSignals : records).slice(0, 3);
@@ -221,20 +221,38 @@ function marketNewsDigest(records: MarketNewsData["news"], category: MarketNewsC
       if (/supply chain|supply|capacity|shipment|shortage|供应链|供给|产能|出货|短缺/.test(text)) addTheme("面板供给、产能与出货节奏");
       if (/near-eye|microled|oled|automotive|display activity|近眼|microled|oled|汽车/.test(text)) addTheme("新型显示和汽车显示需求的结构变化");
       if (/price|pricing|cost|demand|价格|报价|成本|需求/.test(text)) addTheme("需求变化对面板价格和成本预期的影响");
-    } else {
+    } else if (category === "Battery") {
       if (/lithium|nickel|cobalt|graphite|cathode|anode|electrolyte|锂|镍|钴|石墨|正极|负极|电解液/.test(text)) addTheme("锂、镍、钴等上游材料成本变化");
       if (/ev|electric vehicle|energy storage|demand|销量|电动车|储能|需求/.test(text)) addTheme("电动车与储能需求变化");
       if (/capacity|production|shipment|supply|shortage|产能|生产|出货|供应|短缺/.test(text)) addTheme("电芯产能、出货和供应节奏");
       if (/price|pricing|cost|价格|报价|成本/.test(text)) addTheme("原材料和电芯价格变化");
+    } else {
+      if (/soc|system[- ]on[- ]chip|processor|chip|architecture|ip|eda|芯片|架构|处理器/.test(text)) addTheme("SoC架构、芯片设计与IP/EDA进展");
+      if (/smartphone|mobile|automotive|vehicle|iot|edge|终端|手机|汽车|物联网/.test(text)) addTheme("移动、汽车与IoT终端需求变化");
+      if (/supply|capacity|shipment|shortage|manufactur|供应|产能|出货|短缺|制程/.test(text)) addTheme("芯片供应、产能与制程节奏");
+      if (/price|pricing|cost|价格|报价|成本|demand|需求/.test(text)) addTheme("终端需求变化对芯片成本和价格预期的影响");
     }
   });
-  if (!themes.length) themes.push(category === "Display" ? "面板供需与技术路线变化" : "电池材料、产能与终端需求变化");
+  if (!themes.length) themes.push(category === "Display" ? "面板供需与技术路线变化" : category === "Battery" ? "电池材料、产能与终端需求变化" : "SoC产品路线、供应链与终端需求变化");
   const themeText = themes.slice(0, 3).join("、");
   const signalText = priceSignals.length
     ? `其中与价格判断最相关的是${themeText}，这些因素可能通过供需和成本传导影响报价。`
     : `目前新闻更多提供${themeText}等行业背景，尚未形成可直接对应价格方向的明确信号。`;
   return `近期${topic}新闻显示，市场关注点主要集中在${themeText}。${signalText}新闻仅用于补充价格变化背景，最终仍需结合平台价格样本和更新时间判断。`;
 }
+
+function marketNewsLabel(category: MarketNewsCategory) {
+  return category === "Display" ? "LCD" : category === "Battery" ? "Battery" : "SOC";
+}
+
+const socNewsSourceLinks = [
+  ["EE Times SoC", "https://www.eetimes.com/tag/soc/"],
+  ["Qualcomm Newsroom", "https://www.qualcomm.com/news/releases"],
+  ["MediaTek Press Room", "https://corp.mediatek.com/news-events/press-releases"],
+  ["Arm Newsroom", "https://newsroom.arm.com/"],
+  ["Tom's Hardware", "https://www.tomshardware.com/tag/cpus"],
+  ["Counterpoint AP-SoC", "https://counterpointresearch.com/en/insights/ap-soc"],
+] as const;
 
 function decodeDdrEntities(value: string) {
   return value
@@ -922,7 +940,7 @@ export default function Home() {
   useEffect(() => {
     let active = true;
     const loadMarketNews = async () => {
-      const categories: MarketNewsCategory[] = ["Display", "Battery"];
+      const categories: MarketNewsCategory[] = ["Display", "Battery", "SOC"];
       const entries = await Promise.all(categories.map(async (category) => {
         try {
           const response = await fetch(`/api/crawler/market-news?category=${category}`, { cache: "no-store" });
@@ -1319,16 +1337,16 @@ export default function Home() {
     return () => window.clearInterval(timer);
   }, [latestIndustryNewsList.length]);
   const activeMarketItems = activeMarketCategory === "Memory" ? ddrInsightItems : marketItemsByCategory[activeMarketCategory];
-  const isDisplayBatteryMarket = activeMarketCategory === "Display" || activeMarketCategory === "Battery";
-  const displayBatteryItems = useMemo(
+  const isNewsMarket = activeMarketCategory === "Display" || activeMarketCategory === "Battery" || activeMarketCategory === "SOC";
+  const marketSnapshotItems = useMemo(
     () => (marketItemsByCategory[activeMarketCategory] ?? []).slice(0, 2),
     [marketItemsByCategory, activeMarketCategory],
   );
-  const displayedMarketItems = isDisplayBatteryMarket ? displayBatteryItems : activeMarketItems;
-  const displayedMarketNews = isDisplayBatteryMarket ? (marketNewsByCategory[activeMarketCategory]?.news ?? []) : [];
+  const displayedMarketItems = isNewsMarket ? marketSnapshotItems : activeMarketItems;
+  const displayedMarketNews = isNewsMarket ? (marketNewsByCategory[activeMarketCategory]?.news ?? []) : [];
   const activeMarketNewsDigest = useMemo(
-    () => isDisplayBatteryMarket ? marketNewsDigest(marketNewsByCategory[activeMarketCategory]?.news ?? [], activeMarketCategory) : "",
-    [activeMarketCategory, isDisplayBatteryMarket, marketNewsByCategory],
+    () => isNewsMarket ? marketNewsDigest(marketNewsByCategory[activeMarketCategory]?.news ?? [], activeMarketCategory) : "",
+    [activeMarketCategory, isNewsMarket, marketNewsByCategory],
   );
   const activeMarketSource = activeMarketCategory === "Memory"
     ? "TrendForce · Tom's Hardware · DigiTimes"
@@ -2469,37 +2487,37 @@ export default function Home() {
                   </figure>
                   <div className="material-brief-copy">
                     <p className="kicker">MARKET SIGNAL / 市场信号</p>
-                    <h4>{activeMarketCategory === "Plastic" ? "塑料件价格与供需信号" : activeMarketCategory === "Display" ? "LCD 面板价格与市场信号" : activeMarketCategory === "Battery" ? "Battery 价格与市场信号" : activeMarketCategory + " 市场数据接入"}</h4>
-                    {isDisplayBatteryMarket
+                    <h4>{activeMarketCategory === "Plastic" ? "塑料件价格与供需信号" : activeMarketCategory === "Display" ? "LCD 面板价格与市场信号" : activeMarketCategory === "Battery" ? "Battery 价格与市场信号" : activeMarketCategory === "SOC" ? "SOC 芯片价格与市场信号" : activeMarketCategory + " 市场数据接入"}</h4>
+                    {isNewsMarket
                       ? <div className={`market-news-digest${marketNewsDigestExpanded ? " is-expanded" : ""}`}>
                         <p className="market-news-digest__text">{activeMarketNewsDigest}</p>
                         {activeMarketNewsDigest.length > 90 && <button type="button" className="market-news-digest__toggle" onClick={() => setMarketNewsDigestExpanded((expanded) => !expanded)}>{marketNewsDigestExpanded ? "收起" : "更多"}</button>}
                       </div>
                       : <p>{activeMarketItems[0]?.description || "当前分类暂无可展示的公开分析。"}</p>}
-                    {isDisplayBatteryMarket
-                      ? <div className="material-article-links"><a className="material-article-link" href="https://www.trendforce.com/price/lcd/panel" target="_blank" rel="noreferrer">TrendForce LCD 原文 ↗</a><a className="material-article-link" href="https://www.trendforce.com/price/battery-price/battery_cell_and_pack" target="_blank" rel="noreferrer">TrendForce Battery 原文 ↗</a></div>
+                    {isNewsMarket
+                      ? <div className="material-article-links">{marketNewsByCategory[activeMarketCategory]?.sourceUrl && <a className="material-article-link" href={marketNewsByCategory[activeMarketCategory]?.sourceUrl} target="_blank" rel="noreferrer">{marketNewsLabel(activeMarketCategory)} 新闻来源 ↗</a>}</div>
                       : activeMarketItems[0]?.url && <a className="material-article-link" href={activeMarketItems[0].url} target="_blank" rel="noreferrer">查看 {activeMarketCategory === "Memory" ? "TrendForce 原文" : "SunSirs 原文"} / Read source ↗</a>}
                   </div>
                 </div>
-                {isDisplayBatteryMarket && <section className="market-news-analysis market-news-aggregate" aria-label={`${activeMarketCategory === "Display" ? "LCD" : "Battery"}行业新闻汇总`}>
+                {isNewsMarket && <section className="market-news-analysis market-news-aggregate" aria-label={`${marketNewsLabel(activeMarketCategory)}行业新闻汇总`}>
                   <div className="material-card-analysis-head">
-                    <span>{activeMarketCategory === "Display" ? "LCD" : "Battery"}行业新闻汇总 / Industry News Digest</span>
+                    <span>{marketNewsLabel(activeMarketCategory)}行业新闻汇总 / Industry News Digest</span>
                     <div className="market-news-source-links">
-                      {marketNewsByCategory[activeMarketCategory]?.sourceUrl && <a href={marketNewsByCategory[activeMarketCategory]?.sourceUrl} target="_blank" rel="noreferrer">{activeMarketCategory === "Display" ? "LCD" : "Battery"} 新闻页 ↗</a>}
+                      {marketNewsByCategory[activeMarketCategory]?.sourceUrl && <a href={marketNewsByCategory[activeMarketCategory]?.sourceUrl} target="_blank" rel="noreferrer">{marketNewsLabel(activeMarketCategory)} 新闻页 ↗</a>}
                     </div>
                   </div>
-                  {displayBatteryItems.length ? <div className="market-news-price-grid" aria-label={`${activeMarketCategory === "Display" ? "LCD" : "Battery"}价格快照`}>{displayBatteryItems.map((item) => <div className="market-news-price-snapshot" key={`${item.category}-${item.name}`}>
-                    <span>{item.category === "Display" ? "LCD" : "Battery"} · {item.name}</span>
+                  {marketSnapshotItems.length && activeMarketCategory !== "SOC" ? <div className="market-news-price-grid" aria-label={`${marketNewsLabel(activeMarketCategory)}价格快照`}>{marketSnapshotItems.map((item) => <div className="market-news-price-snapshot" key={`${item.category}-${item.name}`}>
+                    <span>{marketNewsLabel(activeMarketCategory)} · {item.name}</span>
                     <strong>{item.price === null ? "--" : formatTrendPrice(item.price)} {item.unit}</strong>
                     <em>{item.change === null ? "暂无涨跌数据" : `${item.change >= 0 ? "+" : ""}${item.change.toFixed(2)}%`}</em>
                   </div>)}</div> : null}
                   {displayedMarketNews.length ? <div className="market-news-list">{displayedMarketNews.slice(0, 8).map((news) => <article className="market-news-item" key={`${news.category}-${news.source}-${news.url}`}>
                     <a className="market-news-title" href={news.url} target="_blank" rel="noreferrer">{news.title} ↗</a>
                     <p>{news.summary}</p>
-                    <small>{news.category === "Display" ? "LCD" : "Battery"} · {news.source} · {news.date || "日期未提供"}{news.accessType === "link_only" ? " · 来源链接" : ""}</small>
-                  </article>)}</div> : <p className="market-news-empty">当前没有抓到可核验的 {activeMarketCategory === "Display" ? "LCD" : "Battery"} 新闻；价格仍来自 TrendForce，待来源恢复后自动更新新闻。</p>}
+                    <small>{marketNewsLabel(news.category)} · {news.source} · {news.date || "日期未提供"}{news.accessType === "link_only" ? " · 来源链接" : ""}</small>
+                  </article>)}</div> : <div className="market-news-empty"><p>当前暂未抓到可核验的 {marketNewsLabel(activeMarketCategory)} 新闻；价格数据仅在有已保存样本时展示，待来源恢复后自动更新新闻。</p>{activeMarketCategory === "SOC" && <div className="market-news-source-links">{socNewsSourceLinks.map(([label, url]) => <a key={url} href={url} target="_blank" rel="noreferrer">{label} ↗</a>)}</div>}</div>}
                 </section>}
-                {!isDisplayBatteryMarket && <div className={`plastic-insight-grid material-insight-grid category-${activeMarketCategory.toLowerCase()}`}>
+                {!isNewsMarket && <div className={`plastic-insight-grid material-insight-grid category-${activeMarketCategory.toLowerCase()}`}>
                   {displayedMarketItems.map((item) => {
                     const trendIcon = item.trend === "上涨" ? "↑" : item.trend === "下跌" ? "↓" : item.trend === "稳定" ? "→" : item.trend === "数据接入中" ? "·" : "↔";
                     const displayPrice = item.price === null ? "--" : formatTrendPrice(item.price);

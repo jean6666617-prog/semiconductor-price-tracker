@@ -10,13 +10,13 @@ function authorized(request: Request) {
   return Boolean(secret && provided && provided === secret);
 }
 
-function isCategory(value: string): value is MarketNewsCategory { return value === "Display" || value === "Battery"; }
-function cacheName(category: MarketNewsCategory) { return category === "Display" ? "market-news-display" : "market-news-battery"; }
+function isCategory(value: string): value is MarketNewsCategory { return value === "Display" || value === "Battery" || value === "SOC"; }
+function cacheName(category: MarketNewsCategory) { return category === "Display" ? "market-news-display" : category === "Battery" ? "market-news-battery" : "market-news-soc"; }
 function fresh(data: MarketNewsData) { const newest = Math.max(...data.news.map((item) => Date.parse(item.date)).filter(Number.isFinite)); return data.news.length > 0 && (!Number.isFinite(newest) || Date.now() - newest < 7 * 24 * 60 * 60 * 1000); }
 
 export async function GET(request: Request) {
   const categoryValue = new URL(request.url).searchParams.get("category") || "";
-  if (!isCategory(categoryValue)) return NextResponse.json({ success: false, error: "category must be Display or Battery" }, { status: 400 });
+  if (!isCategory(categoryValue)) return NextResponse.json({ success: false, error: "category must be Display, Battery, or SOC" }, { status: 400 });
   const forceRefresh = new URL(request.url).searchParams.has("refresh");
   if (!forceRefresh) {
     const cached = await readCrawlerCache<MarketNewsData>(cacheName(categoryValue));
