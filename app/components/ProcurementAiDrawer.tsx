@@ -151,14 +151,19 @@ export default function ProcurementAiDrawer({ open, context, generalEntry = fals
         <button type="button" className="procurement-ai-close" onClick={onClose} aria-label="关闭 AI采购助手">×</button>
       </div>
       <div className="procurement-ai-body">
-        <div className="procurement-ai-drawer-mascot" aria-hidden="true">
-          <Image src="/ai-bunny-mascot.png" alt="" width={132} height={132} priority draggable={false} />
-        </div>
-        {generalEntry ? <section className="procurement-ai-subject procurement-ai-general-entry">
-          <span>AI采购助手</span>
-          <strong>今天想分析什么材料？</strong>
-          <small>输入材料名称、型号或采购问题，开始分析。</small>
+        {generalEntry ? <section className="procurement-ai-welcome" aria-label="AI采购助手欢迎区">
+          <div className="procurement-ai-welcome__mascot" aria-hidden="true">
+            <Image src="/ai-bunny-mascot.png" alt="" width={132} height={132} priority draggable={false} />
+          </div>
+          <div className="procurement-ai-welcome__copy">
+            <span>AI采购助手</span>
+            <strong>今天想分析什么材料？</strong>
+            <small>输入材料名称、型号或采购问题，开始分析。</small>
+          </div>
         </section> : <>
+          <div className="procurement-ai-drawer-mascot" aria-hidden="true">
+            <Image src="/ai-bunny-mascot.png" alt="" width={132} height={132} priority draggable={false} />
+          </div>
           <section className="procurement-ai-subject">
             <span>当前分析对象</span>
             <strong>{context.materialName}</strong>

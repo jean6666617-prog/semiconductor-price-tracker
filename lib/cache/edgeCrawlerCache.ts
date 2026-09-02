@@ -28,6 +28,8 @@ const crawlerKeys: Record<string, string> = {
   "digikey-market": "crawler:digikey",
   "distributor-market": "crawler:distributor",
   "automatic-update-status": "crawler:auto-status",
+  "market-news-display": "crawler:market-news:display",
+  "market-news-battery": "crawler:market-news:battery",
 };
 
 // Edge entries are only an acceleration layer. Keep their maximum lifetime short

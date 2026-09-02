@@ -4,7 +4,7 @@ interface CronEnv {
   CRON_SECRET: string;
 }
 
-const refreshPaths = ["/api/crawler/ddr", "/api/crawler/plastic", "/api/crawler/trendforce", "/api/crawler/digikey"];
+const refreshPaths = ["/api/crawler/ddr", "/api/crawler/plastic", "/api/crawler/trendforce", "/api/crawler/digikey", "/api/crawler/market-news?category=Display", "/api/crawler/market-news?category=Battery"];
 const nxpIds = ["key-nxp-mcimx515djm8c", "key-nxp-tja1042t-3", "key-nxp-tja1055t-3", "key-nxp-mcimx9352cvvxmac", "key-nxp-pca9451ahny"];
 const maxRefreshAttempts = 3;
 
@@ -44,7 +44,7 @@ async function fetchCrawlerWithRetry(path: string, headers: HeadersInit) {
   let lastError: unknown;
   for (let attempt = 1; attempt <= maxRefreshAttempts; attempt += 1) {
     try {
-      const requestUrl = `${path}?refresh=${Date.now()}`;
+      const requestUrl = `${path}${path.includes("?") ? "&" : "?"}refresh=${Date.now()}`;
       const response = await fetch(requestUrl, { headers });
       const body = await response.text();
       if (!response.ok) throw new Error(`${path} refresh failed with HTTP ${response.status}: ${body.slice(0, 300)}`);
