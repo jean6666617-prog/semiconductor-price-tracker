@@ -1063,12 +1063,15 @@ export default function Home() {
     };
 
     const loadCachedCrawlerData = async () => {
-      const paths = ["/api/crawler/plastic", "/api/crawler/trendforce", "/api/crawler/digikey"];
+      // Cache-bust the browser/CDN layer; the API itself reads the latest KV-backed payload.
+      const cacheBust = `?t=${Date.now()}`;
+      const paths = ["/api/crawler/plastic", "/api/crawler/trendforce", "/api/crawler/digikey"]
+        .map((path) => `${path}${cacheBust}`);
       const requests = paths.map(async (path): Promise<CachedCrawlerResult[]> => {
         const response = await fetch(path, { cache: "no-store" });
         if (!response.ok) throw new Error(`${path} cache request failed: ${response.status}`);
         const payload = await response.json() as unknown;
-        if (path === "/api/crawler/plastic") {
+        if (path.startsWith("/api/crawler/plastic")) {
           const plasticResults = Array.isArray(payload) ? payload as CachedCrawlerResult[] : [];
           if (active) setPlasticMarketData(plasticResults);
           return plasticResults;
