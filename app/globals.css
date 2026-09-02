@@ -932,6 +932,10 @@ body { background:var(--paper); color:var(--ink); }
   border:1px solid rgba(255,255,255,.24); border-radius:10px;
   background:rgba(24,19,73,.96); box-shadow:0 18px 34px rgba(0,0,0,.24);
 }
+/* Keep the hover target continuous while moving from the trigger to the menu. */
+.top-nav-dropdown-menu::before {
+  content:""; position:absolute; top:-9px; left:0; right:0; height:9px;
+}
 .top-nav-dropdown-menu button {
   width:100%; padding:9px 11px; border:0; border-radius:7px; background:transparent;
   color:#fff; text-align:left; font-family:inherit; font-size:13px; cursor:pointer;
@@ -958,6 +962,7 @@ body { background:var(--paper); color:var(--ink); }
 .top-nav-nested-trigger span { color:#f2c86e; font-size:18px; line-height:1; transition:transform .18s ease; }
 .top-nav-nested-menu.open .top-nav-nested-trigger span { transform:translateX(2px); }
 .top-nav-nested-panel { position:absolute; top:0; left:calc(100% + 8px); min-width:150px; padding:8px; display:grid; gap:4px; border:1px solid rgba(255,255,255,.24); border-radius:10px; background:rgba(24,19,73,.96); box-shadow:0 18px 34px rgba(0,0,0,.24); }
+.top-nav-nested-panel::before { content:""; position:absolute; top:0; left:-9px; width:9px; height:100%; }
 .top-nav-nested-panel button { width:100%; padding:9px 11px; border:0; border-radius:7px; background:transparent; color:#fff; text-align:left; font-family:inherit; font-size:13px; cursor:pointer; }
 .top-nav-nested-panel button:hover { background:rgba(255,255,255,.12); color:#f2c86e; }
 @media (max-width:600px) { .top-nav-nested-panel { left:auto; right:calc(100% + 8px); min-width:130px; } .top-nav-nested-panel button { padding:8px 9px; font-size:11px; } }

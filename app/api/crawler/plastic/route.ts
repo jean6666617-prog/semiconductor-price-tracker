@@ -35,19 +35,23 @@ type PlasticPayload = PlasticPayloadItem[];
 
 function stabilizePlasticPayload(results: PlasticPayload) {
   return results.map((result) => {
-    if (result.success && result.price !== null) return result;
-    const latest = [...(result.history || [])]
+    // Older KV entries were written before `category` was included in the
+    // response. Normalize them here so cached responses remain compatible with
+    // the dashboard matcher after deployment.
+    const normalized = result.category ? result : { ...result, category: "塑料件" };
+    if (normalized.success && normalized.price !== null) return normalized;
+    const latest = [...(normalized.history || [])]
       .filter((point) => point && Number.isFinite(point.price) && point.price > 0 && point.date)
       .sort((left, right) => left.date.localeCompare(right.date))
       .at(-1);
-    if (!latest) return result;
+    if (!latest) return normalized;
     const analysis = analyzePlasticTrend(
-      result.material,
-      (result.history || []).map((point) => [point.date, point.price]),
-      plasticNewsInputs[result.material as keyof typeof plasticNewsInputs] || [],
-      result.unit || "RMB/ton",
+      normalized.material,
+      (normalized.history || []).map((point) => [point.date, point.price]),
+      plasticNewsInputs[normalized.material as keyof typeof plasticNewsInputs] || [],
+      normalized.unit || "RMB/ton",
     );
-    return { ...result, price: latest.price, updateDate: latest.date, analysis, stale: true };
+    return { ...normalized, price: latest.price, updateDate: latest.date, analysis, stale: true };
   });
 }
 
@@ -77,6 +81,7 @@ export async function GET(request: Request) {
   }, todayKey())));
 
   const payload = results.map((result) => ({
+    category: result.category,
     material: result.material,
     price: result.price,
     currency: result.currency,

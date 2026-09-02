@@ -1034,7 +1034,11 @@ export default function Home() {
       let changed = false;
 
       for (const result of results) {
-        if (!result.success || result.price === null) continue;
+        // The plastic endpoint can return a non-null price recovered from its
+        // historical cache when today's source page is temporarily unavailable
+        // (`stale: true`). Keep that verified latest point visible instead of
+        // leaving an older browser snapshot on screen.
+        if (result.price === null || result.price === undefined) continue;
         const target = nextItems.find((item) => item.group === result.category
           && (normalize(item.name) === normalize(result.material) || normalize(item.mpn) === normalize(result.material)));
         if (!target) continue;
@@ -1089,7 +1093,7 @@ export default function Home() {
       });
 
       const snapshot = JSON.stringify(cachedResults
-        .filter((result) => result.success && result.price !== null)
+        .filter((result) => result.price !== null && result.price !== undefined)
 
         .map((result) => ({
           id: result.id,
