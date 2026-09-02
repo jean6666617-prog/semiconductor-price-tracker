@@ -22,7 +22,11 @@ import type { Item, Status } from "./types";
 
 const retainedGroups = new Set(["SOC芯片", "MCU芯片", "PCB", "SGT MOS / MOSFET"]);
 const seed: Item[] = [...seedItems.filter((item) => retainedGroups.has(item.group)), ...workbookItems] as Item[];
-const obsoleteMpns = new Set(["MCIMX515DVM10AC"]);
+const obsoleteMpns = new Set([
+  "MCIMX515DVM10AC",
+  "SAK-TC377TP-96F300S AE",
+  "R7F701373EAFP-C",
+]);
 
 const statuses: Status[] = ["已更新", "待更新", "待确认", "暂无来源", "已追踪", "待验证", "待接入"];
 const trendRanges = ["7天", "30天", "90天", "180天", "全部"] as const;
@@ -95,6 +99,14 @@ function keyProductVerificationUrl(entry: KeyComponentEntry, result?: KeyCompone
   if (entry.officialUrl) return entry.officialUrl;
   const candidate = result?.sourceUrl || entry.sourceUrl;
   return /(?:lcsc\.com\/product-detail|cytechsystems\.com\/product\/)/i.test(candidate || "") ? candidate : "";
+}
+
+function referenceSource(item: Item | KeyComponentTableItem) {
+  const hasDisplayedPrice = item.price && item.price !== "—" && item.price !== "--";
+  if (!hasDisplayedPrice && item.source === "DigiKey" && item.mpn && item.mpn !== "—") {
+    return { label: "LCSC（立创商城）", url: `https://www.lcsc.com/search?q=${encodeURIComponent(item.mpn)}` };
+  }
+  return { label: item.source, url: item.url };
 }
 
 const updateMenuGroups: { title: string; options: { label: string; scope: UpdateScope }[] }[] = [
@@ -555,7 +567,11 @@ function mergeItems(savedItems?: Item[]) {
   const sourceByKey = new Map(seed.map((item) => [`${item.group}::${item.name}`, item]));
   const merged = filteredItems.map((item) => {
     const source = sourceByKey.get(`${item.group}::${item.name}`);
-    return source && dateKey(source.updated) > dateKey(item.updated) ? source : item;
+    const sourceHasPrice = Boolean(source?.price && source.price !== "—" && source.price !== "--");
+    const savedHasPrice = Boolean(item.price && item.price !== "—" && item.price !== "--");
+    // Seed corrections with a verified price must replace stale localStorage
+    // rows, even when the old snapshot has the same/newer update date.
+    return source && ((!savedHasPrice && sourceHasPrice) || dateKey(source.updated) > dateKey(item.updated)) ? source : item;
   });
 
   const savedKeys = new Set(merged.map((item) => `${item.group}::${item.name}`));
@@ -2792,7 +2808,9 @@ export default function Home() {
                 <td className="mono">{item.updated}</td>
                 <td>{item.isKeyComponent
                   ? <a href={item.url} target="_blank" rel="noreferrer">{item.source} ↗</a>
-                  : item.url ? <a href={item.url} target="_blank" rel="noreferrer">{item.source} ↗</a> : <button className="text-button" onClick={() => openEditor(item)}>＋ 添加参考链接</button>}</td>
+                  : (() => { const source = referenceSource(item); return source.url
+                    ? <a href={source.url} target="_blank" rel="noreferrer">{source.label} ↗</a>
+                    : <button className="text-button" onClick={() => openEditor(item)}>＋ 添加参考链接</button>; })()}</td>
                 <td>{item.isKeyComponent
                   ? <span className="key-action-muted">--</span>
                   : <div className="row-actions"><button onClick={() => markUpdated(item.id)} title="标记为今日已更新">✓</button><button onClick={() => openEditor(item)} title="编辑来源">✎</button></div>}</td>

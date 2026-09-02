@@ -133,7 +133,7 @@ async function fetchLcscHtml(entry: KeyComponentEntry) {
 
 function parseLcscPrice(html: string, expectedMpn: string): LcscParsedPrice {
   const nextData = html.match(/<script id=["']__NEXT_DATA__["'][^>]*>([\s\S]*?)<\/script>/i);
-  if (!nextData) throw new Error("LCSC NEXT_DATA not found");
+  if (!nextData) return parseVisibleLcscPrice(html, expectedMpn);
 
   const data = parseEmbeddedJson<{
     props?: { pageProps?: { webData?: LcscWebData } };
@@ -173,6 +173,33 @@ function parseLcscPrice(html: string, expectedMpn: string): LcscParsedPrice {
   if (Number.isFinite(usdPrice)) return { price: usdPrice, currency: "USD" };
 
   throw new Error(`LCSC quantity 1 price not found${webData.currencyType ? `; page returned ${webData.currencyType}` : ""}`);
+}
+
+function parseVisibleLcscPrice(html: string, expectedMpn: string): LcscParsedPrice {
+  const visibleText = html
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!matchesLCSCModel(visibleText.match(/(?:MPN|Part\s*#|Mfr\.?#)\s*:?\s*([A-Z0-9_./,-]+)/i)?.[1], expectedMpn)
+    && !normalizeMpn(visibleText).includes(normalizeMpn(expectedMpn))) {
+    throw new Error(`LCSC MPN not found: expected ${expectedMpn}`);
+  }
+
+  // New LCSC pages render the price ladder as plain table text instead of
+  // exposing the former __NEXT_DATA__. Read the first (1+) unit-price tier.
+  const onePiece = visibleText.match(/(?:Qty\s+)?(?:Unit\s+Price|Price)[\s\S]{0,180}?\b1\+\s*(?:\|\s*)?(?:USD|US\$|\$|RMB|CNY|¥|￥)?\s*([0-9][0-9,]*(?:\.[0-9]+)?)/i)
+    || visibleText.match(/\b1\+\s*(?:\|\s*)?(?:USD|US\$|\$|RMB|CNY|¥|￥)\s*([0-9][0-9,]*(?:\.[0-9]+)?)/i);
+  if (!onePiece) throw new Error("LCSC quantity 1 price not found in rendered page");
+  const raw = onePiece[1];
+  const price = Number(raw.replace(/,/g, ""));
+  if (!Number.isFinite(price)) throw new Error("LCSC quantity 1 price is invalid");
+  const context = visibleText.slice(Math.max(0, (onePiece.index || 0) - 80), (onePiece.index || 0) + 120);
+  const currency: "CNY" | "USD" = /RMB|CNY|¥|￥/.test(context) ? "CNY" : "USD";
+  return { price, currency };
 }
 
 function parsePriceValue(value: unknown) {
