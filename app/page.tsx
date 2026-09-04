@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import Image from "next/image";
 import * as XLSX from "xlsx";
 import keyComponentsConfig from "../config/key-components.json";
+import lcscDiscovered from "../config/lcsc-discovered.json";
 import trackingConfig from "../config/tracking.json";
 import { runCrawler, type PriceResult, type TrackingEntry } from "../lib/crawlers";
 import { analyzePlasticTrends } from "../lib/analysis/plasticTrendAnalysis";
@@ -1057,7 +1058,29 @@ export default function Home() {
   }, []);
   useEffect(() => {
     let active = true;
-    type CachedCrawlerResult = PriceResult & { id?: string };
+type CachedCrawlerResult = PriceResult & { id?: string };
+
+    type ExtendedCachedResult = CachedCrawlerResult & {
+      categoryName?: string;
+      modelName?: string;
+      priceObservedAt?: string;
+      trackedMpn?: string;
+      originalRequestedMpn?: string;
+      priceBreakQuantity?: number;
+      finalStatus?: string;
+    };
+
+    const lcscAliases = lcscDiscovered as Array<{ originalRequestedMpn?: string; trackedMpn?: string; manufacturerPartNumber?: string }>;
+    const aliasesFor = (item: Item) => {
+      const values = [item.mpn, item.name];
+      for (const mapping of lcscAliases) {
+        const original = normalize(mapping.originalRequestedMpn || mapping.manufacturerPartNumber);
+        if (original && values.some((value) => normalize(value) === original)) {
+          values.push(mapping.originalRequestedMpn || "", mapping.trackedMpn || "");
+        }
+      }
+      return new Set(values.map(normalize).filter(Boolean));
+    };
 
     const applyCachedResults = (results: CachedCrawlerResult[]) => {
       if (!active) return;
@@ -1073,7 +1096,7 @@ export default function Home() {
         // leaving an older browser snapshot on screen.
         if (!result.success || result.price === null || result.price === undefined) continue;
         const target = nextItems.find((item) => item.group === result.category
-          && (normalize(item.name) === normalize(result.material) || normalize(item.mpn) === normalize(result.material)));
+          && aliasesFor(item).has(normalize(result.material)));
         if (!target) continue;
 
         const key = `${target.group}::${target.name}`;
@@ -1102,7 +1125,7 @@ export default function Home() {
     const loadCachedCrawlerData = async () => {
       // Cache-bust the browser/CDN layer; the API itself reads the latest KV-backed payload.
       const cacheBust = `?t=${Date.now()}`;
-      const paths = ["/api/crawler/plastic", "/api/crawler/trendforce", "/api/crawler/digikey"]
+      const paths = ["/api/crawler/plastic", "/api/crawler/trendforce", "/api/crawler/digikey", "/api/crawler/extended"]
         .map((path) => `${path}${cacheBust}`);
       const requests = paths.map(async (path): Promise<CachedCrawlerResult[]> => {
         const response = await fetch(path, { cache: "no-store" });
@@ -1115,7 +1138,24 @@ export default function Home() {
         }
         if (!payload || typeof payload !== "object") return [];
         const results = (payload as { results?: unknown }).results;
-        return Array.isArray(results) ? results as CachedCrawlerResult[] : [];
+        if (!Array.isArray(results)) return [];
+        if (!path.startsWith("/api/crawler/extended")) return results as CachedCrawlerResult[];
+        return results.map((raw) => {
+          const extended = raw as ExtendedCachedResult;
+          const material = extended.trackedMpn || extended.modelName || "";
+          const category = extended.categoryName || extended.category || "";
+          const history = Array.isArray(extended.history) ? extended.history : [];
+          const latestHistoryDate = history.map((point) => dateKey(point.date)).filter(Boolean).sort().at(-1);
+          return {
+            ...extended,
+            success: extended.finalStatus === "success" || extended.finalStatus === "unchanged",
+            category,
+            material,
+            materialName: material,
+            mpn: material,
+            updateDate: latestHistoryDate || dateKey(extended.priceObservedAt) || extended.updateDate || "",
+          } as CachedCrawlerResult;
+        });
       });
       const responses = await Promise.allSettled(requests);
       const cachedResults: CachedCrawlerResult[] = [];
