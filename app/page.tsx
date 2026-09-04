@@ -78,7 +78,15 @@ const crawlerUpdateSnapshotStorageKey = "semiconductor-crawler-update-snapshot-v
 // Keep the E-key panel available without exposing crawler internals in its UI.
 // Backend fields, API responses and logs remain unchanged for other surfaces.
 const showCrawlStatusInAutomaticModal = true;
-const trendPalette = ["#5b21b6", "#d9369a", "#0b2d5c", "#38bdf8", "#eab308", "#16a34a"];
+// Keep enough distinct colors for the largest category (MCU currently has
+// more than a dozen models). Reusing a six-color palette made different
+// models indistinguishable in the full-category chart.
+const trendPalette = [
+  "#5b21b6", "#d9369a", "#0b2d5c", "#0284c7", "#eab308", "#16a34a",
+  "#dc2626", "#7c3aed", "#0891b2", "#ea580c", "#65a30d", "#be185d",
+  "#4338ca", "#0f766e", "#a16207", "#c026d3", "#1d4ed8", "#15803d",
+  "#b45309", "#9f1239", "#374151", "#4f46e5", "#0e7490", "#166534",
+];
 const trendColorByName: Record<string, string> = {
   ABS: "#5b21b6",
   PVC: "#d9369a",
@@ -86,6 +94,10 @@ const trendColorByName: Record<string, string> = {
   PET: "#38bdf8",
   PP: "#eab308",
 };
+const stableSeriesOrder = Array.from(new Set([
+  ...seed.map((item) => item.name),
+  ...(lcscDiscovered as Array<{ originalRequestedMpn?: string; trackedMpn?: string; manufacturerPartNumber?: string }>).flatMap((item) => [item.originalRequestedMpn, item.trackedMpn, item.manufacturerPartNumber]),
+].map((value) => String(value || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "")).filter(Boolean)));
 const keyTrendColorByMpn: Record<string, string> = {
   MCIMX515DJM8C: "#2563eb",
   "TJA1042T/3": "#16a34a",
@@ -622,26 +634,30 @@ function createDashboardStore() {
     let savedItems: Item[] | undefined;
     let savedHistory: Record<string, [string, number][]> | undefined;
     try {
-      const storedItems = localStorage.getItem("semiconductor-price-items-v8");
+      // v10/v7 intentionally bypasses pre-existing snapshots that may have
+      // mixed DigiKey seed points with LCSC quotes after a source migration.
+      // The old keys are left untouched; the dashboard rebuilds from the
+      // static baseline and the current crawler cache.
+      const storedItems = localStorage.getItem("semiconductor-price-items-v10");
       if (storedItems) savedItems = JSON.parse(storedItems) as Item[];
     } catch { /* keep deterministic defaults */ }
     try {
-      const storedHistory = localStorage.getItem("semiconductor-price-history-v5");
+      const storedHistory = localStorage.getItem("semiconductor-price-history-v7");
       if (storedHistory) savedHistory = JSON.parse(storedHistory) as Record<string, [string, number][]>;
     } catch { /* keep deterministic defaults */ }
 
     snapshot = { items: mergeItems(savedItems), history: mergeHistory(savedHistory) };
     try {
-      localStorage.setItem("semiconductor-price-items-v8", JSON.stringify(snapshot.items));
-      localStorage.setItem("semiconductor-price-history-v5", JSON.stringify(snapshot.history));
+      localStorage.setItem("semiconductor-price-items-v10", JSON.stringify(snapshot.items));
+      localStorage.setItem("semiconductor-price-history-v7", JSON.stringify(snapshot.history));
     } catch { /* storage can be unavailable in private contexts */ }
   };
 
   const notify = () => listeners.forEach((listener) => listener());
   const persist = () => {
     try {
-      localStorage.setItem("semiconductor-price-items-v8", JSON.stringify(snapshot.items));
-      localStorage.setItem("semiconductor-price-history-v5", JSON.stringify(snapshot.history));
+      localStorage.setItem("semiconductor-price-items-v10", JSON.stringify(snapshot.items));
+      localStorage.setItem("semiconductor-price-history-v7", JSON.stringify(snapshot.history));
     } catch { /* storage can be unavailable in private contexts */ }
   };
 
@@ -734,8 +750,23 @@ function filterTrendRange(series: [string, number][], range: TrendRange, maxDate
   return series.filter(([date]) => dateMs(date) >= threshold);
 }
 
-function trendColor(name: string, index: number) {
-  return trendColorByName[name] || trendPalette[index % trendPalette.length];
+function stableSeriesId(name: string) {
+  const normalized = String(name || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const mapping = (lcscDiscovered as Array<{ originalRequestedMpn?: string; trackedMpn?: string; manufacturerPartNumber?: string }>).find((item) => {
+    const aliases = [item.originalRequestedMpn, item.trackedMpn, item.manufacturerPartNumber].map((value) => String(value || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, ""));
+    return aliases.includes(normalized);
+  });
+  return String(mapping?.originalRequestedMpn || normalized).trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+
+function trendColor(name: string, _index: number) {
+  if (trendColorByName[name]) return trendColorByName[name];
+  const seriesId = stableSeriesId(name);
+  const orderIndex = stableSeriesOrder.indexOf(seriesId);
+  if (orderIndex >= 0) return trendPalette[orderIndex % trendPalette.length];
+  let hash = 0;
+  for (const character of seriesId) hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
+  return trendPalette[hash % trendPalette.length];
 }
 
 function keyTrendColor(name: string, index: number) {
@@ -1103,6 +1134,11 @@ type CachedCrawlerResult = PriceResult & { id?: string };
         const crawlerHistory = result.history?.length
           ? result.history.map((point) => [point.date, point.price] as [string, number])
           : [[result.updateDate, result.price] as [string, number]];
+        // Do not connect quotes from different sources (for example an old
+        // DigiKey seed point to a newly observed LCSC quote).  Those prices
+        // can have different coverage, currency, or tier semantics; merging
+        // them would create a fabricated jump and an invalid trend percent.
+        const sourceChanged = Boolean(target.source && result.source && target.source !== result.source);
         nextItems = nextItems.map((item) => item.id === target.id ? {
           ...item,
           price: String(result.price),
@@ -1112,7 +1148,7 @@ type CachedCrawlerResult = PriceResult & { id?: string };
           status: "已更新" as Status,
           updated: result.updateDate,
         } : item);
-        nextHistory = { ...nextHistory, [key]: sortSeries([...(nextHistory[key] ?? []), ...crawlerHistory]) };
+        nextHistory = { ...nextHistory, [key]: sortSeries([...(sourceChanged ? [] : (nextHistory[key] ?? [])), ...crawlerHistory]) };
         changed = true;
       }
 
@@ -1125,7 +1161,7 @@ type CachedCrawlerResult = PriceResult & { id?: string };
     const loadCachedCrawlerData = async () => {
       // Cache-bust the browser/CDN layer; the API itself reads the latest KV-backed payload.
       const cacheBust = `?t=${Date.now()}`;
-      const paths = ["/api/crawler/plastic", "/api/crawler/trendforce", "/api/crawler/digikey", "/api/crawler/extended"]
+      const paths = ["/api/crawler/plastic", "/api/crawler/trendforce", "/api/crawler/digikey", "/api/crawler/extended/public"]
         .map((path) => `${path}${cacheBust}`);
       const requests = paths.map(async (path): Promise<CachedCrawlerResult[]> => {
         const response = await fetch(path, { cache: "no-store" });
@@ -1460,6 +1496,18 @@ type CachedCrawlerResult = PriceResult & { id?: string };
     const name = key.split("::").slice(1).join("::");
     return { key, name, unit: unitForTrendKey(key), source: sourceByTrendKey.get(key), sourceUrl: sourceUrlByTrendKey.get(key), color: trendColor(name, index), points: filterTrendRange(displayHistory[key] ?? [], selectedTrendRange, groupLatestDate) };
   }).filter((series) => series.points.length);
+  const selectedSeriesId = stableSeriesId(trendName);
+  const orderedAllTrendSeries = [...allTrendSeries].sort((a, b) => {
+    const aSelected = stableSeriesId(a.name) === selectedSeriesId;
+    const bSelected = stableSeriesId(b.name) === selectedSeriesId;
+    return Number(aSelected) - Number(bSelected);
+  });
+  const pointIsOverlapped = (seriesKey: string, date: string, price: number) => {
+    const x = xForDate(date);
+    const y = yForAllPrice(price);
+    return orderedAllTrendSeries.some((other) => other.key !== seriesKey && other.points.some(([otherDate, otherPrice]) =>
+      Math.abs(xForDate(otherDate) - x) < 0.9 && Math.abs(yForAllPrice(otherPrice) - y) < 0.9));
+  };
   const allTrendDates = Array.from(new Set(allTrendSeries.flatMap((series) => series.points.map(([date]) => date)))).sort();
   const allTrendPrices = allTrendSeries.flatMap((series) => series.points.map((point) => point[1]));
   const trendPrices = trend.map((point) => point[1]);
@@ -2795,9 +2843,12 @@ type CachedCrawlerResult = PriceResult & { id?: string };
                   <line x1={chartLeft} y1={chartTop} x2={chartLeft} y2={chartBottom} className="axis-line" />
                   {xTicks.map((date) => <text key={date} x={xForTick(date)} y="63" className="axis-tick x" textAnchor="middle">{date}</text>)}
                   {trendTooltip && <line x1={trendTooltip.x} y1={chartTop} x2={trendTooltip.x} y2={chartBottom} className="tooltip-guide" />}
-                  {trendMode === "all" ? allTrendSeries.map((series) => <g key={series.key}>
+                  {trendMode === "all" ? orderedAllTrendSeries.map((series) => <g key={series.key} opacity={stableSeriesId(series.name) === selectedSeriesId ? 1 : 0.72}>
                     {series.points.length >= 2 && <polyline points={series.points.map(([date, price]) => `${xForDate(date)},${yForAllPrice(price)}`).join(" ")} className="trend-line multi" style={{ stroke: series.color }} />}
-                    {series.points.map(([date, price], index) => <circle key={`${series.key}-${date}-${index}`} cx={xForDate(date)} cy={yForAllPrice(price)} r=".72" className="trend-point filled" style={{ fill: series.color, stroke: series.color }} aria-label={`${series.name} · ${date}：${formatTrendPrice(price)} ${series.unit}`} />)}
+                    {series.points.map(([date, price], index) => <g key={`${series.key}-${date}-${index}`}>
+                      {pointIsOverlapped(series.key, date, price) && <circle cx={xForDate(date)} cy={yForAllPrice(price)} r="1.28" fill="none" stroke={series.color} strokeWidth=".28" />}
+                      <circle cx={xForDate(date)} cy={yForAllPrice(price)} r={stableSeriesId(series.name) === selectedSeriesId ? ".9" : ".72"} className="trend-point filled" style={{ fill: series.color, stroke: series.color }} aria-label={`${series.name} · ${date}：${formatTrendPrice(price)} ${series.unit}`} />
+                    </g>)}
                   </g>) : <>
                     {trend.length >= 2 && <polyline points={chartPoints} className="trend-line" />}
                     {trend.map((point, index) => <circle key={`${point[0]}-${index}`} cx={xForPoint(index)} cy={yForPrice(point[1])} r=".72" className="trend-point filled" aria-label={`${point[0]}：${formatTrendPrice(point[1])} ${chartUnit}`} />)}
