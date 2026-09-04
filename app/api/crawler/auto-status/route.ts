@@ -3,7 +3,7 @@ import { readCrawlerCache, writeCrawlerCache } from "../../../../lib/cache/edgeC
 
 export const runtime = "edge";
 
-type AutoStatusPayload = { runAt: string; results: Array<Record<string, unknown>> };
+type AutoStatusPayload = { startedAt?: string; runAt: string; completedAt?: string; lastSuccessfulUpdateAt?: string; status?: "success" | "partial" | "failed"; results: Array<Record<string, unknown>> };
 
 function authorized(request: Request) {
   const expected = process.env.CRON_SECRET?.trim();
@@ -21,6 +21,10 @@ export async function POST(request: Request) {
   let payload: AutoStatusPayload;
   try { payload = await request.json() as AutoStatusPayload; } catch { return NextResponse.json({ success: false, error: "Invalid JSON request body" }, { status: 400 }); }
   if (!payload || typeof payload.runAt !== "string" || !Array.isArray(payload.results)) return NextResponse.json({ success: false, error: "Invalid automatic update status payload" }, { status: 400 });
-  await writeCrawlerCache("automatic-update-status", payload, 48 * 60 * 60);
+  const previous = await readCrawlerCache<AutoStatusPayload>("automatic-update-status");
+  const lastSuccessfulUpdateAt = payload.status === "success"
+    ? payload.completedAt || payload.runAt
+    : previous?.lastSuccessfulUpdateAt;
+  await writeCrawlerCache("automatic-update-status", { ...payload, lastSuccessfulUpdateAt }, 48 * 60 * 60);
   return NextResponse.json({ success: true });
 }

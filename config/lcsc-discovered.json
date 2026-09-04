@@ -1,0 +1,163 @@
+[
+  {
+    "manufacturerPartNumber": "IPB017N10N5",
+    "manufacturer": "Infineon",
+    "lcscProductCode": "C536479",
+    "lcscProductUrl": "https://www.lcsc.com/product-detail/C536479.html",
+    "matchType": "exact_match",
+    "matchedProductModel": "IPB017N10N5",
+    "matchedPackage": "TO-263-7",
+    "discoveredAt": "2026-09-04",
+    "verifiedAt": "2026-09-04",
+    "discoveryMethod": "browser-public-search"
+  },
+  {
+    "manufacturerPartNumber": "STM32F103C8T6",
+    "manufacturer": "ST",
+    "lcscProductCode": "C8734",
+    "lcscProductUrl": "https://www.lcsc.com/product-detail/C8734.html",
+    "matchType": "exact_match",
+    "matchedProductModel": "STM32F103C8T6",
+    "matchedPackage": "LQFP-48(7x7)",
+    "discoveredAt": "2026-09-04",
+    "verifiedAt": "2026-09-04",
+    "discoveryMethod": "browser-public-search"
+  },
+  {
+    "manufacturerPartNumber": "MIMX9332CVVXMAC",
+    "manufacturer": "NXP",
+    "lcscProductCode": "C48980522",
+    "lcscProductUrl": "https://www.lcsc.com/product-detail/C48980522.html",
+    "matchType": "exact_match",
+    "matchedProductModel": "MIMX9332CVVXMAC",
+    "discoveredAt": "2026-09-04",
+    "verifiedAt": "2026-09-04",
+    "discoveryMethod": "browser-public-search"
+  },
+  {
+    "manufacturerPartNumber": "AO3400A",
+    "manufacturer": "Alpha & Omega",
+    "lcscProductCode": "C20917",
+    "lcscProductUrl": "https://www.lcsc.com/product-detail/C20917.html",
+    "matchType": "exact_match",
+    "matchedProductModel": "AO3400A",
+    "discoveredAt": "2026-09-04",
+    "verifiedAt": "2026-09-04",
+    "discoveryMethod": "browser-public-search"
+  },
+  {
+    "manufacturerPartNumber": "FPF2123",
+    "manufacturer": "onsemi",
+    "lcscProductCode": "C457650",
+    "lcscProductUrl": "https://www.lcsc.com/product-detail/C457650.html",
+    "matchType": "exact_match",
+    "matchedProductModel": "FPF2123",
+    "discoveredAt": "2026-09-04",
+    "verifiedAt": "2026-09-04",
+    "discoveryMethod": "browser-public-search"
+  },
+  {
+    "manufacturerPartNumber": "STM32F407VGT6",
+    "manufacturer": "STMicroelectronics",
+    "lcscProductCode": "C12345",
+    "lcscProductUrl": "https://www.lcsc.com/product-detail/C12345.html",
+    "matchType": "exact_match",
+    "matchedProductModel": "STM32F407VGT6",
+    "discoveredAt": "2026-09-04",
+    "verifiedAt": "2026-09-04",
+    "discoveryMethod": "browser-public-search"
+  },
+  {
+    "manufacturerPartNumber": "S32K312NHT0MPBST",
+    "manufacturer": "NXP",
+    "lcscProductCode": "C5196062",
+    "lcscProductUrl": "https://www.lcsc.com/product-detail/C5196062.html",
+    "matchType": "exact_match",
+    "matchedProductModel": "S32K312NHT0MPBST",
+    "discoveredAt": "2026-09-04",
+    "verifiedAt": "2026-09-04",
+    "discoveryMethod": "browser-public-search"
+  },
+  {
+    "manufacturerPartNumber": "SAK-TC275TP-64F200N DC",
+    "manufacturer": "Infineon",
+    "lcscProductCode": "C538808",
+    "lcscProductUrl": "https://www.lcsc.com/product-detail/C538808.html",
+    "matchType": "exact_match",
+    "matchedProductModel": "SAK-TC275TP-64F200N DC",
+    "discoveredAt": "2026-09-04",
+    "verifiedAt": "2026-09-04",
+    "discoveryMethod": "browser-public-search"
+  },
+  {
+    "manufacturerPartNumber": "ESP32-WROOM-32E-N4",
+    "manufacturer": "Espressif",
+    "lcscProductCode": "C701341",
+    "lcscProductUrl": "https://www.lcsc.com/product-detail/C701341.html",
+    "matchType": "exact_match",
+    "matchedProductModel": "ESP32-WROOM-32E-N4",
+    "discoveredAt": "2026-09-04",
+    "verifiedAt": "2026-09-04",
+    "discoveryMethod": "browser-public-search"
+  },
+  {
+    "originalRequestedMpn": "IPB017N10N5ATMA1",
+    "trackedMpn": "IPB017N10N5ATMA1-VB",
+    "quotedMpn": "IPB017N10N5ATMA1-VB",
+    "lcscProductCode": "C47993830",
+    "lcscProductUrl": "https://www.lcsc.com/product-detail/C47993830.html",
+    "lcscManufacturer": "VBsemi Elec",
+    "matchType": "lcsc_canonical_model",
+    "mappingReason": "user_confirmed_lcsc_model_as_canonical",
+    "mappedAt": "2026-09-04",
+    "verifiedAt": "2026-09-04"
+  },
+  {
+    "originalRequestedMpn": "BTS50015-1TAD",
+    "trackedMpn": "BTS500151TADATMA2",
+    "quotedMpn": "BTS500151TADATMA2",
+    "lcscProductCode": "C2150052",
+    "lcscProductUrl": "https://www.lcsc.com/product-detail/C2150052.html",
+    "lcscManufacturer": "Infineon",
+    "matchType": "lcsc_canonical_model",
+    "mappingReason": "user_confirmed_lcsc_model_as_canonical",
+    "mappedAt": "2026-09-04",
+    "verifiedAt": "2026-09-04"
+  },
+  {
+    "originalRequestedMpn": "S32K148UJT0VLLT",
+    "trackedMpn": "FS32K148UJT0VLLT",
+    "quotedMpn": "FS32K148UJT0VLLT",
+    "lcscProductCode": "C3209400",
+    "lcscProductUrl": "https://www.lcsc.com/product-detail/C3209400.html",
+    "lcscManufacturer": "NXP",
+    "matchType": "lcsc_canonical_model",
+    "mappingReason": "user_confirmed_lcsc_model_as_canonical",
+    "mappedAt": "2026-09-04",
+    "verifiedAt": "2026-09-04"
+  },
+  {
+    "originalRequestedMpn": "TM4C1294NCPDT",
+    "trackedMpn": "TM4C1294NCPDTI3",
+    "quotedMpn": "TM4C1294NCPDTI3",
+    "lcscProductCode": "C99441",
+    "lcscProductUrl": "https://www.lcsc.com/product-detail/C99441.html",
+    "lcscManufacturer": "TI",
+    "matchType": "lcsc_canonical_model",
+    "mappingReason": "user_confirmed_lcsc_model_as_canonical",
+    "mappedAt": "2026-09-04",
+    "verifiedAt": "2026-09-04"
+  },
+  {
+    "originalRequestedMpn": "MSP430FR5994IPM",
+    "trackedMpn": "MSP430FR5994IPMR",
+    "quotedMpn": "MSP430FR5994IPMR",
+    "lcscProductCode": "C181363",
+    "lcscProductUrl": "https://www.lcsc.com/product-detail/C181363.html",
+    "lcscManufacturer": "TI",
+    "matchType": "lcsc_canonical_model",
+    "mappingReason": "user_confirmed_lcsc_model_as_canonical",
+    "mappedAt": "2026-09-04",
+    "verifiedAt": "2026-09-04"
+  }
+]

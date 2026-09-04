@@ -35,6 +35,8 @@ type LcscWebData = {
 type LcscParsedPrice = {
   price: number;
   currency: "CNY" | "USD";
+  quantity: number;
+  priceBreaks: Array<{ quantity: number; price: number; currency: "CNY" | "USD" }>;
 };
 
 function sleep(ms: number) {
@@ -144,9 +146,10 @@ function parseLcscPrice(html: string, expectedMpn: string): LcscParsedPrice {
     throw new Error(`LCSC MPN mismatch: expected ${expectedMpn}, got ${webData.productModel || "unknown"}`);
   }
 
-  const quantityOne = webData.productPriceList
+  const tiers = webData.productPriceList
     ?.filter((item) => Number.isFinite(Number(item.ladder)) && Number(item.ladder) > 0)
-    .sort((left, right) => Number(left.ladder) - Number(right.ladder))[0];
+    .sort((left, right) => Number(left.ladder) - Number(right.ladder)) || [];
+  const quantityOne = tiers[0];
   const cnyQuantityOne = quantityOne?.cnyProductPriceList?.find((item) => item.ladder === 1);
   const isCnyPrice = webData.currencyType === "CNY"
     || webData.currencySymbol === "￥"
@@ -163,14 +166,14 @@ function parseLcscPrice(html: string, expectedMpn: string): LcscParsedPrice {
     : isCnyPrice
       ? parsePriceValue(quantityOne?.productPrice ?? quantityOne?.currencyPrice ?? quantityOne?.cnyPrice ?? quantityOne?.price)
       : parsePriceValue(quantityOne?.cnyPrice);
-  if (Number.isFinite(cnyPrice)) return { price: cnyPrice, currency: "CNY" };
+  if (Number.isFinite(cnyPrice)) return { price: cnyPrice, currency: "CNY", quantity: Number(quantityOne?.ladder) || 1, priceBreaks: tiers.map((tier) => ({ quantity: Number(tier.ladder), price: tierPrice(tier, "CNY"), currency: "CNY" as const })).filter((item) => Number.isFinite(item.price)) };
 
   const isUsdPrice = webData.currencyType === "USD"
     || webData.currencySymbol === "$"
     || quantityOne?.currencyCode === "USD"
     || quantityOne?.currencySymbol === "$";
   const usdPrice = parsePriceValue(quantityOne?.usdPrice ?? (isUsdPrice ? quantityOne?.productPrice ?? quantityOne?.currencyPrice ?? quantityOne?.price : undefined));
-  if (Number.isFinite(usdPrice)) return { price: usdPrice, currency: "USD" };
+  if (Number.isFinite(usdPrice)) return { price: usdPrice, currency: "USD", quantity: Number(quantityOne?.ladder) || 1, priceBreaks: tiers.map((tier) => ({ quantity: Number(tier.ladder), price: parsePriceValue(tier.usdPrice ?? tier.productPrice ?? tier.currencyPrice ?? tier.price), currency: "USD" as const })).filter((item) => Number.isFinite(item.price)) };
 
   throw new Error(`LCSC quantity 1 price not found${webData.currencyType ? `; page returned ${webData.currencyType}` : ""}`);
 }
@@ -189,17 +192,17 @@ function parseVisibleLcscPrice(html: string, expectedMpn: string): LcscParsedPri
     throw new Error(`LCSC MPN not found: expected ${expectedMpn}`);
   }
 
-  // New LCSC pages render the price ladder as plain table text instead of
-  // exposing the former __NEXT_DATA__. Read the first (1+) unit-price tier.
-  const onePiece = visibleText.match(/(?:Qty\s+)?(?:Unit\s+Price|Price)[\s\S]{0,180}?\b1\+\s*(?:\|\s*)?(?:USD|US\$|\$|RMB|CNY|¥|￥)?\s*([0-9][0-9,]*(?:\.[0-9]+)?)/i)
-    || visibleText.match(/\b1\+\s*(?:\|\s*)?(?:USD|US\$|\$|RMB|CNY|¥|￥)\s*([0-9][0-9,]*(?:\.[0-9]+)?)/i);
-  if (!onePiece) throw new Error("LCSC quantity 1 price not found in rendered page");
-  const raw = onePiece[1];
-  const price = Number(raw.replace(/,/g, ""));
+  const tiers = Array.from(visibleText.matchAll(/\b([0-9][0-9,]*)\+\s*(?:\|\s*)?(?:USD|US\$|\$|RMB|CNY|¥|￥)?\s*([0-9][0-9,]*(?:\.[0-9]+)?)/gi))
+    .map((match) => ({ quantity: Number(match[1].replace(/,/g, "")), price: Number(match[2].replace(/,/g, "")), context: match[0] }))
+    .filter((item) => Number.isFinite(item.quantity) && item.quantity > 0 && Number.isFinite(item.price))
+    .sort((left, right) => left.quantity - right.quantity);
+  const onePiece = tiers[0];
+  if (!onePiece) throw new Error("LCSC public price tier not found in rendered page");
+  const price = onePiece.price;
   if (!Number.isFinite(price)) throw new Error("LCSC quantity 1 price is invalid");
-  const context = visibleText.slice(Math.max(0, (onePiece.index || 0) - 80), (onePiece.index || 0) + 120);
+  const context = onePiece.context;
   const currency: "CNY" | "USD" = /RMB|CNY|¥|￥/.test(context) ? "CNY" : "USD";
-  return { price, currency };
+  return { price, currency, quantity: onePiece.quantity, priceBreaks: tiers.map((item) => ({ quantity: item.quantity, price: item.price, currency: /RMB|CNY|¥|￥/.test(item.context) ? "CNY" as const : "USD" as const })) };
 }
 
 function parsePriceValue(value: unknown) {
@@ -207,6 +210,13 @@ function parsePriceValue(value: unknown) {
   const normalized = String(value ?? "").replace(/[,¥￥]/g, "").trim();
   const match = normalized.match(/\d+(?:\.\d+)?/);
   return match ? Number(match[0]) : Number.NaN;
+}
+
+function tierPrice(tier: LcscPriceTier, currency: "CNY" | "USD") {
+  const nested = tier.cnyProductPriceList?.find((item) => item.ladder === 1);
+  return parsePriceValue(currency === "CNY"
+    ? nested?.productPrice ?? nested?.currencyPrice ?? nested?.cnyPrice ?? nested?.price ?? tier.cnyPrice ?? tier.productPrice ?? tier.currencyPrice ?? tier.price
+    : tier.usdPrice ?? tier.productPrice ?? tier.currencyPrice ?? tier.price);
 }
 
 export async function fetchLcscPrice(entry: KeyComponentEntry): Promise<PriceResult & { id: string; history?: PriceHistoryPoint[] }> {
@@ -233,7 +243,12 @@ export async function fetchLcscPrice(entry: KeyComponentEntry): Promise<PriceRes
       updateDate,
       crawlTime: new Date().toISOString(),
       mode: "real",
-      history: [{ date: updateDate, price: parsed.price }],
+      priceBreakQuantity: parsed.quantity,
+      minimumOrderQuantity: parsed.quantity,
+      selectedQuantity: parsed.quantity,
+      priceBreaks: parsed.priceBreaks,
+      priceBasis: parsed.quantity === 1 ? "single-unit" : "minimum-public-tier",
+      history: [{ date: updateDate, price: parsed.price, priceBreakQuantity: parsed.quantity }],
     };
   } catch (error) {
     return failedResult(entry, error instanceof Error ? error.message : "LCSC request failed");

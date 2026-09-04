@@ -23,6 +23,13 @@ export type TrackingEntry = {
   mpn?: string;
   currency?: string;
   quantity?: number;
+  priceBreakQuantity?: number;
+  minimumOrderQuantity?: number;
+  selectedQuantity?: number;
+  priceBreaks?: Array<{ quantity: number; price: number; currency: string }>;
+  priceBasis?: "single-unit" | "minimum-public-tier";
+  packageType?: string;
+  stockStatus?: string;
   enabled: boolean;
 };
 
@@ -46,6 +53,13 @@ export type PriceResult = {
   availability?: string;
   mpn?: string;
   quantity?: number;
+  priceBreakQuantity?: number;
+  minimumOrderQuantity?: number;
+  selectedQuantity?: number;
+  priceBreaks?: Array<{ quantity: number; price: number; currency: string }>;
+  priceBasis?: "single-unit" | "minimum-public-tier";
+  packageType?: string;
+  stockStatus?: string;
   analysis?: PlasticTrendAnalysis;
   status?: "configuration_required" | "source_unavailable" | "success";
 };
@@ -53,6 +67,7 @@ export type PriceResult = {
 export type PriceHistoryPoint = {
   date: string;
   price: number;
+  priceBreakQuantity?: number;
 };
 
 function todayKey() {

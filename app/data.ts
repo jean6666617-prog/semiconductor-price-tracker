@@ -705,21 +705,6 @@ export const seedItems = [
     "cadence": "每月"
   },
   {
-    "id": 42,
-    "group": "MCU芯片",
-    "name": "NXP MPC5744P",
-    "spec": "Power Architecture automotive MCU, MPC5744P family, powertrain/motor control",
-    "supplier": "NXP",
-    "mpn": "MPC5744PMLQ9",
-    "price": "—",
-    "unit": "—",
-    "source": "DigiKey",
-    "url": "https://www.digikey.com/en/products?keywords=MPC5744PMLQ9",
-    "status": "待更新",
-    "updated": "2026-07-08",
-    "cadence": "每月"
-  },
-  {
     "id": 43,
     "group": "MCU芯片",
     "name": "Infineon TC275",

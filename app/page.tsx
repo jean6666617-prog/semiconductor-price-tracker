@@ -24,6 +24,7 @@ const retainedGroups = new Set(["SOC芯片", "MCU芯片", "PCB", "SGT MOS / MOSF
 const seed: Item[] = [...seedItems.filter((item) => retainedGroups.has(item.group)), ...workbookItems] as Item[];
 const obsoleteMpns = new Set([
   "MCIMX515DVM10AC",
+  "MPC5744PMLQ9",
   "SAK-TC377TP-96F300S AE",
   "R7F701373EAFP-C",
 ]);
@@ -33,7 +34,7 @@ const trendRanges = ["7天", "30天", "90天", "180天", "全部"] as const;
 type TrendRange = typeof trendRanges[number];
 type TrendMode = "all" | "single" | "key";
 type UpdateResult = PriceResult & { mode?: "real" | "mock" };
-type AutomaticUpdateStatus = { runAt: string | null; results: Array<PriceResult & { id?: string }> };
+type AutomaticUpdateStatus = { startedAt?: string; runAt: string | null; completedAt?: string; lastSuccessfulUpdateAt?: string; status?: "success" | "partial" | "failed"; results: Array<PriceResult & { id?: string }> };
 type KeyComponentResult = PriceResult & { id: string };
 type KeyComponentTableItem = Omit<Item, "id"> & {
   id: string;
@@ -73,6 +74,9 @@ const trackingEntries = trackingConfig as TrackingEntry[];
 const keyComponentEntries = keyComponentsConfig as KeyComponentEntry[];
 const keyComponentResultsStorageKey = "semiconductor-key-component-results-v1";
 const crawlerUpdateSnapshotStorageKey = "semiconductor-crawler-update-snapshot-v1";
+// Keep the E-key panel available without exposing crawler internals in its UI.
+// Backend fields, API responses and logs remain unchanged for other surfaces.
+const showCrawlStatusInAutomaticModal = true;
 const trendPalette = ["#5b21b6", "#d9369a", "#0b2d5c", "#38bdf8", "#eab308", "#16a34a"];
 const trendColorByName: Record<string, string> = {
   ABS: "#5b21b6",
@@ -479,6 +483,17 @@ function sortSeries(series: [string, number][] = []) {
   return Array.from(byDate.entries()).sort((a, b) => a[0].localeCompare(b[0])) as [string, number][];
 }
 
+// Historical workbook series for plastics and DDR are already curated and
+// must remain byte-for-byte equivalent in the chart.  Other categories can
+// contain stale browser snapshots or failed-crawl placeholders; those are
+// not valid price observations and must never become chart points.
+const curatedTrendGroups = new Set(["塑料件", "DDR内存"]);
+function sanitizeTrendHistory(key: string, series: [string, number][] = []) {
+  const sorted = sortSeries(series);
+  if (curatedTrendGroups.has(key.split("::")[0])) return sorted;
+  return sorted.filter(([, price]) => price > 0);
+}
+
 function sanitizeKeyHistory(series: [string, number][], referencePrice?: number) {
   const cleaned = sortSeries(series).filter(([, price]) => price > 0);
   if (!cleaned.length || !Number.isFinite(referencePrice) || (referencePrice ?? 0) <= 0) return cleaned;
@@ -556,7 +571,7 @@ function mergeHistory(savedHistory?: Record<string, [string, number][]>) {
   const filteredHistory = filterObsoleteHistory(savedHistory);
   const keys = new Set([...Object.keys(filteredHistory ?? {}), ...Object.keys(initialHistory)]);
   keys.forEach((key) => {
-    merged[key] = sortSeries([...(initialHistory[key] ?? []), ...(filteredHistory?.[key] ?? [])]);
+    merged[key] = sanitizeTrendHistory(key, [...(initialHistory[key] ?? []), ...(filteredHistory?.[key] ?? [])]);
   });
   return merged;
 }
@@ -943,7 +958,9 @@ export default function Home() {
           setAutomaticUpdateStatus(payload);
           // The Cron run time is authoritative. Keep the dashboard timestamp
           // aligned even when a crawl returns the same price as the prior run.
-          if (payload.runAt) setLastUpdatedAt(payload.runAt);
+          const completeSuccess = payload.status === "success"
+            || (payload.status === undefined && payload.results.length > 0 && payload.results.every((result) => result.success === true && result.price !== null));
+          if (completeSuccess && payload.lastSuccessfulUpdateAt) setLastUpdatedAt(payload.lastSuccessfulUpdateAt);
         }
       } catch {
         // The status panel is supplementary and must not affect the dashboard.
@@ -1054,7 +1071,7 @@ export default function Home() {
         // historical cache when today's source page is temporarily unavailable
         // (`stale: true`). Keep that verified latest point visible instead of
         // leaving an older browser snapshot on screen.
-        if (result.price === null || result.price === undefined) continue;
+        if (!result.success || result.price === null || result.price === undefined) continue;
         const target = nextItems.find((item) => item.group === result.category
           && (normalize(item.name) === normalize(result.material) || normalize(item.mpn) === normalize(result.material)));
         if (!target) continue;
@@ -1195,7 +1212,7 @@ export default function Home() {
       const date = dateKey(item.updated);
       if (item.status !== "已更新" || !date || !Number.isFinite(price) || price <= 0) continue;
       const key = `${item.group}::${item.name}`;
-      merged[key] = sortSeries([...(merged[key] ?? []), [date, price]]);
+      merged[key] = sanitizeTrendHistory(key, [...(merged[key] ?? []), [date, price]]);
     }
     return merged;
   }, [items, sortedHistory]);
@@ -1374,10 +1391,17 @@ export default function Home() {
   const activeMarketSource = activeMarketCategory === "Memory"
     ? "TrendForce · Tom's Hardware · DigiTimes"
     : getMarketSourceLabel(activeMarketCategory);
-  const trendGroups = Array.from(new Set(Object.keys(displayHistory).map((key) => key.split("::")[0])));
+  // Keep the category selector driven by the category-status catalogue as
+  // well as historical series.  A newly tracked model with no history must
+  // still be selectable so the page can explain that its history is empty;
+  // it must never inherit the previous category's series.
+  const trendGroups = Array.from(new Set([
+    ...Object.keys(displayHistory).map((key) => key.split("::")[0]),
+    ...items.map((item) => item.group),
+  ]));
   const trendOptions = Object.keys(displayHistory).filter((key) => key.startsWith(`${trendGroup}::`));
-  const activeTrendKey = trendOptions.includes(trendCommodity) ? trendCommodity : trendOptions[0] || Object.keys(displayHistory)[0];
-  const trendName = activeTrendKey?.split("::").slice(1).join("::") || "暂无数据";
+  const activeTrendKey = trendOptions.includes(trendCommodity) ? trendCommodity : trendOptions[0];
+  const trendName = activeTrendKey?.split("::").slice(1).join("::") || `${trendGroup}（暂无可核验历史价格）`;
   const unitForTrendKey = (key?: string) => key ? unitByTrendKey.get(key) || "—" : "—";
   const activeTrendUnit = unitForTrendKey(activeTrendKey);
   const allTrendUnits = Array.from(new Set(trendOptions.map(unitForTrendKey).filter((unit) => unit && unit !== "—")));
@@ -1388,9 +1412,10 @@ export default function Home() {
     const seriesLatest = displayHistory[key]?.at(-1)?.[0] || "";
     return seriesLatest > latest ? seriesLatest : latest;
   }, "");
-  const rawTrend = displayHistory[activeTrendKey] ?? [];
+  const rawTrend = activeTrendKey ? displayHistory[activeTrendKey] ?? [] : [];
   const filteredTrend = filterTrendRange(rawTrend, selectedTrendRange, groupLatestDate);
-  const trend = filteredTrend.length ? filteredTrend : rawTrend.length ? rawTrend : [["—", 0] as [string, number]];
+  const hasTrendData = filteredTrend.length > 0 || rawTrend.length > 0;
+  const trend = filteredTrend.length ? filteredTrend : rawTrend;
   const allTrendSeries = trendOptions.map((key, index) => {
     const name = key.split("::").slice(1).join("::");
     return { key, name, unit: unitForTrendKey(key), source: sourceByTrendKey.get(key), sourceUrl: sourceUrlByTrendKey.get(key), color: trendColor(name, index), points: filterTrendRange(displayHistory[key] ?? [], selectedTrendRange, groupLatestDate) };
@@ -1798,9 +1823,10 @@ export default function Home() {
   }
 
   function markUpdated(id: number) {
-    const today = new Intl.DateTimeFormat("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit" })
-      .format(new Date()).replaceAll("/", "-");
-    setItems((current) => current.map((item) => item.id === id ? { ...item, status: "已更新", updated: today } : item));
+    // A manual click cannot prove a fetch, parse, validation and persistence
+    // cycle succeeded. Keep the existing timestamp and require a real crawler
+    // result before showing the success state.
+    setItems((current) => current.map((item) => item.id === id ? { ...item, status: "待确认" } : item));
   }
 
   function openEditor(item: Item) {
@@ -2401,17 +2427,19 @@ export default function Home() {
 
       {automaticStatusOpen && <div className="automatic-status-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setAutomaticStatusOpen(false); }}>
         <section className="automatic-status-modal" role="dialog" aria-modal="true" aria-labelledby="automatic-status-title">
-          <button className="automatic-status-close" type="button" onClick={() => setAutomaticStatusOpen(false)} aria-label="关闭自动抓取状态">×</button>
+          <button className="automatic-status-close" type="button" onClick={() => setAutomaticStatusOpen(false)} aria-label="关闭自动价格更新">×</button>
           <p className="kicker">AUTOMATIC PRICE REFRESH</p>
-          <h2 id="automatic-status-title">自动抓取状态</h2>
-          <p className="automatic-status-time">最近一次自动抓取：{automaticUpdateStatus?.runAt ? formatLastUpdatedAt(automaticUpdateStatus.runAt) : "暂无自动抓取记录"}</p>
-          {(() => {
-            const results = automaticUpdateStatus?.results ?? [];
-            const latest = results.filter((result) => result.success && result.price !== null);
-            const failed = results.filter((result) => result.success === false);
-            const notUpdated = results.filter((result) => result.success !== true && result.success !== false);
-            const group = (title: string, rows: Array<PriceResult & { id?: string }>, className: string) => <section className={`automatic-status-group ${className}`}><h3>{title} <span>{rows.length}</span></h3>{rows.length ? <div className="automatic-status-list">{rows.map((result, index) => <div className="automatic-status-row" key={`${result.id || result.material}-${index}`}><strong>{result.materialName || result.material || result.id || "未命名项目"}</strong><span>{result.source || "未知来源"}</span>{result.success && result.price !== null ? <em>{result.price} {result.currency || ""}</em> : <small>{result.error || "本次未获取到新价格"}</small>}</div>)}</div> : <p className="automatic-status-empty">无</p>}</section>;
-            return <>{group("最新价格", latest, "is-latest")}{group("未更新", notUpdated, "is-pending")}{group("抓取失败", failed, "is-failed")}</>;
+          <h2 id="automatic-status-title">自动价格更新</h2>
+          {showCrawlStatusInAutomaticModal && <p className="automatic-status-time">最近一次扩展型号更新：{automaticUpdateStatus?.runAt ? formatLastUpdatedAt(automaticUpdateStatus.runAt) : "暂无更新记录"}</p>}
+          {showCrawlStatusInAutomaticModal && (() => {
+            const extensionFailures = (automaticUpdateStatus?.results ?? []).filter((result) => {
+              const row = result as PriceResult & { finalStatus?: string };
+              return row.finalStatus && row.finalStatus !== "success" && row.finalStatus !== "unchanged";
+            }) as Array<PriceResult & { id?: string; modelId?: string; finalStatus?: string; modelName?: string; categoryName?: string; failureReason?: string; failureCode?: string }>;
+            const grouped = Array.from(new Map(extensionFailures.map((result) => [result.categoryName || result.category || "其他", [] as typeof extensionFailures])).entries());
+            extensionFailures.forEach((result) => { const category = result.categoryName || result.category || "其他"; grouped.find(([name]) => name === category)?.[1].push(result); });
+            if (!extensionFailures.length) return <p className="automatic-status-empty">品类状态中的扩展型号本次均更新成功，无失败记录。</p>;
+            return <><p className="automatic-status-summary">扩展型号失败：{extensionFailures.length} 个</p>{grouped.map(([category, rows]) => <section className="automatic-status-group is-failed" key={category}><h3>{category} <span>{rows.length}</span></h3><div className="automatic-status-list">{rows.map((result, index) => <div className="automatic-status-row" key={`${result.modelId || result.id || result.material}-${index}`}><strong>{result.modelName || result.materialName || result.material || "未命名型号"}</strong><span>{result.failureCode || result.finalStatus || "failed"}</span><small>{result.failureReason || result.error || "更新失败"}</small></div>)}</div></section>)}</>;
           })()}
         </section>
       </div>}
@@ -2491,20 +2519,20 @@ export default function Home() {
                   {marketCategories.map((category) => <button key={category} className={activeMarketCategory === category ? "active" : ""} onClick={() => setActiveMarketCategory(category)} type="button" role="tab" aria-selected={activeMarketCategory === category}>{category}</button>)}
                 </div>
                 <div className="material-market-brief">
-                  <figure className="material-brief-visual">
-                    <Image
+                  <figure className="material-brief-visual" style={activeMarketCategory === "SOC" ? { backgroundImage: "url('/soc-market-insight.png')", backgroundSize: "cover", backgroundPosition: "center" } : undefined}>
+                    <img
                       src={activeMarketCategory === "Memory"
                         ? "/memory-market-insight.png"
                         : activeMarketCategory === "Plastic"
                           ? "/plastic-material-insight.png"
                           : activeMarketCategory === "Display"
                             ? "/lcd-market-insight.png"
-                            : activeMarketCategory === "Battery"
+                        : activeMarketCategory === "Battery"
                               ? "/battery-market-insight.png"
-                              : "/price-movement-industrial.png"}
-                      alt={activeMarketCategory === "Memory" ? "DDR内存模块与晶圆" : activeMarketCategory === "Plastic" ? "塑料原材料颗粒与工业件" : activeMarketCategory === "Display" ? "LCD面板价格走势" : activeMarketCategory === "Battery" ? "电池电芯与电池包价格走势" : "半导体市场价格走势"}
-                      fill
-                      sizes="(max-width: 760px) 100vw, 45vw"
+                              : activeMarketCategory === "SOC"
+                                ? "/soc-market-insight.png"
+                                : "/price-movement-industrial.png"}
+                      alt={activeMarketCategory === "Memory" ? "DDR内存模块与晶圆" : activeMarketCategory === "Plastic" ? "塑料原材料颗粒与工业件" : activeMarketCategory === "Display" ? "LCD面板价格走势" : activeMarketCategory === "Battery" ? "电池电芯与电池包价格走势" : "SoC芯片与半导体价格走势"}
                     />
                     <figcaption>{activeMarketCategory === "Memory" ? "Memory market · DDR / DRAM" : activeMarketCategory === "Plastic" ? "Plastic materials · ABS / PC / PP / PVC / PET" : activeMarketCategory === "Display" ? "Display market · LCD TV / Monitor / Notebook" : activeMarketCategory === "Battery" ? "Battery market · Cells / Packs / Li-Co-Ni" : "SOC market · tracked components"}</figcaption>
                   </figure>
@@ -2688,7 +2716,7 @@ export default function Home() {
                           <td>{entry.category}</td>
                           <td>{result?.source || entry.source}</td>
                           <td><span className={`key-status ${entry.status}`}>{entry.status}</span></td>
-                          <td>{hasPrice ? <span className="price">{formatTrendPrice(result.price!)}<small className="unit">{displayUnit(result)}</small></span> : "--"}</td>
+                          <td>{hasPrice ? <><span className="price">{formatTrendPrice(result.price!)}<small className="unit">{displayUnit(result)}</small></span>{result.priceBreakQuantity && <small className="unit">采购档位：{result.priceBreakQuantity}+</small>}</> : "--"}</td>
                           <td><div className="source-links">{result?.success && result.sourceUrl && <a href={result.sourceUrl} target="_blank" rel="noreferrer">{result.source || "价格"}价格</a>}{verificationUrl && <a href={verificationUrl} target="_blank" rel="noreferrer">产品验证</a>}<a href={digiKeyProductSearchUrl(entry.mpn)} target="_blank" rel="noreferrer">DigiKey</a></div></td>
                           <td>{entry.enabled
                             ? <button className="text-button" type="button" onClick={() => fetchKeyComponentPrices([entry.id])} disabled={updatingKeyComponents}>刷新</button>
@@ -2728,13 +2756,14 @@ export default function Home() {
                   {xTicks.map((date) => <text key={date} x={xForTick(date)} y="63" className="axis-tick x" textAnchor="middle">{date}</text>)}
                   {trendTooltip && <line x1={trendTooltip.x} y1={chartTop} x2={trendTooltip.x} y2={chartBottom} className="tooltip-guide" />}
                   {trendMode === "all" ? allTrendSeries.map((series) => <g key={series.key}>
-                    <polyline points={series.points.map(([date, price]) => `${xForDate(date)},${yForAllPrice(price)}`).join(" ")} className="trend-line multi" style={{ stroke: series.color }} />
+                    {series.points.length >= 2 && <polyline points={series.points.map(([date, price]) => `${xForDate(date)},${yForAllPrice(price)}`).join(" ")} className="trend-line multi" style={{ stroke: series.color }} />}
                     {series.points.map(([date, price], index) => <circle key={`${series.key}-${date}-${index}`} cx={xForDate(date)} cy={yForAllPrice(price)} r=".72" className="trend-point filled" style={{ fill: series.color, stroke: series.color }} aria-label={`${series.name} · ${date}：${formatTrendPrice(price)} ${series.unit}`} />)}
                   </g>) : <>
-                    <polyline points={chartPoints} className="trend-line" />
+                    {trend.length >= 2 && <polyline points={chartPoints} className="trend-line" />}
                     {trend.map((point, index) => <circle key={`${point[0]}-${index}`} cx={xForPoint(index)} cy={yForPrice(point[1])} r=".72" className="trend-point filled" aria-label={`${point[0]}：${formatTrendPrice(point[1])} ${chartUnit}`} />)}
                   </>}
                 </svg>
+                {!hasTrendData && <div className="key-chart-empty">{trendGroup}暂无可核验历史价格，等待真实抓取记录。</div>}
                 {trendTooltip && <div
                   className={`trend-tooltip ${trendTooltip.x < 32 ? "edge-left" : trendTooltip.x > 104 ? "edge-right" : ""} ${trendTooltip.y < 24 ? "below" : ""}`}
                   style={{
@@ -2750,7 +2779,7 @@ export default function Home() {
                   </div>)}
                 </div>}
               </div>
-              <div className="axis-labels"><span>{trendMode === "all" ? allTrendDates[0] || "—" : trend[0][0]}</span><span>{trendMode === "all" ? allTrendDates.at(-1) || "—" : trend.at(-1)![0]}</span></div>
+              <div className="axis-labels"><span>{trendMode === "all" ? allTrendDates[0] || "—" : trend[0]?.[0] || "—"}</span><span>{trendMode === "all" ? allTrendDates.at(-1) || "—" : trend.at(-1)?.[0] || "—"}</span></div>
               <div className="trend-legend">
                 {trendMode === "all"
                   ? allTrendSeries.map((series) => <span key={series.key}><i style={{ background: series.color }} />{series.sourceUrl ? <a href={series.sourceUrl} target="_blank" rel="noreferrer">{series.name}</a> : series.name}</span>)
@@ -2776,11 +2805,12 @@ export default function Home() {
                   {trendOptions.map((key) => <option key={key} value={key}>{key.split("::").slice(1).join("::")}</option>)}
                 </select>
               </label>}
-              <span className={`direction ${changeRate >= 0 ? "up" : "down"}`}>{changeRate >= 0 ? "↗ 上行" : "↘ 下行"}</span>
+              {hasTrendData && <span className={`direction ${changeRate >= 0 ? "up" : "down"}`}>{changeRate >= 0 ? "↗ 上行" : "↘ 下行"}</span>}
               <p>{(trendMode === "key" ? insightName : trendName) + " · 样本期变化"}</p>
-              {(trendMode === "key" ? selectedKeySourceUrl : sourceUrlByTrendKey.get(activeTrendKey)) && <a className="trend-insight-source" href={trendMode === "key" ? selectedKeySourceUrl : sourceUrlByTrendKey.get(activeTrendKey)} target="_blank" rel="noreferrer">来源：{trendMode === "key" ? selectedKeySource : sourceByTrendKey.get(activeTrendKey)} ↗</a>}<strong>{changeRate >= 0 ? "+" : ""}{changeRate.toFixed(2)}%</strong>
-              <dl><div><dt>最新价格</dt><dd>{insightLatestPrice.toLocaleString()}</dd></div><div><dt>短期参考值</dt><dd>{forecast.toFixed(2)}</dd></div><div><dt>历史样本</dt><dd>{new Set(insightPoints.map(([date]) => date)).size} 天</dd></div></dl>
-              <small>{insightPoints.length > 1 ? "预测值为简单线性外推；历史继续积累后可升级为移动平均或时间序列模型。" : "当前只有一个历史日期，先展示价格点；导入下一期数据后会自动形成趋势线。"}</small>
+              {(trendMode === "key" ? selectedKeySourceUrl : sourceUrlByTrendKey.get(activeTrendKey)) && <a className="trend-insight-source" href={trendMode === "key" ? selectedKeySourceUrl : sourceUrlByTrendKey.get(activeTrendKey)} target="_blank" rel="noreferrer">来源：{trendMode === "key" ? selectedKeySource : sourceByTrendKey.get(activeTrendKey)} ↗</a>}
+              {hasTrendData ? <><strong>{insightPoints.length > 1 ? `${changeRate >= 0 ? "+" : ""}${changeRate.toFixed(2)}%` : "数据不足"}</strong>
+              <dl><div><dt>最新价格</dt><dd>{insightLatestPrice.toLocaleString()}</dd></div><div><dt>短期参考值</dt><dd>{insightPoints.length > 1 ? forecast.toFixed(2) : "—"}</dd></div><div><dt>历史样本</dt><dd>{new Set(insightPoints.map(([date]) => date)).size} 天</dd></div></dl>
+              <small>{insightPoints.length > 1 ? "预测值为简单线性外推；历史继续积累后可升级为移动平均或时间序列模型。" : "当前只有一个真实历史日期，数据积累中，暂不判断趋势。"}</small></> : <small>暂无可核验历史价格，等待后续真实抓取。</small>}
               <button type="button" className="context-ai-button trend-context-ai-button" onClick={() => openProcurementAi(contextFromTrend())}>AI分析该趋势</button>
             </aside>
           </div>

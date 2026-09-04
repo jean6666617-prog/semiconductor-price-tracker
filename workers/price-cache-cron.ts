@@ -64,6 +64,7 @@ async function fetchCrawlerWithRetry(path: string, headers: HeadersInit) {
 
 const priceCacheCronWorker = {
   async scheduled(_controller: ScheduledController, env: CronEnv) {
+    const startedAt = new Date().toISOString();
     const secret = env.CRON_SECRET?.trim();
     const automaticResults: Array<Record<string, unknown>> = [];
     const requestHeaders = { accept: "application/json", "x-cron-secret": secret || "" };
@@ -96,12 +97,34 @@ const priceCacheCronWorker = {
         if (attempt < maxRefreshAttempts) await pauseBeforeRetry(attempt);
       }
     }
-    if (distributorError) throw distributorError;
-    const statusResponse = await fetch(env.APP_BASE_URL + "/api/crawler/auto-status", { method: "POST", headers: { accept: "application/json", "content-type": "application/json", "x-cron-secret": secret || "" }, body: JSON.stringify({ runAt: new Date().toISOString(), results: automaticResults }) });
-    if (!statusResponse.ok) throw new Error("/api/crawler/auto-status failed with HTTP " + statusResponse.status);
+    let extendedError: unknown;
+    for (let attempt = 1; attempt <= maxRefreshAttempts; attempt += 1) {
+      try {
+        const response = await fetch(env.APP_BASE_URL + "/api/crawler/extended", { method: "POST", headers: { accept: "application/json", "x-cron-secret": secret || "" } });
+        const body = await response.text();
+        if (!response.ok) throw new Error("/api/crawler/extended failed with HTTP " + response.status + ": " + body.slice(0, 300));
+        const payload = JSON.parse(body) as { results?: unknown };
+        if (!Array.isArray(payload.results)) throw new Error("/api/crawler/extended returned invalid results");
+        payload.results.forEach((entry) => { if (entry && typeof entry === "object") automaticResults.push(entry as Record<string, unknown>); });
+        extendedError = undefined;
+        console.log("extended category refresh succeeded", { attempt, maxAttempts: maxRefreshAttempts });
+        break;
+      } catch (error) {
+        extendedError = error;
+        console.warn("extended category refresh attempt failed", { attempt, maxAttempts: maxRefreshAttempts, error: String(error) });
+        if (attempt < maxRefreshAttempts) await pauseBeforeRetry(attempt);
+      }
+    }
     const failures = results.filter((result): result is PromiseRejectedResult => result.status === "rejected");
-    if (failures.length) {
+    const failedCount = failures.length + (distributorError ? 1 : 0) + (extendedError ? 1 : 0);
+    const completedAt = new Date().toISOString();
+    const status = failedCount === 0 ? "success" : automaticResults.length > 0 ? "partial" : "failed";
+    const statusResponse = await fetch(env.APP_BASE_URL + "/api/crawler/auto-status", { method: "POST", headers: { accept: "application/json", "content-type": "application/json", "x-cron-secret": secret || "" }, body: JSON.stringify({ startedAt, runAt: completedAt, completedAt, status, results: automaticResults }) });
+    if (!statusResponse.ok) throw new Error("/api/crawler/auto-status failed with HTTP " + statusResponse.status);
+    if (distributorError || failures.length) {
       const messages = failures.map((failure) => String(failure.reason));
+      if (distributorError) messages.push(String(distributorError));
+      if (extendedError) messages.push(String(extendedError));
       console.error("cron refresh completed with failures:", messages);
       throw new Error(messages.join("; "));
     } else {

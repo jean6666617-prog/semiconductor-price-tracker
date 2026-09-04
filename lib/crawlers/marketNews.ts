@@ -27,6 +27,7 @@ export type MarketNewsData = {
 type SourceDefinition = {
   source: string;
   url: string;
+  displayUrl?: string;
   relevant: RegExp;
   articlePath: RegExp;
 };
@@ -48,7 +49,7 @@ const batterySources: SourceDefinition[] = [
 // headlines and links; no prices are fabricated when a source does not expose
 // a verifiable quote.
 const socSources: SourceDefinition[] = [
-  { source: "Tom's Hardware", url: "https://www.tomshardware.com/feeds.xml", relevant: /soc|processor|chip|cpu|gpu|architecture|silicon|automotive|iot|semiconductor/i, articlePath: /\//i },
+  { source: "Tom's Hardware", url: "https://www.tomshardware.com/feeds.xml", displayUrl: "https://www.tomshardware.com/tag/cpus", relevant: /soc|processor|chip|cpu|gpu|architecture|silicon|automotive|iot|semiconductor/i, articlePath: /\//i },
   { source: "EE Times SoC", url: "https://www.eetimes.com/tag/soc/", relevant: /soc|system[- ]on[- ]chip|processor|chip|eda|architecture|ip|automotive|iot|snapdragon|mediatek|qualcomm/i, articlePath: /\//i },
   { source: "Qualcomm Newsroom", url: "https://www.qualcomm.com/news/releases", relevant: /soc|snapdragon|processor|chip|automotive|iot|edge|platform/i, articlePath: /\/news\//i },
   { source: "MediaTek Press Room", url: "https://corp.mediatek.com/news-events/press-releases", relevant: /soc|dimensity|processor|chip|automotive|iot|connectivity|platform/i, articlePath: /\/news-events\//i },
@@ -223,7 +224,7 @@ export async function fetchMarketNews(category: MarketNewsCategory): Promise<Mar
         ? extractRssArticles(raw, category, source)
         : extractArticles(raw, category, source);
       console.debug("[SOC normalized item count]", source.source, records.length);
-      if (records.length) return { success: true, category, status: errors.length ? "partial" : "ready", source: source.source, sourceUrl: source.url, news: records, attemptedSources, errors, crawlTime: new Date().toISOString() };
+      if (records.length) return { success: true, category, status: errors.length ? "partial" : "ready", source: source.source, sourceUrl: source.displayUrl || source.url, news: records, attemptedSources, errors, crawlTime: new Date().toISOString() };
       errors.push(`${source.source}: no relevant article links found`);
     } catch (error) {
       errors.push(`${source.source}: ${error instanceof Error ? error.message : "request failed"}`);
