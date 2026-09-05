@@ -25,6 +25,17 @@ export async function GET(request: Request) {
     return NextResponse.json({ success: false, error: "Scheduled refresh is not authorized" }, { status: 401 });
   }
   const data = await fetchMarketNews(categoryValue);
-  if (data.news.length) await writeCrawlerCache(cacheName(categoryValue), data);
+  // Local Next.js preview does not always expose the Cloudflare KV binding.
+  // The crawl result is still valid in that case, so return it to the page and
+  // only skip persistence. Production requests with KV continue to persist as
+  // before; a cache write failure must not turn a successful news fetch into a
+  // 500 response.
+  if (data.news.length) {
+    try {
+      await writeCrawlerCache(cacheName(categoryValue), data);
+    } catch (error) {
+      console.warn("[market-news] cache write skipped", { category: categoryValue, error: String(error) });
+    }
+  }
   return NextResponse.json(data, { headers: { "X-Crawler-Cache": "MISS" } });
 }

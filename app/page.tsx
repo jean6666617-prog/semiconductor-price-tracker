@@ -2805,7 +2805,7 @@ type CachedCrawlerResult = PriceResult & { id?: string };
                           <td>{result?.source || entry.source}</td>
                           <td><span className={`key-status ${entry.status}`}>{entry.status}</span></td>
                           <td>{hasPrice ? <><span className="price">{formatTrendPrice(result.price!)}<small className="unit">{displayUnit(result)}</small></span>{result.priceBreakQuantity && <small className="unit">采购档位：{result.priceBreakQuantity}+</small>}</> : "--"}</td>
-                          <td><div className="source-links">{result?.success && result.sourceUrl && <a href={result.sourceUrl} target="_blank" rel="noreferrer">{result.source || "价格"}价格</a>}{verificationUrl && <a href={verificationUrl} target="_blank" rel="noreferrer">产品验证</a>}<a href={digiKeyProductSearchUrl(entry.mpn)} target="_blank" rel="noreferrer">DigiKey</a></div></td>
+                          <td><div className="source-links">{result?.success && result.sourceUrl && <a href={result.sourceUrl} target="_blank" rel="noreferrer">{result.source || "价格"}价格</a>}{verificationUrl && <a href={verificationUrl} target="_blank" rel="noreferrer">官网验证</a>}<a href={digiKeyProductSearchUrl(entry.mpn)} target="_blank" rel="noreferrer">DigiKey</a></div></td>
                           <td>{entry.enabled
                             ? <button className="text-button" type="button" onClick={() => fetchKeyComponentPrices([entry.id])} disabled={updatingKeyComponents}>刷新</button>
                             : <span className="key-action-muted">--</span>}</td>
