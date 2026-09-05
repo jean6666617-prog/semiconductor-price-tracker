@@ -79,6 +79,33 @@ function cleanTitle(value: string) {
     .trim();
 }
 
+const maxNewsTitleLength = 180;
+const maxNewsSummaryLength = 240;
+const displayCorePattern = /lcd|tft[-\s]?lcd|display\s+panel|panel\s+(?:price|shipment|capacity|demand)|oled|mini[-\s]?led|micro[-\s]?led|monitor\s+panel|tv\s+panel|notebook\s+panel|e[-\s]?paper|display\s+(?:industry|market)|boe|tcl\s*csot|hkc|lg\s+display|samsung\s+display/i;
+const displayOffTopicPattern = /electronic\s+specialty\s+gas|\besg\b|wafer\s+fabrication|chamber\s+cleaning|photovoltaic|semiconductor\s+wafer/i;
+
+function isDisplayRelevant(title: string, summary: string) {
+  const titleCore = displayCorePattern.test(title);
+  const summaryCore = displayCorePattern.test(summary);
+  // A generic mention of displays in a long semiconductor-materials article
+  // is not sufficient to classify it as an LCD/display-market article.
+  if (displayOffTopicPattern.test(title) && !titleCore) return false;
+  if (displayOffTopicPattern.test(summary) && !titleCore && !/display\s+panel|lcd|tft[-\s]?lcd|oled/i.test(summary)) return false;
+  return titleCore || summaryCore;
+}
+
+export function normalizeMarketNewsRecords(category: MarketNewsCategory, records: MarketNewsRecord[]) {
+  const seen = new Set<string>();
+  return records.flatMap((record) => {
+    const title = cleanTitle(String(record.title || ""));
+    const summary = cleanText(String(record.summary || ""));
+    if (!title || title.length > maxNewsTitleLength || !record.url || seen.has(record.url)) return [];
+    if (category === "Display" && !isDisplayRelevant(title, summary)) return [];
+    seen.add(record.url);
+    return [{ ...record, title, summary: (summary || title).slice(0, maxNewsSummaryLength) }];
+  });
+}
+
 function absoluteUrl(value: string, base: string) {
   try { return new URL(decodeEntities(value), base).toString(); } catch { return ""; }
 }
@@ -224,7 +251,8 @@ export async function fetchMarketNews(category: MarketNewsCategory): Promise<Mar
         ? extractRssArticles(raw, category, source)
         : extractArticles(raw, category, source);
       console.debug("[SOC normalized item count]", source.source, records.length);
-      if (records.length) return { success: true, category, status: errors.length ? "partial" : "ready", source: source.source, sourceUrl: source.displayUrl || source.url, news: records, attemptedSources, errors, crawlTime: new Date().toISOString() };
+      const normalizedRecords = normalizeMarketNewsRecords(category, records);
+      if (normalizedRecords.length) return { success: true, category, status: errors.length ? "partial" : "ready", source: source.source, sourceUrl: source.displayUrl || source.url, news: normalizedRecords, attemptedSources, errors, crawlTime: new Date().toISOString() };
       errors.push(`${source.source}: no relevant article links found`);
     } catch (error) {
       errors.push(`${source.source}: ${error instanceof Error ? error.message : "request failed"}`);

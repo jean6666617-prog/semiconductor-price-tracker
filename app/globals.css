@@ -81,10 +81,11 @@ button { cursor:pointer; }
 .market-news-price-snapshot em { color:#a72f8f; font-size:12px; font-style:normal; font-weight:700; }
 .market-news-list { display:grid; gap:10px; }
 .market-news-item { padding:12px 14px; border:1px solid #d5dce3; border-radius:10px; background:#fff; }
-.market-news-title { color:#243d70; font-family:Georgia,"Noto Serif SC",serif; font-size:16px; font-weight:700; line-height:1.45; text-decoration:none; }
-.market-news-title:hover { color:#a72f8f; text-decoration:underline; }
-.market-news-item p { margin:7px 0 0; color:#586675; font-size:12px; line-height:1.65; }
+.market-news-title { display:-webkit-box; overflow:hidden; color:#243d70; font-family:Georgia,"Noto Serif SC",serif; font-size:16px; font-weight:700; line-height:1.45; -webkit-box-orient:vertical; -webkit-line-clamp:2; }
+.market-news-item p { display:-webkit-box; overflow:hidden; margin:7px 0 0; color:#586675; font-size:12px; line-height:1.65; -webkit-box-orient:vertical; -webkit-line-clamp:3; }
 .market-news-item small { display:block; margin-top:7px; color:#8d7c59; font-size:10px; }
+.market-news-item-link { color:#a72f8f; text-decoration:none; }
+.market-news-item-link:hover { text-decoration:underline; }
 .market-news-empty { margin:0; color:#586675; font-size:12px; line-height:1.7; }
 .import-message { margin:0 0 12px; padding:11px 14px; border-radius:9px; background:#e8eef3; color:var(--green); font-size:11px; }
 .import-toast { position:fixed; z-index:30; top:76px; left:50%; transform:translateX(-50%); width:min(420px,calc(100vw - 32px)); padding:16px 48px 16px 18px; border:1px solid #b7cad9; border-radius:10px; background:#e8eef3; color:var(--green); box-shadow:0 10px 30px rgba(20,60,45,.16); font-size:12px; text-align:left; transition:width .18s ease,background-color .18s ease,border-color .18s ease; }

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { readCrawlerCache, writeCrawlerCache } from "../../../../lib/cache/edgeCrawlerCache";
-import { fetchMarketNews, type MarketNewsCategory, type MarketNewsData } from "../../../../lib/crawlers/marketNews";
+import { fetchMarketNews, normalizeMarketNewsRecords, type MarketNewsCategory, type MarketNewsData } from "../../../../lib/crawlers/marketNews";
 
 export const runtime = "edge";
 
@@ -20,7 +20,10 @@ export async function GET(request: Request) {
   const forceRefresh = new URL(request.url).searchParams.has("refresh");
   if (!forceRefresh) {
     const cached = await readCrawlerCache<MarketNewsData>(cacheName(categoryValue));
-    if (cached && fresh(cached)) return NextResponse.json(cached, { headers: { "X-Crawler-Cache": "HIT" } });
+    if (cached && fresh(cached)) {
+      const news = normalizeMarketNewsRecords(categoryValue, Array.isArray(cached.news) ? cached.news : []);
+      if (news.length) return NextResponse.json({ ...cached, news }, { headers: { "X-Crawler-Cache": "HIT" } });
+    }
   } else if (!authorized(request)) {
     return NextResponse.json({ success: false, error: "Scheduled refresh is not authorized" }, { status: 401 });
   }

@@ -2651,9 +2651,9 @@ type CachedCrawlerResult = PriceResult & { id?: string };
                     <em>{item.change === null ? "暂无涨跌数据" : `${item.change >= 0 ? "+" : ""}${item.change.toFixed(2)}%`}</em>
                   </div>)}</div> : null}
                   {displayedMarketNews.length ? <div className="market-news-list">{displayedMarketNews.slice(0, 8).map((news) => <article className="market-news-item" key={`${news.category}-${news.source}-${news.url}`}>
-                    <a className="market-news-title" href={news.url} target="_blank" rel="noreferrer">{news.title} ↗</a>
+                    <div className="market-news-title">{news.title}</div>
                     <p>{news.summary}</p>
-                    <small>{marketNewsLabel(news.category)} · {news.source} · {news.date || "日期未提供"}{news.accessType === "link_only" ? " · 来源链接" : ""}</small>
+                    <small>{marketNewsLabel(news.category)} · {news.source} · {news.date || "日期未提供"}{news.accessType === "link_only" ? " · 来源链接" : ""} · <a className="market-news-item-link" href={news.url} target="_blank" rel="noreferrer">查看原文 ↗</a></small>
                   </article>)}</div> : <div className="market-news-empty"><p>当前暂未抓到可核验的 {marketNewsLabel(activeMarketCategory)} 新闻；价格数据仅在有已保存样本时展示，待来源恢复后自动更新新闻。</p>{activeMarketCategory === "SOC" && <div className="market-news-source-links">{socNewsSourceLinks.map(([label, url]) => <a key={url} href={url} target="_blank" rel="noreferrer">{label} ↗</a>)}</div>}</div>}
                 </section>}
                 {!isNewsMarket && <div className={`plastic-insight-grid material-insight-grid category-${activeMarketCategory.toLowerCase()}`}>
